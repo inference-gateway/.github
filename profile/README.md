@@ -56,23 +56,47 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 | [**inference-gateway**](https://github.com/inference-gateway/inference-gateway) | The core gateway server |
 | [**operator**](https://github.com/inference-gateway/operator) | Kubernetes Operator for lifecycle management |
 | [**cli**](https://github.com/inference-gateway/cli) | Agentic CLI assistant with project context awareness |
-| [**adl-cli**](https://github.com/inference-gateway/adl-cli) | Scaffold and manage A2A-powered enterprise agents |
+| [**schemas**](https://github.com/inference-gateway/schemas) | MCP, A2A, and OpenAPI schemas |
+| [**docs**](https://github.com/inference-gateway/docs) | Documentation site |
 
 ### SDKs
 
 | Repository | Language |
 |---|---|
 | [**sdk**](https://github.com/inference-gateway/sdk) | Go |
+| [**typescript-sdk**](https://github.com/inference-gateway/typescript-sdk) | TypeScript |
 | [**rust-sdk**](https://github.com/inference-gateway/rust-sdk) | Rust |
+| [**python-sdk**](https://github.com/inference-gateway/python-sdk) | Python |
+
+### Agent Development
+
+| Repository | Description |
+|---|---|
+| [**adl**](https://github.com/inference-gateway/adl) | Agent Definition Language for declarative agent definitions |
+| [**adl-cli**](https://github.com/inference-gateway/adl-cli) | Scaffold and manage A2A-powered enterprise agents |
+| [**adk**](https://github.com/inference-gateway/adk) | Agent Development Kit (Go) |
+| [**typescript-adk**](https://github.com/inference-gateway/typescript-adk) | Agent Development Kit (TypeScript) |
+| [**rust-adk**](https://github.com/inference-gateway/rust-adk) | Agent Development Kit (Rust) |
 
 ### A2A Agents
 
 | Repository | Description |
 |---|---|
-| [**adk**](https://github.com/inference-gateway/adk) | Agent Development Kit for building A2A-compatible agents |
 | [**google-calendar-agent**](https://github.com/inference-gateway/google-calendar-agent) | Google Calendar scheduling & automation |
 | [**browser-agent**](https://github.com/inference-gateway/browser-agent) | Browser automation via Playwright |
-| [**documentation-agent**](https://github.com/inference-gateway/documentation-agent) | Context7-style documentation access for agents |
+| [**documentation-agent**](https://github.com/inference-gateway/documentation-agent) | Context7-style documentation access |
+| [**grafana-agent**](https://github.com/inference-gateway/grafana-agent) | Grafana dashboards automation |
+| [**n8n-agent**](https://github.com/inference-gateway/n8n-agent) | n8n workflow generation & automation |
+| [**mock-agent**](https://github.com/inference-gateway/mock-agent) | Mocking and testing |
+
+### Tools & Community
+
+| Repository | Description |
+|---|---|
+| [**a2a-debugger**](https://github.com/inference-gateway/a2a-debugger) | A2A agents troubleshooter |
+| [**registry**](https://github.com/inference-gateway/registry) | Registry for A2A agents |
+| [**awesome-a2a**](https://github.com/inference-gateway/awesome-a2a) | Curated list of A2A-compatible agents |
+| [**infer-action**](https://github.com/inference-gateway/infer-action) | GitHub Action for the Infer CLI |
 
 ---
 
