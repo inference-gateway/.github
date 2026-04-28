@@ -19,7 +19,7 @@
 
 ## 🌐 What is Inference Gateway?
 
-**Inference Gateway** is a proxy server that provides a **unified API** to interact with multiple large language model (LLM) providers — from local solutions like [Ollama](https://ollama.com) to major cloud providers like OpenAI, Anthropic, Groq, Cohere, Cloudflare, and DeepSeek.
+**Inference Gateway** is a proxy server that provides a **unified API** to interact with multiple large language model (LLM) providers - from local solutions like [Ollama](https://ollama.com) to major cloud providers like OpenAI, Anthropic, Groq, Cohere, Cloudflare, and DeepSeek.
 
 Stop managing multiple SDKs and API keys. Route all your LLM traffic through a single, production-ready gateway.
 
@@ -119,12 +119,12 @@ infer init && infer chat
 
 ## 🤝 Contributing
 
-We welcome contributions of all kinds — bug reports, feature requests, documentation improvements, and code!
+We welcome contributions of all kinds - bug reports, feature requests, documentation improvements, and code!
 
 - ⭐ **Star** the [main repo](https://github.com/inference-gateway/inference-gateway) to show your support
 - 🐛 **Report bugs** via [GitHub Issues](https://github.com/inference-gateway/inference-gateway/issues)
 - 💬 **Join discussions** in [GitHub Discussions](https://github.com/orgs/inference-gateway/discussions)
-- 🔧 **Submit PRs** — see `CONTRIBUTING.md` in each repository
+- 🔧 **Submit PRs** - see `CONTRIBUTING.md` in each repository
 
 ---
 
