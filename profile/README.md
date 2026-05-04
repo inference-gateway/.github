@@ -94,7 +94,7 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 | Repository | Description |
 |---|---|
 | [**a2a-debugger**](https://github.com/inference-gateway/a2a-debugger) | A2A agents troubleshooter |
-| [**registry**](https://github.com/inference-gateway/registry) | Registry for A2A agents |
+| [**registry**](https://github.com/inference-gateway/registry) | Registry for A2A agents and skills |
 | [**awesome-a2a**](https://github.com/inference-gateway/awesome-a2a) | Curated list of A2A-compatible agents |
 | [**infer-action**](https://github.com/inference-gateway/infer-action) | GitHub Action for the Infer CLI |
 
