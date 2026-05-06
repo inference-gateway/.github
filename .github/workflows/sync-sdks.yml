@@ -5,7 +5,7 @@ name: Sync SDKs and docs with spec
 # target in repos.yaml, runs Claude Code Action with a single audit prompt
 # that detects drift and files structured issues on the target repo for a
 # human to triage. The orchestrator does NOT mention @claude on the issues
-# and does NOT trigger any downstream automation — issues are notifications
+# and does NOT trigger any downstream automation - issues are notifications
 # only; a maintainer decides whether to implement, defer, or close.
 
 on:
@@ -105,11 +105,11 @@ jobs:
             whether to implement, defer, or close.**
 
             **Inputs already on disk:**
-            - `./openapi.yaml` — the canonical OpenAPI spec at SHA `${{ steps.spec.outputs.sha }}`
-            - `./target/` — the target repo's working tree at its default branch
+            - `./openapi.yaml` - the canonical OpenAPI spec at SHA `${{ steps.spec.outputs.sha }}`
+            - `./target/` - the target repo's working tree at its default branch
               (for SDK targets, `target/openapi.yaml` has just been refreshed
               by `task oas-download`, so `git -C target diff openapi.yaml`
-              reveals any pre-existing vendored-spec staleness — drift class D)
+              reveals any pre-existing vendored-spec staleness - drift class D)
 
             **Authentication:** use `gh` (token in `GH_TOKEN`). The token has
             `issues:write` on `inference-gateway/${{ matrix.target.name }}` and
@@ -128,13 +128,13 @@ jobs:
             Python/Rust, camelCase in TypeScript, PascalCase in Go). Streaming
             variants (e.g. `*_stream`, `stream*`) and verb-collapsed proxy
             helpers (`proxy_request` covering `proxyGet/Post/Put/Delete/Patch`)
-            count as coverage. The Rust SDK exposes its API via a `pub trait` —
+            count as coverage. The Rust SDK exposes its API via a `pub trait` -
             the trait's method names are the surface. The Go SDK uses
             `clientImpl` as the receiver; exported methods on it are the surface.
 
             **B. Generated models / types.** Does the SDK's committed
             generated-types file reference all top-level component schemas in
-            the spec? You don't need to re-run codegen — visual name inspection
+            the spec? You don't need to re-run codegen - visual name inspection
             is enough. Common locations:
             - python-sdk: `inference_gateway/models.py`
             - typescript-sdk: `src/types/generated/index.ts`
@@ -143,11 +143,17 @@ jobs:
 
             **C. README / examples.** Is each spec operation demonstrated in
             either `README.md` or the `examples/` folder? Aliases count.
+            The five proxy operations (`proxyGet`, `proxyPost`, `proxyPut`,
+            `proxyDelete`, `proxyPatch`) are **excluded** from this class -
+            they are pass-through helpers covered by the verb-collapsed
+            `proxy_request` (or equivalent) and don't need per-verb example
+            programs. Treat them as covered for class C purposes regardless
+            of `examples/` / `README.md` content.
 
             **D. Vendored spec staleness.** The workflow has already run
             `task oas-download` inside `./target/`, which overwrites the
             SDK's vendored `openapi.yaml` with the canonical one. Run
-            `git -C target diff openapi.yaml` — a non-empty diff means the
+            `git -C target diff openapi.yaml` - a non-empty diff means the
             committed vendored copy was out of sync with the canonical.
             For docs targets, this class does not apply.
 
@@ -163,13 +169,15 @@ jobs:
             For each drift class with at least one missing item, file or refresh
             **exactly one** issue on `inference-gateway/${{ matrix.target.name }}`.
             Use these **exact** stable titles for de-dup (idempotency depends
-            on byte-exact title match):
+            on byte-exact title match), with the matching Issue Type and labels:
 
-            - A → `[FEATURE] Implement missing OpenAPI operations`
-            - B → `[TASK] Refactor regenerate models from latest spec`
-            - C → `[FEATURE] Add usage examples for missing operations`
-            - D → `[TASK] Refactor sync vendored openapi.yaml with schemas`
-            - E → `[FEATURE] Document missing operations and schemas`
+            | Class | Title | Type | Labels |
+            | --- | --- | --- | --- |
+            | A | `[FEATURE] Implement missing OpenAPI operations` | `feature` | `enhancement,sdk-drift` |
+            | B | `[TASK] Refactor regenerate models from latest spec` | `task` | `refactor,sdk-drift` |
+            | C | `[FEATURE] Add usage examples for missing operations` | `feature` | `enhancement,sdk-drift` |
+            | D | `[TASK] Refactor sync vendored openapi.yaml with schemas` | `task` | `refactor,sdk-drift` |
+            | E | `[DOCS] Document missing operations and schemas` | `documentation` | `documentation,sdk-drift` |
 
             **Body shape** must follow the org's `feature_request.md` /
             `refactor_request.md` template style. Do not include `@claude`
@@ -182,7 +190,7 @@ jobs:
             `${{ steps.spec.outputs.sha }}` and linking
             https://github.com/inference-gateway/schemas/blob/${{ steps.spec.outputs.sha }}/openapi.yaml>
 
-            <bulleted gap list — operationIds, schema names, or file paths
+            <bulleted gap list - operationIds, schema names, or file paths
             as appropriate>
 
             ### Acceptance Criteria
@@ -211,10 +219,53 @@ jobs:
 
             - If a match exists: `gh issue edit <num> --body-file -` (read body
               from stdin) to refresh, then `gh issue comment <num> --body
-              "Spec has changed — refreshed gap list above. Spec is now at ${{ steps.spec.outputs.sha }}."`
-            - If no match: `gh issue create` with `--label enhancement,sdk-drift`
-              for `[FEATURE]` titles or `--label refactor,sdk-drift` for `[TASK]`
-              titles.
+              "Spec has changed - refreshed gap list above. Spec is now at ${{ steps.spec.outputs.sha }}."`
+            - If no match: `gh issue create` with the labels from the table
+              above for that class (e.g. `--label enhancement,sdk-drift` for
+              class A/C, `--label refactor,sdk-drift` for class B/D,
+              `--label documentation,sdk-drift` for class E).
+
+            ## Setting the Issue Type
+
+            `gh issue create` and `gh issue edit` have **no** `--type` flag -
+            template `type:` frontmatter is only honored when issues are filed
+            through the GitHub UI. After every create or edit, set the Issue
+            Type via the GraphQL `updateIssueIssueType` mutation.
+
+            Resolve the org's Issue Type IDs **once per run** and reuse them:
+
+            ```
+            gh api graphql -f query='
+              query($org:String!) {
+                organization(login:$org) {
+                  issueTypes(first:20) { nodes { id name } }
+                }
+              }' -f org=inference-gateway
+            ```
+
+            Match `name` case-insensitively to the class's type from the table
+            above (`feature`, `task`, or `documentation`). Then resolve the
+            issue's node ID and patch:
+
+            ```
+            issue_id=$(gh api graphql -f query='
+              query($owner:String!,$repo:String!,$num:Int!) {
+                repository(owner:$owner,name:$repo) { issue(number:$num) { id } }
+              }' -f owner=inference-gateway -f repo=${{ matrix.target.name }} \
+                 -F num=<n> --jq .data.repository.issue.id)
+
+            gh api graphql -f query='
+              mutation($issueId:ID!,$typeId:ID!) {
+                updateIssueIssueType(input:{issueId:$issueId,issueTypeId:$typeId}) {
+                  issue { number issueType { name } }
+                }
+              }' -f issueId="$issue_id" -f typeId="<resolved type id>"
+            ```
+
+            If the lookup returns no matching type (e.g. `documentation` not
+            yet defined on the org), log a clear warning to stdout
+            (`warn: missing issue type "<name>" on inference-gateway org - leaving issue untyped`)
+            and continue - do not fail the run.
 
             ## Hard rules
 

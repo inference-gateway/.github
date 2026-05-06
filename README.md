@@ -2,9 +2,9 @@
 
 Org-level repo holding:
 
-- **Org profile** (`profile/README.md`) — what GitHub renders on the org page.
-- **Org-default issue templates** (`.github/ISSUE_TEMPLATE/`) — applied to any repo without local templates.
-- **Cross-repo orchestrator** — a single workflow that audits each SDK and the docs site against the canonical OpenAPI spec at [`inference-gateway/schemas`](https://github.com/inference-gateway/schemas) and files structured drift issues for human review.
+- **Org profile** (`profile/README.md`) - what GitHub renders on the org page.
+- **Org-default issue templates** (`.github/ISSUE_TEMPLATE/`) - applied to any repo without local templates.
+- **Cross-repo orchestrator** - a single workflow that audits each SDK and the docs site against the canonical OpenAPI spec at [`inference-gateway/schemas`](https://github.com/inference-gateway/schemas) and files structured drift issues for human review.
 
 ## How the orchestrator works
 
@@ -29,17 +29,17 @@ Key invariants:
 
 - The orchestrator **only files issues**. It never opens PRs, never mentions `@claude`, and never modifies any code on the target repos.
 - Issues are notifications. A human reviews each and decides whether to implement, defer, or close.
-- One GitHub App (`inference-gateway-sync-bot`) provides cross-repo auth — `issues:write` on the target + `contents:read` on the target and `schemas`. No PATs.
+- One GitHub App (`inference-gateway-sync-bot`) provides cross-repo auth - `issues:write` on the target + `contents:read` on the target and `schemas`. No PATs.
 - Adding or removing a target is one PR to `repos.yaml`.
 
 ## Layout
 
 ```
 .github/
-  ISSUE_TEMPLATE/   # org-default issue templates (feature, refactor, bug)
+  ISSUE_TEMPLATE/   # org-default issue templates (feature, refactor, bug, documentation)
   workflows/
     sync-sdks.yml   # the only workflow
-repos.yaml          # downstream registry — drives the matrix
+repos.yaml          # downstream registry - drives the matrix
 profile/            # GitHub-rendered org profile
 ```
 
@@ -67,13 +67,13 @@ Until then, `workflow_dispatch` lets a maintainer kick the workflow off manually
 
 For SDK targets:
 
-- **A. Operation coverage** — `operationId`s without a corresponding public method.
-- **B. Generated models / types** — top-level schemas missing from the committed generated-types file.
-- **C. README / examples** — operations not demonstrated in `README.md` or `examples/`.
-- **D. Vendored spec staleness** — SDK's checked-in `openapi.yaml` diverging from the canonical one.
+- **A. Operation coverage** - `operationId`s without a corresponding public method.
+- **B. Generated models / types** - top-level schemas missing from the committed generated-types file.
+- **C. README / examples** - operations not demonstrated in `README.md` or `examples/`. The five `proxy*` operations (`proxyGet`/`Post`/`Put`/`Delete`/`Patch`) are exempt - they're covered by the verb-collapsed `proxy_request` helper.
+- **D. Vendored spec staleness** - SDK's checked-in `openapi.yaml` diverging from the canonical one.
 
 For the docs target:
 
-- **E. Docs coverage** — `operationId`s or schemas not mentioned in `markdown/**` or `app/**`.
+- **E. Docs coverage** - `operationId`s or schemas not mentioned in `markdown/**` or `app/**`. Filed as `[DOCS] …` with `type: documentation`.
 
-Each class maps to one stable issue title; re-runs refresh in place.
+Each class maps to one stable issue title and a matching Issue Type (`feature` for A/C, `task` for B/D, `documentation` for E); re-runs refresh in place.
