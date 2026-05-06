@@ -1,0 +1,233 @@
+name: Sync SDKs and docs with spec
+
+# Triggered when the canonical OpenAPI spec at inference-gateway/schemas
+# changes (via repository_dispatch from that repo) or manually. For each
+# target in repos.yaml, runs Claude Code Action with a single audit prompt
+# that detects drift and files structured issues on the target repo for a
+# human to triage. The orchestrator does NOT mention @claude on the issues
+# and does NOT trigger any downstream automation — issues are notifications
+# only; a maintainer decides whether to implement, defer, or close.
+
+on:
+  repository_dispatch:
+    types:
+      - spec-updated
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  matrix:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      targets: ${{ steps.read.outputs.targets }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - id: read
+        run: echo "targets=$(yq -o=json -I=0 '.targets' repos.yaml)" >> "$GITHUB_OUTPUT"
+
+  sync:
+    needs: matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.matrix.outputs.targets) }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Mint GitHub App token
+        id: token
+        uses: actions/create-github-app-token@v3.1.1
+        with:
+          client-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: inference-gateway
+          repositories: |
+            schemas
+            ${{ matrix.target.name }}
+
+      - name: Checkout target
+        uses: actions/checkout@v6.0.2
+        with:
+          repository: inference-gateway/${{ matrix.target.name }}
+          path: target
+          token: ${{ steps.token.outputs.token }}
+
+      - name: Resolve canonical spec SHA (current main HEAD of schemas)
+        id: spec
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          sha=$(gh api repos/inference-gateway/schemas/commits/main --jq .sha)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Set up task (SDK targets only)
+        if: matrix.target.kind == 'sdk'
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ steps.token.outputs.token }}
+
+      - name: Pull canonical openapi.yaml
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.target.kind }}" = "sdk" ]; then
+            # Every SDK has `task oas-download` which curls the canonical
+            # openapi.yaml from inference-gateway/schemas main and writes it
+            # to the SDK's own openapi.yaml at the repo root. After this
+            # runs, `git -C target diff openapi.yaml` shows whether the
+            # vendored copy was stale (drift class D).
+            (cd target && task oas-download)
+            cp target/openapi.yaml openapi.yaml
+          else
+            # Docs target has no Taskfile; fetch raw from schemas at the
+            # resolved SHA. schemas is public, no auth required.
+            curl -fsSL \
+              "https://raw.githubusercontent.com/inference-gateway/schemas/${{ steps.spec.outputs.sha }}/openapi.yaml" \
+              -o openapi.yaml
+          fi
+          test -s openapi.yaml
+
+      - name: Audit target against spec and file drift issues
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ steps.token.outputs.token }}
+          claude_args: '--allowedTools "Read,Bash(gh:*),Bash(git:*),Bash(grep:*),Bash(rg:*),Bash(find:*),Bash(ls:*),Bash(cat:*),Bash(wc:*),Bash(diff:*),Bash(yq:*),Bash(jq:*)"'
+          prompt: |
+            You are auditing the GitHub repository `inference-gateway/${{ matrix.target.name }}`
+            (${{ matrix.target.language }}, kind=${{ matrix.target.kind }}) against the
+            canonical OpenAPI spec at `inference-gateway/schemas`. Detect drift
+            and file structured issues on the target repo so a maintainer can
+            review and triage them.
+
+            **You are NOT triggering any automation. Do not mention `@claude`
+            anywhere in issue titles, bodies, or comments. Issues are
+            notifications for a human reviewer; the maintainer will decide
+            whether to implement, defer, or close.**
+
+            **Inputs already on disk:**
+            - `./openapi.yaml` — the canonical OpenAPI spec at SHA `${{ steps.spec.outputs.sha }}`
+            - `./target/` — the target repo's working tree at its default branch
+              (for SDK targets, `target/openapi.yaml` has just been refreshed
+              by `task oas-download`, so `git -C target diff openapi.yaml`
+              reveals any pre-existing vendored-spec staleness — drift class D)
+
+            **Authentication:** use `gh` (token in `GH_TOKEN`). The token has
+            `issues:write` on `inference-gateway/${{ matrix.target.name }}` and
+            `contents:read` on it and `inference-gateway/schemas`. No other
+            permissions. Do not attempt to push, open PRs, or modify code.
+
+            ---
+
+            ## What to audit
+
+            For an **SDK** target (`kind=sdk`), check four drift classes:
+
+            **A. Operation coverage.** For each `operationId` in the spec, is
+            there a corresponding public method in the SDK's client surface?
+            Account for naming conventions across languages (snake_case in
+            Python/Rust, camelCase in TypeScript, PascalCase in Go). Streaming
+            variants (e.g. `*_stream`, `stream*`) and verb-collapsed proxy
+            helpers (`proxy_request` covering `proxyGet/Post/Put/Delete/Patch`)
+            count as coverage. The Rust SDK exposes its API via a `pub trait` —
+            the trait's method names are the surface. The Go SDK uses
+            `clientImpl` as the receiver; exported methods on it are the surface.
+
+            **B. Generated models / types.** Does the SDK's committed
+            generated-types file reference all top-level component schemas in
+            the spec? You don't need to re-run codegen — visual name inspection
+            is enough. Common locations:
+            - python-sdk: `inference_gateway/models.py`
+            - typescript-sdk: `src/types/generated/index.ts`
+            - rust-sdk: `src/generated/schemas.rs`
+            - sdk (Go): `generated_types.go`
+
+            **C. README / examples.** Is each spec operation demonstrated in
+            either `README.md` or the `examples/` folder? Aliases count.
+
+            **D. Vendored spec staleness.** The workflow has already run
+            `task oas-download` inside `./target/`, which overwrites the
+            SDK's vendored `openapi.yaml` with the canonical one. Run
+            `git -C target diff openapi.yaml` — a non-empty diff means the
+            committed vendored copy was out of sync with the canonical.
+            For docs targets, this class does not apply.
+
+            For a **docs** target (`kind=docs`), check one drift class:
+
+            **E. Docs coverage.** Is each `operationId` AND each top-level
+            component schema name mentioned somewhere under `markdown/**/*.mdx`
+            or `app/**`? An operation is covered if either its `operationId`
+            or its full `METHOD /path` appears anywhere in the corpus.
+
+            ## What to do for each finding
+
+            For each drift class with at least one missing item, file or refresh
+            **exactly one** issue on `inference-gateway/${{ matrix.target.name }}`.
+            Use these **exact** stable titles for de-dup (idempotency depends
+            on byte-exact title match):
+
+            - A → `[FEATURE] Implement missing OpenAPI operations`
+            - B → `[TASK] Refactor regenerate models from latest spec`
+            - C → `[FEATURE] Add usage examples for missing operations`
+            - D → `[TASK] Refactor sync vendored openapi.yaml with schemas`
+            - E → `[FEATURE] Document missing operations and schemas`
+
+            **Body shape** must follow the org's `feature_request.md` /
+            `refactor_request.md` template style. Do not include `@claude`
+            anywhere:
+
+            ```
+            ## Summary
+
+            <one paragraph naming the gap, mentioning spec SHA
+            `${{ steps.spec.outputs.sha }}` and linking
+            https://github.com/inference-gateway/schemas/blob/${{ steps.spec.outputs.sha }}/openapi.yaml>
+
+            <bulleted gap list — operationIds, schema names, or file paths
+            as appropriate>
+
+            ### Acceptance Criteria
+
+            - [ ] <concrete, repo-specific step 1>
+            - [ ] <concrete, repo-specific step 2>
+            - [ ] PR passes the target repo's existing CI workflow.
+            - [ ] PR description links this issue.
+
+            ---
+
+            <sub>Filed automatically by the inference-gateway sync orchestrator. Re-runs refresh this body in place. A maintainer should review and decide on next steps.</sub>
+            ```
+
+            ## Idempotency
+
+            Before creating any issue, search for an existing open issue with
+            the exact same title:
+
+            ```
+            gh issue list --repo inference-gateway/${{ matrix.target.name }} \
+              --state open \
+              --search "in:title \"<exact title>\"" \
+              --json number,title
+            ```
+
+            - If a match exists: `gh issue edit <num> --body-file -` (read body
+              from stdin) to refresh, then `gh issue comment <num> --body
+              "Spec has changed — refreshed gap list above. Spec is now at ${{ steps.spec.outputs.sha }}."`
+            - If no match: `gh issue create` with `--label enhancement,sdk-drift`
+              for `[FEATURE]` titles or `--label refactor,sdk-drift` for `[TASK]`
+              titles.
+
+            ## Hard rules
+
+            - Never modify any file under `./target/`.
+            - Never open a PR.
+            - Never mention `@claude` in issue titles, bodies, or comments.
+            - File at most one issue per drift class per run.
+            - If the target is fully in sync, file nothing and just print
+              `summary: target=${{ matrix.target.name }} status=in-sync`.
+            - End with a single-line summary, e.g.
+              `summary: target=${{ matrix.target.name }} filed=[A,C] clean=[B,D]`.
