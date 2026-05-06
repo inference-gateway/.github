@@ -1,0 +1,19 @@
+# Targets the sync-sdks workflow audits against the canonical OpenAPI spec
+# at inference-gateway/schemas. Adding or removing a target = one PR here.
+
+targets:
+  - name: python-sdk
+    language: Python
+    kind: sdk
+  - name: typescript-sdk
+    language: TypeScript
+    kind: sdk
+  - name: rust-sdk
+    language: Rust
+    kind: sdk
+  - name: sdk
+    language: Go
+    kind: sdk
+  - name: docs
+    language: MDX
+    kind: docs
