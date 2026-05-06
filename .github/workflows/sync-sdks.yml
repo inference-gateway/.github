@@ -36,15 +36,17 @@ jobs:
         target: ${{ fromJSON(needs.matrix.outputs.targets) }}
     runs-on: ubuntu-24.04
     steps:
+      - name: Checkout orchestrator (.github)
+        uses: actions/checkout@v6.0.2
+
       - name: Mint GitHub App token
         id: token
         uses: actions/create-github-app-token@v3.1.1
         with:
-          client-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          client-id: ${{ secrets.BOT_GH_APP_ID }}
+          private-key: ${{ secrets.BOT_GH_APP_PRIVATE_KEY }}
           owner: inference-gateway
           repositories: |
-            schemas
             ${{ matrix.target.name }}
 
       - name: Checkout target
@@ -73,16 +75,9 @@ jobs:
         run: |
           set -euo pipefail
           if [ "${{ matrix.target.kind }}" = "sdk" ]; then
-            # Every SDK has `task oas-download` which curls the canonical
-            # openapi.yaml from inference-gateway/schemas main and writes it
-            # to the SDK's own openapi.yaml at the repo root. After this
-            # runs, `git -C target diff openapi.yaml` shows whether the
-            # vendored copy was stale (drift class D).
             (cd target && task oas-download)
             cp target/openapi.yaml openapi.yaml
           else
-            # Docs target has no Taskfile; fetch raw from schemas at the
-            # resolved SHA. schemas is public, no auth required.
             curl -fsSL \
               "https://raw.githubusercontent.com/inference-gateway/schemas/${{ steps.spec.outputs.sha }}/openapi.yaml" \
               -o openapi.yaml
@@ -90,11 +85,11 @@ jobs:
           test -s openapi.yaml
 
       - name: Audit target against spec and file drift issues
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@v1.0.114
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ steps.token.outputs.token }}
           claude_args: '--allowedTools "Read,Bash(gh:*),Bash(git:*),Bash(grep:*),Bash(rg:*),Bash(find:*),Bash(ls:*),Bash(cat:*),Bash(wc:*),Bash(diff:*),Bash(yq:*),Bash(jq:*)"'
           prompt: |

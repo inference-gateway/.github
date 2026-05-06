@@ -45,7 +45,7 @@ profile/            # GitHub-rendered org profile
 
 ## Triggering
 
-Once the GitHub App secrets (`APP_ID`, `APP_PRIVATE_KEY`) and `ANTHROPIC_API_KEY` are provisioned:
+Once the GitHub App secrets (`BOT_GH_APP_ID`, `BOT_GH_APP_PRIVATE_KEY`) and the org-standard `CLAUDE_CODE_OAUTH_TOKEN` are provisioned:
 
 ```sh
 # Manual run against current schemas main HEAD:
@@ -58,7 +58,7 @@ For SDK targets the workflow uses each SDK's own `task oas-download` (every SDK 
 
 Before this workflow can run end-to-end, two pieces need to land separately:
 
-1. **GitHub App** `inference-gateway-sync-bot` provisioned and installed on `schemas` and every target listed in `repos.yaml`. Its `APP_ID` and `APP_PRIVATE_KEY` saved as repo or org secrets. `ANTHROPIC_API_KEY` saved as a secret.
+1. **GitHub App** `inference-gateway-sync-bot` provisioned and installed on every target listed in `repos.yaml`. Its `BOT_GH_APP_ID` (client ID) and `BOT_GH_APP_PRIVATE_KEY` saved as repo or org secrets, plus `CLAUDE_CODE_OAUTH_TOKEN` for the Claude Code Max subscription auth (matching the convention in the existing per-SDK `claude.yml` workflows).
 2. **Dispatch workflow in `inference-gateway/schemas`** that fires `repository_dispatch` to this repo with `event_type: spec-updated` whenever `openapi.yaml` changes on `main`. Until that lands, the orchestrator only runs on manual trigger.
 
 Until then, `workflow_dispatch` lets a maintainer kick the workflow off manually for testing.
