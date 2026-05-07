@@ -50,7 +50,7 @@ Key invariants (apply to both orchestrators):
 
 - The orchestrator **only files issues**. It never opens PRs, never mentions `@claude`, and never modifies any code on the target repos.
 - Issues are notifications. A human reviews each and decides whether to implement, defer, or close.
-- One GitHub App (`inference-gateway-sync-bot`) provides cross-repo auth - `issues:write` on the target + `contents:read` on the target and `schemas`. No PATs.
+- One GitHub App (`inference-gateway-maintainer-bot`) provides cross-repo auth - `issues:write` on the target + `contents:read` on the target and `schemas`. No PATs.
 - Adding or removing a target is one PR to `repos.yaml`. The `kind` field (`sdk`, `docs`, `adk`) routes the row to the right workflow.
 
 ## Layout
@@ -81,7 +81,7 @@ For SDK targets the workflow uses each SDK's own `task oas-download` to pull the
 
 Before either workflow can run end-to-end, the following pieces need to land separately:
 
-1. **GitHub App** `inference-gateway-sync-bot` provisioned and installed on every target listed in `repos.yaml`. Its `BOT_MAINTAINER_APP_ID` (client ID) and `BOT_MAINTAINER_APP_PRIVATE_KEY` saved as repo or org secrets, plus `CLAUDE_CODE_OAUTH_TOKEN` for the Claude Code Max subscription auth.
+1. **GitHub App** `inference-gateway-maintainer-bot` provisioned and installed on every target listed in `repos.yaml`. Its `BOT_MAINTAINER_APP_ID` (client ID) and `BOT_MAINTAINER_APP_PRIVATE_KEY` saved as repo or org secrets, plus `CLAUDE_CODE_OAUTH_TOKEN` for the Claude Code Max subscription auth.
 2. **Dispatch workflows in `inference-gateway/schemas`** that fire `repository_dispatch` to this repo:
    - `event_type: spec-updated` whenever `openapi.yaml` changes on `main` (drives `sync-sdks.yml`).
    - `event_type: a2a-spec-updated` whenever `a2a/a2a-schema.yaml` changes on `main` (drives `sync-adks.yml`).
