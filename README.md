@@ -96,8 +96,10 @@ Until then, `workflow_dispatch` lets a maintainer kick either workflow off manua
 
 - **A. Operation coverage** - `operationId`s without a corresponding public method.
 - **B. Generated models / types** - top-level schemas missing from the committed generated-types file.
-- **C. README / examples** - operations not demonstrated in `README.md` or `examples/`. The five `proxy*` operations (`proxyGet`/`Post`/`Put`/`Delete`/`Patch`) are exempt - they're covered by the verb-collapsed `proxy_request` helper.
+- **C. README / examples** - operations not demonstrated in `README.md` or `examples/`.
 - **D. Vendored spec staleness** - SDK's checked-in `openapi.yaml` diverging from the canonical one.
+
+> Note: the five `proxy*` operations (`proxyGet`/`Post`/`Put`/`Delete`/`Patch`) under `/proxy/{provider}/{path}` are gateway-internal endpoints and are exempt from classes A, C, and E across all targets.
 
 ### Docs target (`sync-sdks.yml`, kind: docs)
 

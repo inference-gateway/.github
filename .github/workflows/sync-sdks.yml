@@ -120,15 +120,26 @@ jobs:
 
             ## What to audit
 
+            **Internal endpoints - fully exempt.** The five proxy operations
+            (`proxyGet`, `proxyPost`, `proxyPut`, `proxyDelete`, `proxyPatch`)
+            under `/proxy/{provider}/{path}` are gateway-internal pass-through
+            helpers, **not** part of any SDK's or docs site's public surface.
+            Treat them as covered across **every** drift class (A, C, E) -
+            never flag them as missing operations, missing examples, or
+            missing docs, regardless of whether a verb-collapsed
+            `proxy_request` helper exists. This is load-bearing: the issue
+            tracker has been polluted by repeated false-positive class A
+            issues about these endpoints.
+
             For an **SDK** target (`kind=sdk`), check four drift classes:
 
             **A. Operation coverage.** For each `operationId` in the spec, is
             there a corresponding public method in the SDK's client surface?
             Account for naming conventions across languages (snake_case in
             Python/Rust, camelCase in TypeScript, PascalCase in Go). Streaming
-            variants (e.g. `*_stream`, `stream*`) and verb-collapsed proxy
-            helpers (`proxy_request` covering `proxyGet/Post/Put/Delete/Patch`)
-            count as coverage. The Rust SDK exposes its API via a `pub trait` -
+            variants (e.g. `*_stream`, `stream*`) count as coverage. (Proxy
+            operations are exempt - see "Internal endpoints" above.)
+            The Rust SDK exposes its API via a `pub trait` -
             the trait's method names are the surface. The Go SDK uses
             `clientImpl` as the receiver; exported methods on it are the surface.
 
@@ -143,12 +154,7 @@ jobs:
 
             **C. README / examples.** Is each spec operation demonstrated in
             either `README.md` or the `examples/` folder? Aliases count.
-            The five proxy operations (`proxyGet`, `proxyPost`, `proxyPut`,
-            `proxyDelete`, `proxyPatch`) are **excluded** from this class -
-            they are pass-through helpers covered by the verb-collapsed
-            `proxy_request` (or equivalent) and don't need per-verb example
-            programs. Treat them as covered for class C purposes regardless
-            of `examples/` / `README.md` content.
+            (Proxy operations are exempt - see "Internal endpoints" above.)
 
             **D. Vendored spec staleness.** The workflow has already run
             `task oas-download` inside `./target/`, which overwrites the
@@ -163,6 +169,7 @@ jobs:
             component schema name mentioned somewhere under `markdown/**/*.mdx`
             or `app/**`? An operation is covered if either its `operationId`
             or its full `METHOD /path` appears anywhere in the corpus.
+            (Proxy operations are exempt - see "Internal endpoints" above.)
 
             ## What to do for each finding
 

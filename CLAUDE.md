@@ -35,7 +35,7 @@ These are load-bearing. If you change a workflow prompt, preserve them:
 - **One issue per drift class per run.** Use the **exact** stable titles in the workflow's drift table — idempotency relies on byte-exact title match in `gh issue list --search 'in:title "<title>"'`.
 - **Issue Type must be set via GraphQL.** `gh issue create/edit` has no `--type` flag; the template `type:` frontmatter is only honored through the GitHub UI. After every create/edit, call the `updateIssueIssueType` mutation. If the org doesn't have that type defined yet, log a warning and continue — don't fail the run.
 - **`docs` target is ASCII-only.** No em dash (`—`, U+2014) or en dash (`–`, U+2013) anywhere — titles, bodies, comments, footer. Use `-` (U+002D). The repo runs CI that forbids these.
-- **Proxy operations exempt from class C.** The five `proxyGet/Post/Put/Delete/Patch` ops are covered by the verb-collapsed `proxy_request` helper and never need per-verb examples.
+- **Proxy operations are gateway-internal — fully exempt from drift detection.** The five `proxyGet/Post/Put/Delete/Patch` ops under `/proxy/{provider}/{path}` are pass-through helpers, not SDK or docs surface. Never flag them in classes A (missing operations), C (missing examples), or E (missing docs), regardless of whether a `proxy_request` helper exists. Class B (types) and D (vendored spec) are unaffected — proxy schemas remain part of the spec.
 - **Drift labels must pre-exist on each target.** `sdk-drift` on `kind: sdk|docs` repos, `adk-drift` on `kind: adk` repos. The orchestrator does not create labels.
 
 ## Drift class → title → type → labels
