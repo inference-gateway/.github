@@ -65,11 +65,9 @@ jobs:
           sha=$(gh api repos/inference-gateway/schemas/commits/main --jq .sha)
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
-      - name: Set up task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ steps.token.outputs.token }}
+      - name: Install task
+        run: |
+          curl -s https://taskfile.dev/install.sh | sh -s -- -b /usr/local/bin v3.50.0
 
       - name: Pull canonical a2a-schema.yaml
         run: |
@@ -79,12 +77,13 @@ jobs:
           test -s schema.yaml
 
       - name: Audit target against A2A schema and file drift issues
-        uses: anthropics/claude-code-action@v1.0.114
+        uses: anthropics/claude-code-action@v1.0.115
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ steps.token.outputs.token }}
+          display_report: true
           claude_args: '--model claude-opus-4-7 --allowedTools "Read,Bash(gh:*),Bash(git:*),Bash(grep:*),Bash(rg:*),Bash(find:*),Bash(ls:*),Bash(cat:*),Bash(wc:*),Bash(diff:*),Bash(yq:*),Bash(jq:*)"'
           prompt: |
             You are auditing the GitHub repository `inference-gateway/${{ matrix.target.name }}`
