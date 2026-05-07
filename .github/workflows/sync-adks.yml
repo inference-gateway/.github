@@ -1,17 +1,18 @@
-name: Sync SDKs and docs with spec
+name: Sync ADKs with A2A schema
 
-# Triggered when the canonical OpenAPI spec at inference-gateway/schemas
+# Triggered when the canonical A2A JSON-RPC schema at inference-gateway/schemas
 # changes (via repository_dispatch from that repo) or manually. For each
-# target in repos.yaml, runs Claude Code Action with a single audit prompt
-# that detects drift and files structured issues on the target repo for a
-# human to triage. The orchestrator does NOT mention @claude on the issues
-# and does NOT trigger any downstream automation - issues are notifications
-# only; a maintainer decides whether to implement, defer, or close.
+# kind=adk target in repos.yaml, runs Claude Code Action with a single audit
+# prompt that detects drift against the A2A schema and files structured issues
+# on the target repo for a human to triage. The orchestrator does NOT mention
+# @claude on the issues and does NOT trigger any downstream automation -
+# issues are notifications only; a maintainer decides whether to implement,
+# defer, or close.
 
 on:
   repository_dispatch:
     types:
-      - spec-updated
+      - a2a-spec-updated
   workflow_dispatch:
 
 permissions: {}
@@ -26,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6.0.2
       - id: read
-        run: echo "targets=$(yq -o=json -I=0 '[.targets[] | select(.kind == "sdk" or .kind == "docs")]' repos.yaml)" >> "$GITHUB_OUTPUT"
+        run: echo "targets=$(yq -o=json -I=0 '[.targets[] | select(.kind == "adk")]' repos.yaml)" >> "$GITHUB_OUTPUT"
 
   sync:
     needs: matrix
@@ -64,27 +65,20 @@ jobs:
           sha=$(gh api repos/inference-gateway/schemas/commits/main --jq .sha)
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
-      - name: Set up task (SDK targets only)
-        if: matrix.target.kind == 'sdk'
+      - name: Set up task
         uses: arduino/setup-task@v2
         with:
           version: 3.x
           repo-token: ${{ steps.token.outputs.token }}
 
-      - name: Pull canonical openapi.yaml
+      - name: Pull canonical a2a-schema.yaml
         run: |
           set -euo pipefail
-          if [ "${{ matrix.target.kind }}" = "sdk" ]; then
-            (cd target && task oas-download)
-            cp target/openapi.yaml openapi.yaml
-          else
-            curl -fsSL \
-              "https://raw.githubusercontent.com/inference-gateway/schemas/${{ steps.spec.outputs.sha }}/openapi.yaml" \
-              -o openapi.yaml
-          fi
-          test -s openapi.yaml
+          (cd target && task a2a:download-schema)
+          cp target/schema.yaml schema.yaml
+          test -s schema.yaml
 
-      - name: Audit target against spec and file drift issues
+      - name: Audit target against A2A schema and file drift issues
         uses: anthropics/claude-code-action@v1.0.114
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
@@ -95,9 +89,9 @@ jobs:
           prompt: |
             You are auditing the GitHub repository `inference-gateway/${{ matrix.target.name }}`
             (${{ matrix.target.language }}, kind=${{ matrix.target.kind }}) against the
-            canonical OpenAPI spec at `inference-gateway/schemas`. Detect drift
-            and file structured issues on the target repo so a maintainer can
-            review and triage them.
+            canonical A2A JSON-RPC schema at `inference-gateway/schemas`. Detect
+            drift and file structured issues on the target repo so a maintainer
+            can review and triage them.
 
             **You are NOT triggering any automation. Do not mention `@claude`
             anywhere in issue titles, bodies, or comments. Issues are
@@ -105,11 +99,12 @@ jobs:
             whether to implement, defer, or close.**
 
             **Inputs already on disk:**
-            - `./openapi.yaml` - the canonical OpenAPI spec at SHA `${{ steps.spec.outputs.sha }}`
-            - `./target/` - the target repo's working tree at its default branch
-              (for SDK targets, `target/openapi.yaml` has just been refreshed
-              by `task oas-download`, so `git -C target diff openapi.yaml`
-              reveals any pre-existing vendored-spec staleness - drift class D)
+            - `./schema.yaml` - the canonical A2A schema at SHA `${{ steps.spec.outputs.sha }}`
+              (sourced from `a2a/a2a-schema.yaml` in `inference-gateway/schemas`)
+            - `./target/` - the target repo's working tree at its default branch.
+              `target/schema.yaml` has just been refreshed by
+              `task a2a:download-schema`, so `git -C target diff schema.yaml`
+              reveals any pre-existing vendored-spec staleness (drift class D).
 
             **Authentication:** use `gh` (token in `GH_TOKEN`). The token has
             `issues:write` on `inference-gateway/${{ matrix.target.name }}` and
@@ -120,49 +115,40 @@ jobs:
 
             ## What to audit
 
-            For an **SDK** target (`kind=sdk`), check four drift classes:
+            Check four drift classes:
 
-            **A. Operation coverage.** For each `operationId` in the spec, is
-            there a corresponding public method in the SDK's client surface?
+            **A. JSON-RPC method coverage.** For each A2A JSON-RPC method
+            declared in `schema.yaml` (e.g. `message/send`, `message/stream`,
+            `tasks/get`, `tasks/list`, `tasks/cancel`, and the
+            `tasks/pushNotificationConfig/*` family), is there a corresponding
+            public method on the ADK's server handler / client surface?
             Account for naming conventions across languages (snake_case in
-            Python/Rust, camelCase in TypeScript, PascalCase in Go). Streaming
-            variants (e.g. `*_stream`, `stream*`) and verb-collapsed proxy
-            helpers (`proxy_request` covering `proxyGet/Post/Put/Delete/Patch`)
-            count as coverage. The Rust SDK exposes its API via a `pub trait` -
-            the trait's method names are the surface. The Go SDK uses
-            `clientImpl` as the receiver; exported methods on it are the surface.
+            Rust, PascalCase in Go, camelCase in TypeScript). The Go ADK
+            exposes its surface via the `A2AServer` / `A2AClient` types and
+            their methods. The Rust ADK exposes its surface via `A2AServer`,
+            `A2AServerBuilder`, `A2AClient` (see `src/lib.rs` re-exports).
+            Streaming variants (e.g. `message/stream`) count as coverage for
+            their non-streaming siblings only when the schema lists both
+            separately.
 
-            **B. Generated models / types.** Does the SDK's committed
-            generated-types file reference all top-level component schemas in
-            the spec? You don't need to re-run codegen - visual name inspection
-            is enough. Common locations:
-            - python-sdk: `inference_gateway/models.py`
-            - typescript-sdk: `src/types/generated/index.ts`
-            - rust-sdk: `src/generated/schemas.rs`
-            - sdk (Go): `generated_types.go`
+            **B. Generated types.** Does the ADK's committed generated-types
+            file reference all top-level component schemas in `schema.yaml`?
+            You don't need to re-run codegen - visual name inspection is
+            enough. Common locations:
+            - adk (Go): `types/generated_types.go`
+            - rust-adk: `src/a2a_types.rs`
+            - typescript-adk (future): likely `src/types/generated/index.ts` -
+              confirm by inspection if the target is added later.
 
-            **C. README / examples.** Is each spec operation demonstrated in
-            either `README.md` or the `examples/` folder? Aliases count.
-            The five proxy operations (`proxyGet`, `proxyPost`, `proxyPut`,
-            `proxyDelete`, `proxyPatch`) are **excluded** from this class -
-            they are pass-through helpers covered by the verb-collapsed
-            `proxy_request` (or equivalent) and don't need per-verb example
-            programs. Treat them as covered for class C purposes regardless
-            of `examples/` / `README.md` content.
+            **C. README / examples.** Is each spec JSON-RPC method
+            demonstrated in either `README.md` or the `examples/` folder?
+            Aliases count.
 
             **D. Vendored spec staleness.** The workflow has already run
-            `task oas-download` inside `./target/`, which overwrites the
-            SDK's vendored `openapi.yaml` with the canonical one. Run
-            `git -C target diff openapi.yaml` - a non-empty diff means the
+            `task a2a:download-schema` inside `./target/`, which overwrites
+            the ADK's vendored `schema.yaml` with the canonical one. Run
+            `git -C target diff schema.yaml` - a non-empty diff means the
             committed vendored copy was out of sync with the canonical.
-            For docs targets, this class does not apply.
-
-            For a **docs** target (`kind=docs`), check one drift class:
-
-            **E. Docs coverage.** Is each `operationId` AND each top-level
-            component schema name mentioned somewhere under `markdown/**/*.mdx`
-            or `app/**`? An operation is covered if either its `operationId`
-            or its full `METHOD /path` appears anywhere in the corpus.
 
             ## What to do for each finding
 
@@ -173,11 +159,10 @@ jobs:
 
             | Class | Title | Type | Labels |
             | --- | --- | --- | --- |
-            | A | `[FEATURE] Implement missing OpenAPI operations` | `feature` | `enhancement,sdk-drift` |
-            | B | `[TASK] Refactor regenerate models from latest spec` | `task` | `refactor,sdk-drift` |
-            | C | `[FEATURE] Add usage examples for missing operations` | `feature` | `enhancement,sdk-drift` |
-            | D | `[TASK] Refactor sync vendored openapi.yaml with schemas` | `task` | `refactor,sdk-drift` |
-            | E | `[DOCS] Document missing operations and schemas` | `documentation` | `documentation,sdk-drift` |
+            | A | `[FEATURE] Implement missing A2A JSON-RPC methods` | `feature` | `enhancement,adk-drift` |
+            | B | `[TASK] Refactor regenerate A2A types from latest schema` | `task` | `refactor,adk-drift` |
+            | C | `[FEATURE] Add usage examples for missing A2A methods` | `feature` | `enhancement,adk-drift` |
+            | D | `[TASK] Refactor sync vendored schema.yaml with schemas` | `task` | `refactor,adk-drift` |
 
             **Body shape** must follow the org's `feature_request.md` /
             `refactor_request.md` template style. Do not include `@claude`
@@ -188,9 +173,9 @@ jobs:
 
             <one paragraph naming the gap, mentioning spec SHA
             `${{ steps.spec.outputs.sha }}` and linking
-            https://github.com/inference-gateway/schemas/blob/${{ steps.spec.outputs.sha }}/openapi.yaml>
+            https://github.com/inference-gateway/schemas/blob/${{ steps.spec.outputs.sha }}/a2a/a2a-schema.yaml>
 
-            <bulleted gap list - operationIds, schema names, or file paths
+            <bulleted gap list - JSON-RPC methods, schema names, or file paths
             as appropriate>
 
             ### Acceptance Criteria
@@ -221,9 +206,8 @@ jobs:
               from stdin) to refresh, then `gh issue comment <num> --body
               "Spec has changed - refreshed gap list above. Spec is now at ${{ steps.spec.outputs.sha }}."`
             - If no match: `gh issue create` with the labels from the table
-              above for that class (e.g. `--label enhancement,sdk-drift` for
-              class A/C, `--label refactor,sdk-drift` for class B/D,
-              `--label documentation,sdk-drift` for class E).
+              above for that class (e.g. `--label enhancement,adk-drift` for
+              class A/C, `--label refactor,adk-drift` for class B/D).
 
             ## Setting the Issue Type
 
@@ -244,8 +228,8 @@ jobs:
             ```
 
             Match `name` case-insensitively to the class's type from the table
-            above (`feature`, `task`, or `documentation`). Then resolve the
-            issue's node ID and patch:
+            above (`feature` or `task`). Then resolve the issue's node ID and
+            patch:
 
             ```
             issue_id=$(gh api graphql -f query='
@@ -262,9 +246,8 @@ jobs:
               }' -f issueId="$issue_id" -f typeId="<resolved type id>"
             ```
 
-            If the lookup returns no matching type (e.g. `documentation` not
-            yet defined on the org), log a clear warning to stdout
-            (`warn: missing issue type "<name>" on inference-gateway org - leaving issue untyped`)
+            If the lookup returns no matching type, log a clear warning to
+            stdout (`warn: missing issue type "<name>" on inference-gateway org - leaving issue untyped`)
             and continue - do not fail the run.
 
             ## Hard rules
@@ -273,11 +256,6 @@ jobs:
             - Never open a PR.
             - Never mention `@claude` in issue titles, bodies, or comments.
             - File at most one issue per drift class per run.
-            - For the `docs` target (`kind=docs`), never use em dashes (`—`,
-              U+2014) or en dashes (`–`, U+2013) in issue titles, bodies, or
-              comments — use a plain ASCII hyphen-minus (`-`, U+002D) instead.
-              This applies to every character you emit for that target,
-              including the `<sub>` footer and the "Spec has changed" comment.
             - If the target is fully in sync, file nothing and just print
               `summary: target=${{ matrix.target.name }} status=in-sync`.
             - End with a single-line summary, e.g.

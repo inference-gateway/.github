@@ -17,3 +17,9 @@ targets:
   - name: docs
     language: MDX
     kind: docs
+  - name: adk
+    language: Go
+    kind: adk
+  - name: rust-adk
+    language: Rust
+    kind: adk
