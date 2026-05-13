@@ -27,7 +27,7 @@ Stop managing multiple SDKs and API keys. Route all your LLM traffic through a s
 # One endpoint. Every provider.
 curl -X POST http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"model": "openai/gpt-4o", "messages": [{"role": "user", "content": "Hello!"}]}'
+  -d '{"model": "openai/gpt-5.5", "messages": [{"role": "user", "content": "Hello!"}]}'
 ```
 
 ---
