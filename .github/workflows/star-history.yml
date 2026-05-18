@@ -26,8 +26,12 @@ jobs:
             --limit 200 \
             --no-archived \
             --visibility public \
-            --json name \
-            --jq '[.[] | select(.name != ".github") | "inference-gateway/" + .name] | join(",")')
+            --json name,stargazerCount \
+            --jq '[.[] | select(.name != ".github")]
+                  | sort_by(.name) | sort_by(-.stargazerCount)
+                  | .[0:20]
+                  | [.[] | "inference-gateway/" + .name]
+                  | join(",")')
           if [ -z "$list" ]; then
             echo "No repos resolved" >&2
             exit 1
