@@ -128,6 +128,18 @@ We welcome contributions of all kinds - bug reports, feature requests, documenta
 
 ---
 
+## ⭐ Star History
+
+<a href="https://star-history.com/#inference-gateway/inference-gateway&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/inference-gateway/.github/main/assets/star-history-dark.svg" />
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/inference-gateway/.github/main/assets/star-history.svg" />
+    <img alt="Star History Chart" src="https://raw.githubusercontent.com/inference-gateway/.github/main/assets/star-history.svg" />
+  </picture>
+</a>
+
+---
+
 <div align="center">
 
 Released under the [MIT License](https://opensource.org/licenses/MIT) · Built with ❤️ in Go

@@ -1,0 +1,67 @@
+name: Refresh org star history
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Build repo list
+        id: repos
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          list=$(gh repo list inference-gateway \
+            --limit 200 \
+            --no-archived \
+            --visibility public \
+            --json name \
+            --jq '[.[] | select(.name != ".github") | "inference-gateway/" + .name] | join(",")')
+          if [ -z "$list" ]; then
+            echo "No repos resolved" >&2
+            exit 1
+          fi
+          echo "list=$list" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch SVGs
+        run: |
+          set -euo pipefail
+          mkdir -p assets
+          for theme_suffix in "" "&theme=dark"; do
+            if [ -z "$theme_suffix" ]; then
+              out=assets/star-history.svg
+            else
+              out=assets/star-history-dark.svg
+            fi
+            url="https://api.star-history.com/svg?repos=${{ steps.repos.outputs.list }}&type=Date${theme_suffix}"
+            tmp=$(mktemp)
+            curl -fsSL --retry 3 --retry-delay 5 "$url" -o "$tmp"
+            if ! head -c 200 "$tmp" | grep -q '<svg'; then
+              echo "Response from star-history.com is not an SVG; aborting." >&2
+              head -c 500 "$tmp" >&2
+              exit 1
+            fi
+            mv "$tmp" "$out"
+          done
+
+      - name: Commit if changed
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/star-history.svg assets/star-history-dark.svg
+          if git diff --cached --quiet; then
+            echo "No changes."
+            exit 0
+          fi
+          git commit -m "chore(assets): refresh org star history"
+          git push
