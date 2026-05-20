@@ -70,12 +70,6 @@ jobs:
       - name: Install Flox
         uses: flox/install-flox-action@v2.4.1
 
-      - name: Install task
-        uses: arduino/setup-task@v2.0.0
-        with:
-          version: 3.50.0
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Detect current ADL version
         id: current
         working-directory: target
