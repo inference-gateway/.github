@@ -1,0 +1,72 @@
+name: Trigger CD across agents
+
+# Manual fan-out that dispatches each agent's own cd.yml release workflow.
+# For each kind=agent target in repos.yaml, mints a scoped GitHub App token
+# and calls `gh workflow run cd.yml --ref main` on that repo. Each agent's
+# cd.yml runs semantic-release independently; this workflow does not wait
+# for them to finish or report their outcomes back.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to release from on each agent (defaults to main)'
+        required: false
+        type: string
+        default: main
+      dry_run:
+        description: 'Print plan but do not dispatch cd.yml'
+        required: false
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+  matrix:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      targets: ${{ steps.read.outputs.targets }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - id: read
+        run: |
+          echo "targets=$(yq -o=json -I=0 '[.targets[] | select(.kind == "agent")]' repos.yaml)" >> "$GITHUB_OUTPUT"
+
+  trigger:
+    needs: matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.matrix.outputs.targets) }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Mint GitHub App token (scoped to ${{ matrix.target.name }})
+        id: token
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          client-id: ${{ secrets.BOT_MAINTAINER_APP_ID }}
+          private-key: ${{ secrets.BOT_MAINTAINER_APP_PRIVATE_KEY }}
+          owner: inference-gateway
+          repositories: |
+            ${{ matrix.target.name }}
+
+      - name: Dispatch cd.yml on ${{ matrix.target.name }}
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          set -euo pipefail
+          gh workflow run cd.yml \
+            --repo inference-gateway/${{ matrix.target.name }} \
+            --ref "${{ inputs.ref }}"
+          echo "::notice::Dispatched cd.yml on inference-gateway/${{ matrix.target.name }} @ ${{ inputs.ref }}"
+          echo "- [${{ matrix.target.name }}](https://github.com/inference-gateway/${{ matrix.target.name }}/actions/workflows/cd.yml)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dry run note
+        if: inputs.dry_run
+        run: |
+          echo "::notice::DRY RUN - would dispatch cd.yml on inference-gateway/${{ matrix.target.name }} @ ${{ inputs.ref }}"
+          echo "- [DRY] ${{ matrix.target.name }} @ ${{ inputs.ref }}" >> "$GITHUB_STEP_SUMMARY"
