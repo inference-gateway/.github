@@ -1,0 +1,219 @@
+name: Bump ADL CLI across agents
+
+# Manual fan-out across every kind=agent target in repos.yaml.
+# For each agent, mints a scoped GitHub App token, updates the ADL CLI pin
+# in .flox/env/manifest.toml, refreshes the Flox lock, regenerates the
+# project with the new CLI, then opens a PR with the diff. Deliberate
+# deviation from the sync-* workflows: this one opens PRs (not issues)
+# because version bumps are mechanical and reviewable.
+
+on:
+  workflow_dispatch:
+    inputs:
+      adl_version:
+        description: 'ADL CLI version to pin to (e.g. v0.30.11)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Print diff but skip PR creation'
+        required: false
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+  matrix:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      targets: ${{ steps.read.outputs.targets }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - name: Validate version format
+        run: |
+          echo "${{ inputs.adl_version }}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+            || { echo "::error::adl_version must match v<major>.<minor>.<patch>, got: ${{ inputs.adl_version }}"; exit 1; }
+      - id: read
+        run: |
+          echo "targets=$(yq -o=json -I=0 '[.targets[] | select(.kind == "agent")]' repos.yaml)" >> "$GITHUB_OUTPUT"
+
+  bump:
+    needs: matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.matrix.outputs.targets) }}
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: bump-adl-${{ matrix.target.name }}
+      cancel-in-progress: false
+    steps:
+      - name: Mint GitHub App token (scoped to ${{ matrix.target.name }})
+        id: token
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          client-id: ${{ secrets.BOT_MAINTAINER_APP_ID }}
+          private-key: ${{ secrets.BOT_MAINTAINER_APP_PRIVATE_KEY }}
+          owner: inference-gateway
+          repositories: |
+            ${{ matrix.target.name }}
+
+      - name: Checkout target
+        uses: actions/checkout@v6.0.2
+        with:
+          repository: inference-gateway/${{ matrix.target.name }}
+          path: target
+          token: ${{ steps.token.outputs.token }}
+
+      - name: Install Flox
+        uses: flox/install-flox-action@v2.4.1
+
+      - name: Install task
+        uses: arduino/setup-task@v2.0.0
+        with:
+          version: 3.50.0
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Detect current ADL version
+        id: current
+        working-directory: target
+        run: |
+          set -euo pipefail
+          OLD=$(grep -oE 'adl-cli/v[0-9]+\.[0-9]+\.[0-9]+' .flox/env/manifest.toml | head -1 | sed 's|adl-cli/||')
+          if [ -z "$OLD" ]; then
+            echo "::error::Could not detect current adl-cli pin in .flox/env/manifest.toml"
+            exit 1
+          fi
+          NEW=${{ inputs.adl_version }}
+          echo "old=$OLD" >> "$GITHUB_OUTPUT"
+          if [ "$OLD" = "$NEW" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::${{ matrix.target.name }} is already on ${NEW}; skipping"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::${{ matrix.target.name }}: ${OLD} -> ${NEW}"
+          fi
+
+      - name: Bump manifest.toml pin
+        if: steps.current.outputs.skip != 'true'
+        working-directory: target
+        run: |
+          sed -i "s|adl-cli/${{ steps.current.outputs.old }}|adl-cli/${{ inputs.adl_version }}|g" .flox/env/manifest.toml
+
+      - name: Refresh Flox lock (scoped to adl)
+        if: steps.current.outputs.skip != 'true'
+        working-directory: target
+        env:
+          NIX_CONFIG: "access-tokens = github.com=${{ steps.token.outputs.token }}"
+        run: flox upgrade adl
+
+      - name: Regenerate via task generate
+        if: steps.current.outputs.skip != 'true'
+        working-directory: target
+        run: flox activate -- task generate
+
+      - name: Patch headers in .adl-ignore'd / hand-maintained files
+        if: steps.current.outputs.skip != 'true'
+        working-directory: target
+        env:
+          OLD: ${{ steps.current.outputs.old }}
+          NEW: ${{ inputs.adl_version }}
+        run: |
+          set -euo pipefail
+          # OLD/NEW look like v0.30.9 / v0.30.10. CLAUDE.md uses the bare-number form too.
+          OLD_BARE=${OLD#v}
+          NEW_BARE=${NEW#v}
+          # Scan every file except CHANGELOG.md (historical record) and manifest.lock (handled by flox).
+          mapfile -t files < <(grep -rlE "(adl-cli/${OLD}|ADL CLI ${OLD}|ADL CLI ${OLD_BARE})" \
+            --exclude-dir=.git \
+            --exclude='CHANGELOG.md' \
+            --exclude='manifest.lock' \
+            . || true)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No stragglers to patch."
+            exit 0
+          fi
+          printf '%s\n' "${files[@]}"
+          for f in "${files[@]}"; do
+            sed -i \
+              -e "s|adl-cli/${OLD}|adl-cli/${NEW}|g" \
+              -e "s|ADL CLI ${OLD}|ADL CLI ${NEW}|g" \
+              -e "s|ADL CLI ${OLD_BARE}|ADL CLI ${NEW_BARE}|g" \
+              "$f"
+          done
+
+      - name: Assert agent.yaml is untouched
+        if: steps.current.outputs.skip != 'true'
+        working-directory: target
+        run: |
+          if ! git diff --quiet -- agent.yaml; then
+            echo "::error::agent.yaml unexpectedly modified by regeneration; aborting"
+            git diff -- agent.yaml
+            exit 1
+          fi
+
+      - name: Show diff for logs
+        if: steps.current.outputs.skip != 'true'
+        working-directory: target
+        run: |
+          git -c color.ui=always diff --stat || true
+          if git diff --quiet; then
+            echo "::notice::No effective diff after regeneration"
+          fi
+
+      - name: Create or update pull request
+        if: steps.current.outputs.skip != 'true' && !inputs.dry_run
+        id: pr
+        uses: peter-evans/create-pull-request@v8.1.1
+        with:
+          token: ${{ steps.token.outputs.token }}
+          path: target
+          branch: bot/bump-adl-cli-${{ inputs.adl_version }}
+          base: main
+          sign-commits: true
+          delete-branch: true
+          commit-message: "chore(deps): Bump ADL CLI ${{ steps.current.outputs.old }} -> ${{ inputs.adl_version }}"
+          title: "chore(deps): Bump ADL CLI to ${{ inputs.adl_version }}"
+          body: |
+            ## Summary
+            Bumps ADL CLI from `${{ steps.current.outputs.old }}` to `${{ inputs.adl_version }}` and regenerates the project.
+
+            Ran in CI:
+            - `flox upgrade adl` - refreshed `.flox/env/manifest.lock` to the new flake commit
+            - `flox activate -- task generate` - regenerated Dockerfile, Taskfile.yml, `.releaserc.yaml`, `.github/workflows/{ci,cd}.yml`, `CLAUDE.md`, `.well-known/agent-card.json`, and tool stubs
+            - Targeted sed pass for `.adl-ignore`'d files (Dockerfile / Taskfile.yml / main.go where customized) and hand-maintained workflows (e.g. `claude.yml`) that the generator does not rewrite
+
+            `agent.yaml` and `CHANGELOG.md` are intentionally untouched.
+
+            ## Test plan
+            - [ ] CI green
+            - [ ] `git diff main -- agent.yaml` is empty
+            - [ ] `grep -rE "adl-cli/v[0-9]+\.[0-9]+\.[0-9]+" --exclude-dir=.git --exclude=CHANGELOG.md . | grep -v "${{ inputs.adl_version }}"` returns nothing
+
+            Filed by [bump-adl.yml](https://github.com/inference-gateway/.github/blob/main/.github/workflows/bump-adl.yml).
+          labels: |
+            dependencies
+            adl-cli
+
+      - name: Report PR outcome
+        if: steps.current.outputs.skip != 'true' && !inputs.dry_run && steps.pr.outputs.pull-request-number != ''
+        run: |
+          {
+            echo "### ${{ matrix.target.name }}"
+            echo "- Operation: \`${{ steps.pr.outputs.pull-request-operation }}\`"
+            echo "- PR: ${{ steps.pr.outputs.pull-request-url }}"
+            echo "- Head SHA: \`${{ steps.pr.outputs.pull-request-head-sha }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dry run summary
+        if: steps.current.outputs.skip != 'true' && inputs.dry_run
+        working-directory: target
+        run: |
+          {
+            echo "## Dry-run: ${{ matrix.target.name }} ${{ steps.current.outputs.old }} -> ${{ inputs.adl_version }}"
+            echo '```'
+            git diff --stat
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

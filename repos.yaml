@@ -23,3 +23,21 @@ targets:
   - name: rust-adk
     language: Rust
     kind: adk
+  - name: browser-agent
+    language: Go
+    kind: agent
+  - name: documentation-agent
+    language: Go
+    kind: agent
+  - name: google-calendar-agent
+    language: Go
+    kind: agent
+  - name: grafana-agent
+    language: Go
+    kind: agent
+  - name: mock-agent
+    language: Go
+    kind: agent
+  - name: n8n-agent
+    language: Go
+    kind: agent
