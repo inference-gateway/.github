@@ -1,0 +1,263 @@
+---
+name: Refresh agent.yaml defaults across agents
+
+# Manual fan-out across every kind=agent target in repos.yaml.
+# Complements bump-adl.yml: where bump-adl bumps the CLI pin and regenerates
+# the generated CODE (asserting agent.yaml is untouched), this workflow
+# additively merges NEW init defaults INTO agent.yaml itself - never
+# overwriting existing values, never touching spec.tools, spec.skills, or
+# spec.config. One PR per agent.
+
+on:
+  workflow_dispatch:
+    inputs:
+      adl_version:
+        description: 'ADL CLI version to preview (e.g. v0.30.11 or "latest")'
+        required: true
+        type: string
+        default: latest
+      dry_run:
+        description: 'Print diff but skip PR creation'
+        required: false
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+  matrix:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      targets: ${{ steps.read.outputs.targets }}
+      adl_version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Validate version format
+        env:
+          INPUT_VERSION: ${{ inputs.adl_version }}
+        run: |
+          set -euo pipefail
+          if [ "$INPUT_VERSION" != "latest" ] && ! echo "$INPUT_VERSION" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::adl_version must be 'latest' or v<major>.<minor>.<patch>, got: $INPUT_VERSION"
+            exit 1
+          fi
+
+      - name: Resolve ADL CLI version
+        id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_VERSION: ${{ inputs.adl_version }}
+        run: |
+          set -euo pipefail
+          V="$INPUT_VERSION"
+          if [ "$V" = "latest" ]; then
+            V=$(gh api repos/inference-gateway/adl-cli/releases/latest --jq .tag_name)
+            echo "::notice::Resolved 'latest' to ${V}"
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - id: read
+        run: |
+          echo "targets=$(yq -o=json -I=0 '[.targets[] | select(.kind == "agent")]' repos.yaml)" >> "$GITHUB_OUTPUT"
+
+  refresh:
+    needs: matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.matrix.outputs.targets) }}
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: refresh-agent-manifest-${{ matrix.target.name }}
+      cancel-in-progress: false
+    env:
+      ADL_VERSION: ${{ needs.matrix.outputs.adl_version }}
+    steps:
+      - name: Mint GitHub App token (scoped to ${{ matrix.target.name }})
+        id: token
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          client-id: ${{ secrets.BOT_MAINTAINER_APP_ID }}
+          private-key: ${{ secrets.BOT_MAINTAINER_APP_PRIVATE_KEY }}
+          owner: inference-gateway
+          repositories: |
+            ${{ matrix.target.name }}
+
+      - name: Checkout target
+        uses: actions/checkout@v6.0.2
+        with:
+          repository: inference-gateway/${{ matrix.target.name }}
+          path: target
+          token: ${{ steps.token.outputs.token }}
+
+      - name: Install adl-cli
+        run: |
+          set -euo pipefail
+          URL="https://github.com/inference-gateway/adl-cli/releases/download/${ADL_VERSION}/adl_Linux_x86_64.tar.gz"
+          echo "::notice::Downloading $URL"
+          curl -fsSL "$URL" | sudo tar -xz -C /usr/local/bin adl
+          sudo chmod +x /usr/local/bin/adl
+          adl --version
+
+      - name: Map repos.yaml language to adl flag
+        id: lang
+        env:
+          REPO_LANG: ${{ matrix.target.language }}
+        run: |
+          set -euo pipefail
+          case "$REPO_LANG" in
+            Go)         ADL_LANG=go ;;
+            Rust)       ADL_LANG=rust ;;
+            TypeScript) ADL_LANG=typescript ;;
+            *)
+              echo "::error::Unsupported language '$REPO_LANG' for target ${{ matrix.target.name }}"
+              exit 1
+              ;;
+          esac
+          echo "value=$ADL_LANG" >> "$GITHUB_OUTPUT"
+
+      - name: Snapshot preserve-blocks from existing agent.yaml
+        run: |
+          set -euo pipefail
+          yq '.spec.tools  // []' target/agent.yaml > "$RUNNER_TEMP/keep.tools.yaml"
+          yq '.spec.skills // []' target/agent.yaml > "$RUNNER_TEMP/keep.skills.yaml"
+          yq '.spec.config // {}' target/agent.yaml > "$RUNNER_TEMP/keep.config.yaml"
+
+      - name: Extract identity fields
+        id: identity
+        run: |
+          set -euo pipefail
+          NAME=$(yq -r '.metadata.name'        target/agent.yaml)
+          DESC=$(yq -r '.metadata.description' target/agent.yaml)
+          if [ -z "$NAME" ] || [ "$NAME" = "null" ]; then
+            echo "::error::target/agent.yaml is missing metadata.name"
+            exit 1
+          fi
+          {
+            echo "name=$NAME"
+            echo "description<<__END__"
+            echo "$DESC"
+            echo "__END__"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Generate fresh scaffold in temp dir
+        env:
+          AGENT_NAME: ${{ steps.identity.outputs.name }}
+          AGENT_DESC: ${{ steps.identity.outputs.description }}
+          ADL_LANG: ${{ steps.lang.outputs.value }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/fresh"
+          adl init "$AGENT_NAME" \
+            --defaults \
+            --path "$RUNNER_TEMP/fresh" \
+            --name "$AGENT_NAME" \
+            --description "$AGENT_DESC" \
+            --language "$ADL_LANG"
+          test -f "$RUNNER_TEMP/fresh/agent.yaml"
+
+      - name: Additive deep merge (existing wins, new keys added)
+        run: |
+          set -euo pipefail
+          yq eval-all '
+            select(fileIndex == 0) *nd select(fileIndex == 1)
+          ' target/agent.yaml "$RUNNER_TEMP/fresh/agent.yaml" \
+            > "$RUNNER_TEMP/merged.yaml"
+
+      - name: Restore preserve-blocks (defensive)
+        run: |
+          set -euo pipefail
+          export KEEP_TOOLS="$RUNNER_TEMP/keep.tools.yaml"
+          export KEEP_SKILLS="$RUNNER_TEMP/keep.skills.yaml"
+          export KEEP_CONFIG="$RUNNER_TEMP/keep.config.yaml"
+          yq -i '
+            .spec.tools  = load(env(KEEP_TOOLS))  |
+            .spec.skills = load(env(KEEP_SKILLS)) |
+            .spec.config = load(env(KEEP_CONFIG))
+          ' "$RUNNER_TEMP/merged.yaml"
+          cp "$RUNNER_TEMP/merged.yaml" target/agent.yaml
+
+      - name: Validate merged agent.yaml
+        working-directory: target
+        run: adl validate agent.yaml
+
+      - name: Skip check
+        id: skip
+        working-directory: target
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- agent.yaml; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::${{ matrix.target.name }} agent.yaml already matches ADL CLI ${ADL_VERSION} defaults; skipping"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::${{ matrix.target.name }}: new init defaults will be added to agent.yaml"
+          fi
+
+      - name: Show diff for logs
+        if: steps.skip.outputs.skip != 'true'
+        working-directory: target
+        run: |
+          git -c color.ui=always diff -- agent.yaml
+
+      - name: Create or update pull request
+        if: steps.skip.outputs.skip != 'true' && !inputs.dry_run
+        id: pr
+        uses: peter-evans/create-pull-request@v8.1.1
+        with:
+          token: ${{ steps.token.outputs.token }}
+          path: target
+          branch: bot/refresh-agent-manifest-${{ env.ADL_VERSION }}
+          base: main
+          sign-commits: true
+          delete-branch: true
+          add-paths: agent.yaml
+          commit-message: "chore(adl): Refresh agent.yaml defaults from ADL CLI ${{ env.ADL_VERSION }}"
+          title: "chore(adl): Refresh agent.yaml defaults from ADL CLI ${{ env.ADL_VERSION }}"
+          body: |
+            ## Summary
+            Additively merges new `adl init` defaults from ADL CLI `${{ env.ADL_VERSION }}` into `agent.yaml`. Only keys present in the fresh scaffold but missing here were added; every pre-existing value is byte-identical.
+
+            `spec.tools`, `spec.skills`, and `spec.config` are explicitly restored from the pre-merge snapshot and are not touched by this PR.
+
+            Ran in CI:
+            - `adl init --defaults --language ${{ steps.lang.outputs.value }}` in a throwaway temp dir to capture the latest scaffold shape
+            - `yq '. *nd .'` deep additive merge (LHS wins, only-new fields)
+            - Wholesale restore of `spec.tools` / `spec.skills` / `spec.config` from the original
+            - `adl validate agent.yaml` against the merged result
+
+            No generated code is regenerated here - that is `bump-adl.yml`'s job. Run `bump-adl.yml` next if any added key needs new generated code.
+
+            ## Test plan
+            - [ ] CI green
+            - [ ] `spec.tools`, `spec.skills`, `spec.config` blocks unchanged vs. base
+            - [ ] Every other change is a key addition, not a value overwrite
+
+            Filed by [refresh-agent-manifest.yml](https://github.com/inference-gateway/.github/blob/main/.github/workflows/refresh-agent-manifest.yml).
+          labels: |
+            adl-cli
+            manifest-refresh
+
+      - name: Report PR outcome
+        if: steps.skip.outputs.skip != 'true' && !inputs.dry_run && steps.pr.outputs.pull-request-number != ''
+        run: |
+          {
+            echo "### ${{ matrix.target.name }}"
+            echo "- Operation: \`${{ steps.pr.outputs.pull-request-operation }}\`"
+            echo "- PR: ${{ steps.pr.outputs.pull-request-url }}"
+            echo "- Head SHA: \`${{ steps.pr.outputs.pull-request-head-sha }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dry run summary
+        if: steps.skip.outputs.skip != 'true' && inputs.dry_run
+        working-directory: target
+        run: |
+          {
+            echo "## Dry-run: ${{ matrix.target.name }} <- ADL CLI ${ADL_VERSION}"
+            echo '```diff'
+            git diff -- agent.yaml
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
