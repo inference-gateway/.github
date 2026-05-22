@@ -5,7 +5,7 @@
     "install": {
       "claude-code": {
         "pkg-path": "claude-code",
-        "version": "2.1.141"
+        "version": "^2.1.141"
       },
       "infer": {
         "flake": "github:inference-gateway/cli/v0.109.11"
