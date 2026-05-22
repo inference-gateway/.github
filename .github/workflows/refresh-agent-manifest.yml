@@ -94,13 +94,15 @@ jobs:
           token: ${{ steps.token.outputs.token }}
 
       - name: Install adl-cli
+        env:
+          VERSION: ${{ env.ADL_VERSION }}
+          INSTALL_DIR: ${{ runner.temp }}/adl-bin
         run: |
           set -euo pipefail
-          URL="https://github.com/inference-gateway/adl-cli/releases/download/${ADL_VERSION}/adl_Linux_x86_64.tar.gz"
-          echo "::notice::Downloading $URL"
-          curl -fsSL "$URL" | sudo tar -xz -C /usr/local/bin adl
-          sudo chmod +x /usr/local/bin/adl
-          adl --version
+          mkdir -p "$INSTALL_DIR"
+          curl -fsSL https://raw.githubusercontent.com/inference-gateway/adl-cli/main/install.sh | bash
+          echo "$INSTALL_DIR" >> "$GITHUB_PATH"
+          "$INSTALL_DIR/adl" --version
 
       - name: Map repos.yaml language to adl flag
         id: lang
