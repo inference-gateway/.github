@@ -5,8 +5,9 @@ name: Refresh agent.yaml defaults across agents
 # Complements bump-adl.yml: where bump-adl bumps the CLI pin and regenerates
 # the generated CODE (asserting agent.yaml is untouched), this workflow
 # additively merges NEW init defaults INTO agent.yaml itself - never
-# overwriting existing values, never touching spec.tools, spec.skills, or
-# spec.config. One PR per agent.
+# overwriting existing values, never touching the paths listed in
+# `PRESERVE_KEYS` below (spec.tools / spec.skills / spec.config /
+# spec.services today). One PR per agent.
 
 on:
   workflow_dispatch:
@@ -75,6 +76,11 @@ jobs:
       cancel-in-progress: false
     env:
       ADL_VERSION: ${{ needs.matrix.outputs.adl_version }}
+      PRESERVE_KEYS: |
+        .spec.tools
+        .spec.skills
+        .spec.config
+        .spec.services
     steps:
       - name: Mint GitHub App token (scoped to ${{ matrix.target.name }})
         id: token
@@ -124,9 +130,11 @@ jobs:
       - name: Snapshot preserve-blocks from existing agent.yaml
         run: |
           set -euo pipefail
-          yq '.spec.tools  // []' target/agent.yaml > "$RUNNER_TEMP/keep.tools.yaml"
-          yq '.spec.skills // []' target/agent.yaml > "$RUNNER_TEMP/keep.skills.yaml"
-          yq '.spec.config // {}' target/agent.yaml > "$RUNNER_TEMP/keep.config.yaml"
+          while IFS= read -r key; do
+            [ -z "$key" ] && continue
+            slug=$(echo "$key" | tr -c 'A-Za-z0-9' '_')
+            yq "$key" target/agent.yaml > "$RUNNER_TEMP/keep${slug}.yaml"
+          done <<< "$PRESERVE_KEYS"
 
       - name: Extract identity fields
         id: identity
@@ -169,17 +177,19 @@ jobs:
           ' target/agent.yaml "$RUNNER_TEMP/fresh/agent.yaml" \
             > "$RUNNER_TEMP/merged.yaml"
 
-      - name: Restore preserve-blocks (defensive)
+      - name: Restore preserve-blocks
         run: |
           set -euo pipefail
-          export KEEP_TOOLS="$RUNNER_TEMP/keep.tools.yaml"
-          export KEEP_SKILLS="$RUNNER_TEMP/keep.skills.yaml"
-          export KEEP_CONFIG="$RUNNER_TEMP/keep.config.yaml"
-          yq -i '
-            .spec.tools  = load(env(KEEP_TOOLS))  |
-            .spec.skills = load(env(KEEP_SKILLS)) |
-            .spec.config = load(env(KEEP_CONFIG))
-          ' "$RUNNER_TEMP/merged.yaml"
+          while IFS= read -r key; do
+            [ -z "$key" ] && continue
+            slug=$(echo "$key" | tr -c 'A-Za-z0-9' '_')
+            if [ "$(yq "$key | tag" target/agent.yaml)" = "!!null" ]; then
+              yq -i "del($key)" "$RUNNER_TEMP/merged.yaml"
+            else
+              SNAPSHOT="$RUNNER_TEMP/keep${slug}.yaml" \
+                yq -i "$key = load(strenv(SNAPSHOT))" "$RUNNER_TEMP/merged.yaml"
+            fi
+          done <<< "$PRESERVE_KEYS"
           cp "$RUNNER_TEMP/merged.yaml" target/agent.yaml
 
       - name: Validate merged agent.yaml
@@ -223,19 +233,19 @@ jobs:
             ## Summary
             Additively merges new `adl init` defaults from ADL CLI `${{ env.ADL_VERSION }}` into `agent.yaml`. Only keys present in the fresh scaffold but missing here were added; every pre-existing value is byte-identical.
 
-            `spec.tools`, `spec.skills`, and `spec.config` are explicitly restored from the pre-merge snapshot and are not touched by this PR.
+            The paths listed in the workflow's `PRESERVE_KEYS` (`spec.tools`, `spec.skills`, `spec.config`, `spec.services`) are snapshotted before the merge and restored byte-for-byte afterwards. Keys that were absent in the original stay absent.
 
             Ran in CI:
             - `adl init --defaults --language ${{ steps.lang.outputs.value }}` in a throwaway temp dir to capture the latest scaffold shape
             - `yq '. *nd .'` deep additive merge (LHS wins, only-new fields)
-            - Wholesale restore of `spec.tools` / `spec.skills` / `spec.config` from the original
+            - Snapshot + restore of every path in `PRESERVE_KEYS` against the original
             - `adl validate agent.yaml` against the merged result
 
             No generated code is regenerated here - that is `bump-adl.yml`'s job. Run `bump-adl.yml` next if any added key needs new generated code.
 
             ## Test plan
             - [ ] CI green
-            - [ ] `spec.tools`, `spec.skills`, `spec.config` blocks unchanged vs. base
+            - [ ] Every `PRESERVE_KEYS` path is byte-identical to base
             - [ ] Every other change is a key addition, not a value overwrite
 
             Filed by [refresh-agent-manifest.yml](https://github.com/inference-gateway/.github/blob/main/.github/workflows/refresh-agent-manifest.yml).
