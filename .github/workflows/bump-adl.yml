@@ -11,9 +11,10 @@ on:
   workflow_dispatch:
     inputs:
       adl_version:
-        description: 'ADL CLI version to pin to (e.g. v0.30.11)'
+        description: 'ADL CLI version to pin to (e.g. v0.30.11 or "latest")'
         required: true
         type: string
+        default: latest
       dry_run:
         description: 'Print diff but skip PR creation'
         required: false
@@ -29,12 +30,34 @@ jobs:
       contents: read
     outputs:
       targets: ${{ steps.read.outputs.targets }}
+      adl_version: ${{ steps.resolve.outputs.version }}
     steps:
       - uses: actions/checkout@v6.0.2
+
       - name: Validate version format
+        env:
+          INPUT_VERSION: ${{ inputs.adl_version }}
         run: |
-          echo "${{ inputs.adl_version }}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$' \
-            || { echo "::error::adl_version must match v<major>.<minor>.<patch>, got: ${{ inputs.adl_version }}"; exit 1; }
+          set -euo pipefail
+          if [ "$INPUT_VERSION" != "latest" ] && ! echo "$INPUT_VERSION" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::adl_version must be 'latest' or v<major>.<minor>.<patch>, got: $INPUT_VERSION"
+            exit 1
+          fi
+
+      - name: Resolve ADL CLI version
+        id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_VERSION: ${{ inputs.adl_version }}
+        run: |
+          set -euo pipefail
+          V="$INPUT_VERSION"
+          if [ "$V" = "latest" ]; then
+            V=$(gh api repos/inference-gateway/adl-cli/releases/latest --jq .tag_name)
+            echo "::notice::Resolved 'latest' to ${V}"
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
       - id: read
         run: |
           echo "targets=$(yq -o=json -I=0 '[.targets[] | select(.kind == "agent")]' repos.yaml)" >> "$GITHUB_OUTPUT"
@@ -49,6 +72,8 @@ jobs:
     concurrency:
       group: bump-adl-${{ matrix.target.name }}
       cancel-in-progress: false
+    env:
+      ADL_VERSION: ${{ needs.matrix.outputs.adl_version }}
     steps:
       - name: Mint GitHub App token (scoped to ${{ matrix.target.name }})
         id: token
@@ -80,7 +105,7 @@ jobs:
             echo "::error::Could not detect current adl-cli pin in .flox/env/manifest.toml"
             exit 1
           fi
-          NEW=${{ inputs.adl_version }}
+          NEW="$ADL_VERSION"
           echo "old=$OLD" >> "$GITHUB_OUTPUT"
           if [ "$OLD" = "$NEW" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -93,8 +118,10 @@ jobs:
       - name: Bump manifest.toml pin
         if: steps.current.outputs.skip != 'true'
         working-directory: target
+        env:
+          OLD: ${{ steps.current.outputs.old }}
         run: |
-          sed -i "s|adl-cli/${{ steps.current.outputs.old }}|adl-cli/${{ inputs.adl_version }}|g" .flox/env/manifest.toml
+          sed -i "s|adl-cli/${OLD}|adl-cli/${ADL_VERSION}|g" .flox/env/manifest.toml
 
       - name: Refresh Flox lock (scoped to adl)
         if: steps.current.outputs.skip != 'true'
@@ -113,7 +140,7 @@ jobs:
         working-directory: target
         env:
           OLD: ${{ steps.current.outputs.old }}
-          NEW: ${{ inputs.adl_version }}
+          NEW: ${{ env.ADL_VERSION }}
         run: |
           set -euo pipefail
           # OLD/NEW look like v0.30.9 / v0.30.10. CLAUDE.md uses the bare-number form too.
@@ -164,15 +191,15 @@ jobs:
         with:
           token: ${{ steps.token.outputs.token }}
           path: target
-          branch: bot/bump-adl-cli-${{ inputs.adl_version }}
+          branch: bot/bump-adl-cli-${{ env.ADL_VERSION }}
           base: main
           sign-commits: true
           delete-branch: true
-          commit-message: "chore(deps): Bump ADL CLI ${{ steps.current.outputs.old }} -> ${{ inputs.adl_version }}"
-          title: "chore(deps): Bump ADL CLI to ${{ inputs.adl_version }}"
+          commit-message: "chore(deps): Bump ADL CLI ${{ steps.current.outputs.old }} -> ${{ env.ADL_VERSION }}"
+          title: "chore(deps): Bump ADL CLI to ${{ env.ADL_VERSION }}"
           body: |
             ## Summary
-            Bumps ADL CLI from `${{ steps.current.outputs.old }}` to `${{ inputs.adl_version }}` and regenerates the project.
+            Bumps ADL CLI from `${{ steps.current.outputs.old }}` to `${{ env.ADL_VERSION }}` and regenerates the project.
 
             Ran in CI:
             - `flox upgrade adl` - refreshed `.flox/env/manifest.lock` to the new flake commit
@@ -184,7 +211,7 @@ jobs:
             ## Test plan
             - [ ] CI green
             - [ ] `git diff main -- agent.yaml` is empty
-            - [ ] `grep -rE "adl-cli/v[0-9]+\.[0-9]+\.[0-9]+" --exclude-dir=.git --exclude=CHANGELOG.md . | grep -v "${{ inputs.adl_version }}"` returns nothing
+            - [ ] `grep -rE "adl-cli/v[0-9]+\.[0-9]+\.[0-9]+" --exclude-dir=.git --exclude=CHANGELOG.md . | grep -v "${{ env.ADL_VERSION }}"` returns nothing
 
             Filed by [bump-adl.yml](https://github.com/inference-gateway/.github/blob/main/.github/workflows/bump-adl.yml).
           labels: |
@@ -206,7 +233,7 @@ jobs:
         working-directory: target
         run: |
           {
-            echo "## Dry-run: ${{ matrix.target.name }} ${{ steps.current.outputs.old }} -> ${{ inputs.adl_version }}"
+            echo "## Dry-run: ${{ matrix.target.name }} ${{ steps.current.outputs.old }} -> ${{ env.ADL_VERSION }}"
             echo '```'
             git diff --stat
             echo '```'
