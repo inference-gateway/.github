@@ -7,7 +7,7 @@
 **An open-source, cloud-native, high-performance gateway unifying multiple LLM providers**
 
 [![GitHub Stars](https://img.shields.io/github/stars/inference-gateway/inference-gateway?style=flat-square&logo=github)](https://github.com/inference-gateway/inference-gateway/stargazers)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=flat-square)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Go](https://img.shields.io/badge/Built%20with-Go-00ADD8?style=flat-square&logo=go)](https://golang.org)
 [![Docs](https://img.shields.io/badge/docs-inference--gateway.com-7C3AED?style=flat-square)](https://docs.inference-gateway.com)
 
@@ -42,7 +42,7 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 | 🌊 **Streaming** | Real-time token streaming from all supported providers |
 | ☸️ **Kubernetes Ready** | First-class K8s support with Operator and HPA scaling |
 | 📊 **Observability** | OpenTelemetry integration for monitoring and tracing |
-| 🔒 **Privacy First** | Self-hosted, zero data collection, MIT licensed |
+| 🔒 **Privacy First** | Self-hosted, zero data collection, Apache 2.0 licensed |
 | 🌿 **Lightweight** | ~10.8MB binary with minimal resource footprint |
 
 ---
@@ -143,6 +143,6 @@ We welcome contributions of all kinds - bug reports, feature requests, documenta
 
 <div align="center">
 
-Released under the [MIT License](https://opensource.org/licenses/MIT) · Built with ❤️ in Go
+Released under the [Apache 2.0 License](https://www.apache.org/licenses/LICENSE-2.0) · Built with ❤️ in Go
 
 </div>
