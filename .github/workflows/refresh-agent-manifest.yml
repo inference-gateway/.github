@@ -169,20 +169,18 @@ jobs:
             --language "$ADL_LANG"
           test -f "$RUNNER_TEMP/fresh/agent.yaml"
 
-      - name: Migrate pre-v0.6.0 schema fields
+
+      - name: Migrate pre-v0.8.0 schema fields
         working-directory: target
         run: |
           set -euo pipefail
-          # ADL v0.6.0 moved spec.sandbox under spec.development. Rewrite the
-          # existing manifest in-place so the additive merge below sees the new
-          # shape on both sides; otherwise LHS-wins keeps the old key and the
-          # fresh scaffold's new key, and `adl validate` rejects the result.
-          if [ "$(yq '.spec.sandbox | tag' agent.yaml)" != "!!null" ]; then
+          if [ "$(yq '.spec.development.ai.enabled | tag' agent.yaml)" = "!!bool" ]; then
             yq -i '
-              .spec.development = ((.spec.development // {}) * {"sandbox": .spec.sandbox})
-              | del(.spec.sandbox)
+              .spec.development.ai.claudecode.enabled = .spec.development.ai.enabled
+              | .spec.development.ai.infer.enabled = .spec.development.ai.enabled
+              | del(.spec.development.ai.enabled)
             ' agent.yaml
-            echo "::notice::Migrated spec.sandbox -> spec.development.sandbox"
+            echo "::notice::Migrated spec.development.ai.enabled -> claudecode.enabled+infer.enabled"
           fi
 
       - name: Additive deep merge (existing wins, new keys added)
