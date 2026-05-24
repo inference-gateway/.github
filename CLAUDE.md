@@ -92,7 +92,7 @@ ADK (`sync-adks.yml`, `kind: adk`):
 
 - **Add/remove a target:** edit `repos.yaml` only. The matrix step (`yq -o=json -I=0 '[.targets[] | select(.kind == "...")]' repos.yaml`) routes by `kind`.
 - **Change the audit logic (sync workflows):** edit the `prompt:` block of the relevant workflow. Preserve the invariants above and the exact stable titles. Pinned model is `claude-opus-4-7`.
-- **Bump the action version:** `anthropics/claude-code-action@<ver>`, `actions/checkout@<ver>`, `actions/create-github-app-token@<ver>`, `arduino/setup-task@<ver>`, and `flox/install-flox-action@<ver>` are pinned to specific tags - keep them pinned, don't move to `@v1` floats.
+- **Bump the action version:** `anthropics/claude-code-action@v1.0.133
 - **Add a new drift class:** update the drift table in the workflow prompt **and** the matching summary in `README.md`'s "Drift classes detected" section. Make sure the corresponding label exists on every target before merge.
 - **Add a new issue type (e.g. `documentation`):** the org Issue Types must be created in the GitHub UI first; the GraphQL lookup in the prompt resolves IDs at run time and warns-but-continues if missing.
 - **Bump ADL CLI across all agents:** run `gh workflow run bump-adl.yml -f adl_version=vX.Y.Z` (add `-f dry_run=true` first to preview). One PR per agent.

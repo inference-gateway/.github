@@ -134,7 +134,7 @@ There is **no build step, no test suite, no linter configuration** in this repos
 |---|---|
 | Add/remove a target | `repos.yaml` only |
 | Change audit logic | The `prompt:` block in the relevant workflow YAML |
-| Bump action versions | Pinned tags in `sync-sdks.yml` and `sync-adks.yml` (`actions/checkout@v6.0.2`, `anthropics/claude-code-action@v1.0.114`, etc.) |
+| Bump action versions | Pinned tags in `sync-sdks.yml` and `sync-adks.yml` (`actions/checkout@v6.0.2`, `anthropics/claude-code-action@v1.0.133
 | Add a new drift class | Workflow prompt + `README.md` "Drift classes detected" section |
 | Add a new issue type | Must be created in GitHub UI first; the workflow looks up IDs via GraphQL |
 | Update the org profile | `profile/README.md` |
@@ -226,7 +226,7 @@ All GitHub Actions and tools are pinned to specific versions (tags, not floats):
 
 - `actions/checkout@v6.0.2`
 - `actions/create-github-app-token@v3.1.1`
-- `anthropics/claude-code-action@v1.0.114`
+- `anthropics/claude-code-action@v1.0.133
 - `arduino/setup-task@v2` (version `3.x`)
 - `claude-code` pinned to `2.1.123` via Flox
 
