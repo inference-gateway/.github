@@ -15,20 +15,20 @@ There is no build, no test suite, no application. Changes here are YAML/Markdown
 
 ## `repos.yaml` is the single source of truth
 
-Every orchestrator reads `repos.yaml` and filters by the `kind` field. Adding or removing a downstream repo = one PR editing this file.
+Every orchestrator reads `repos.yaml`. Adding or removing a downstream repo = one PR editing this file.
 
 `kind` values and which workflows pick them up:
 
-| `kind`  | Picked up by                                                |
-| ------- | ----------------------------------------------------------- |
-| `sdk`   | `sync-sdks.yml`                                             |
-| `docs`  | `sync-sdks.yml` (separate drift class E)                    |
-| `adk`   | `sync-adks.yml`                                             |
-| `agent` | `bump-adl.yml`, `refresh-agent-manifest.yml`, `trigger-cd.yml` |
+| `kind`     | Picked up by                                                |
+| ---------- | ----------------------------------------------------------- |
+| `sdk`      | `sync-sdks.yml`, `stale.yml`                                |
+| `docs`     | `sync-sdks.yml` (separate drift class E), `stale.yml`       |
+| `adk`      | `sync-adks.yml`, `stale.yml`                                |
+| `agent`    | `bump-adl.yml`, `refresh-agent-manifest.yml`, `trigger-cd.yml`, `stale.yml` |
 
-The matrix step is always `yq -o=json -I=0 '[.targets[] | select(.kind == "<kind>")]' repos.yaml`. Keep that filter shape if you add new workflows.
+`stale.yml` is the only orchestrator that does not filter by `kind` - it sweeps every target. The sync and agent workflows filter via `yq -o=json -I=0 '[.targets[] | select(.kind == "<kind>")]' repos.yaml`; `stale.yml` uses the unfiltered `'[.targets[]]'`. Keep the same `yq` shape if you add new workflows.
 
-## Two workflow families, different rules
+## Three workflow families, different rules
 
 ### Sync orchestrators (`sync-sdks.yml`, `sync-adks.yml`) — issues only
 
@@ -47,6 +47,16 @@ These open PRs (mechanical, reviewable) or fire `workflow_dispatch` calls. Disti
 - **`bump-adl.yml` regenerates code and asserts `agent.yaml` is byte-identical afterwards.** Bumping the ADL CLI pin must not change the manifest — if the generator touches `agent.yaml`, the workflow fails by design. The companion workflow is the only legitimate path to modify `agent.yaml`.
 - **`refresh-agent-manifest.yml` is the only workflow that edits `agent.yaml`,** and only additively. It snapshots the paths in `PRESERVE_KEYS` (`spec.tools`, `spec.skills`, `spec.config`, `spec.services`), runs an additive deep merge of the fresh `adl init --defaults` scaffold (existing values win), then restores the preserved paths byte-for-byte. Keep the snapshot→merge→restore→validate order intact.
 - **`trigger-cd.yml` is fire-and-forget.** It dispatches each agent's own `cd.yml` and exits without waiting. Outcomes are observed on each target's Actions tab.
+
+### Lifecycle orchestrators (`stale.yml`) — write-through to issues across `repos.yaml`
+
+Daily cron + manual `workflow_dispatch` (with `-f dry_run=true` for preview). Distinct contracts:
+
+- **Cannot use `actions/stale`.** That action is hard-coded to `github.context.repo`; there is no input to target a foreign repo. The orchestrator does the equivalent via `gh issue list --search "updated:<… -label:stale …"` → label + comment, then `gh issue list --label stale --search "updated:<…"` → close.
+- **Matrix is every target in `repos.yaml` (no `kind` filter).** Out-of-`repos.yaml` org repos (e.g. `inference-gateway`, `cli`, `operator`, `registry`, `awesome-a2a`) are intentionally not swept by this workflow.
+- **Defaults: 30 d → mark `stale` → 7 d → close.** Exempt labels: `pinned`, `security`, `sdk-drift`, `adk-drift`. The two drift labels matter - the sync orchestrators file `[FEATURE] / [TASK] / [DOCS]` tickets that may legitimately sit open while a maintainer triages, so they must never get auto-closed.
+- **Search-query semantics rely on `updatedAt`.** Adding a label or comment bumps `updatedAt`, so the close step's `updated:<7d ago` filter correctly excludes any issue that received activity (including ours) within the grace window. This is why removal of the `stale` label on re-activity is *not* implemented - the close query already does the right thing.
+- **Issues only.** PRs are intentionally untouched.
 
 ## Auth model
 
@@ -68,6 +78,8 @@ gh workflow run bump-adl.yml --repo inference-gateway/.github -f adl_version=vX.
 gh workflow run bump-adl.yml --repo inference-gateway/.github -f adl_version=vX.Y.Z -f dry_run=true
 gh workflow run refresh-agent-manifest.yml --repo inference-gateway/.github -f adl_version=vX.Y.Z
 gh workflow run trigger-cd.yml --repo inference-gateway/.github
+gh workflow run stale.yml --repo inference-gateway/.github
+gh workflow run stale.yml --repo inference-gateway/.github -f dry_run=true
 
 # Validate repos.yaml shape after edits:
 yq '.targets[] | .kind' repos.yaml | sort -u   # should only print: adk agent docs sdk
