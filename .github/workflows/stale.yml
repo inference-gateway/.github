@@ -1,20 +1,15 @@
-name: Stale issues sweep across org
+name: Stale issues sweep
 
-# Daily sweep across every active repo where the maintainer App is installed.
-# For each repo, marks issues with no activity for 30 days as `stale` and
-# closes ones that remain stale for another 7 days. Replaces per-repo
-# stale.yml workflows so the policy lives in one place.
+# Daily sweep across every target in repos.yaml. For each repo, marks
+# issues with no activity for 30 days as `stale` and closes ones that
+# remain stale for another 7 days. Replaces per-repo stale.yml workflows
+# so the policy lives in one place.
 #
 # Exempt labels:
 #   - pinned, security: human override - never touch
 #   - sdk-drift, adk-drift: filed by sync-sdks.yml / sync-adks.yml as
 #     long-lived drift trackers; they may legitimately sit open for weeks
 #     while a maintainer triages.
-#
-# The matrix source is `gh api /installation/repositories` rather than
-# `repos.yaml`, so adding/removing the App on a repo automatically expands
-# or contracts coverage. Pre-merge: install
-# `inference-gateway-maintainer-bot` on every repo you want swept.
 
 on:
   schedule:
@@ -30,46 +25,28 @@ on:
 permissions: {}
 
 jobs:
-  enumerate:
+  matrix:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     outputs:
-      repos: ${{ steps.list.outputs.repos }}
+      targets: ${{ steps.read.outputs.targets }}
     steps:
-      - name: Mint App token (org installation)
-        id: token
-        uses: actions/create-github-app-token@v3.2.0
-        with:
-          client-id: ${{ secrets.BOT_MAINTAINER_APP_ID }}
-          private-key: ${{ secrets.BOT_MAINTAINER_APP_PRIVATE_KEY }}
-          owner: inference-gateway
-
-      - name: List repos the App is installed on
-        id: list
-        env:
-          GH_TOKEN: ${{ steps.token.outputs.token }}
+      - uses: actions/checkout@v6.0.2
+      - id: read
         run: |
-          set -euo pipefail
-          repos=$(gh api /installation/repositories --paginate \
-            --jq '[.repositories[]
-                   | select(.archived == false)
-                   | select(.name != ".github")
-                   | .name]')
-          count=$(jq length <<<"$repos")
-          echo "Found ${count} repos to sweep" >&2
-          jq -r '.[]' <<<"$repos" | sed 's/^/- /' >&2
-          echo "repos=$(jq -c <<<"$repos")" >> "$GITHUB_OUTPUT"
+          echo "targets=$(yq -o=json -I=0 '[.targets[]]' repos.yaml)" >> "$GITHUB_OUTPUT"
 
   sweep:
-    needs: enumerate
-    if: needs.enumerate.outputs.repos != '[]'
+    needs: matrix
     strategy:
       fail-fast: false
       max-parallel: 5
       matrix:
-        repo: ${{ fromJSON(needs.enumerate.outputs.repos) }}
+        target: ${{ fromJSON(needs.matrix.outputs.targets) }}
     runs-on: ubuntu-24.04
     steps:
-      - name: Mint App token (scoped to ${{ matrix.repo }})
+      - name: Mint App token (scoped to ${{ matrix.target.name }})
         id: token
         uses: actions/create-github-app-token@v3.2.0
         with:
@@ -77,12 +54,12 @@ jobs:
           private-key: ${{ secrets.BOT_MAINTAINER_APP_PRIVATE_KEY }}
           owner: inference-gateway
           repositories: |
-            ${{ matrix.repo }}
+            ${{ matrix.target.name }}
 
-      - name: Sweep stale issues in inference-gateway/${{ matrix.repo }}
+      - name: Sweep stale issues in inference-gateway/${{ matrix.target.name }}
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
-          GH_REPO: inference-gateway/${{ matrix.repo }}
+          GH_REPO: inference-gateway/${{ matrix.target.name }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
         run: |
           set -euo pipefail
