@@ -4,13 +4,15 @@ Org-level repo holding:
 
 - **Org profile** (`profile/README.md`) - what GitHub renders on the org page.
 - **Org-default issue templates** (`.github/ISSUE_TEMPLATE/`) - applied to any repo without local templates.
-- **Cross-repo orchestrators** - four workflows that fan out across downstream repos listed in [`repos.yaml`](./repos.yaml). Two families:
+- **Cross-repo orchestrators** - workflows that fan out across downstream repos. Three families:
   - **Sync orchestrators** - audit downstream repos against canonical specs in [`inference-gateway/schemas`](https://github.com/inference-gateway/schemas) and file structured drift issues for human review:
     - `sync-sdks.yml` audits each SDK and the docs site against the canonical OpenAPI spec.
     - `sync-adks.yml` audits each ADK against the canonical A2A JSON-RPC schema.
-  - **Agent orchestrators** - mechanical fan-out across `kind: agent` targets:
+  - **Agent orchestrators** - mechanical fan-out across `kind: agent` targets in [`repos.yaml`](./repos.yaml):
     - `bump-adl.yml` bumps every agent's ADL CLI pin to a given version, regenerates, and opens one PR per agent.
     - `trigger-cd.yml` dispatches each agent's own `cd.yml` to cut releases (fire-and-forget).
+  - **Lifecycle orchestrators** - cross-org maintenance, scoped to every repo the maintainer App is installed on (not `repos.yaml`):
+    - `stale.yml` marks issues with no activity for 30 days as `stale` and closes them 7 days later.
 
 ## How the SDK orchestrator works
 
@@ -100,6 +102,36 @@ each agent's own cd.yml runs semantic-release independently
 
 Fire-and-forget: this orchestrator does **not** wait for the dispatched releases to finish or report their outcomes back. Watch each agent's Actions tab for outcomes.
 
+## How the lifecycle orchestrators work
+
+### `stale.yml` - mark and close inactive issues across the org
+
+```
+cron: '15 3 * * *'  (daily, manual via workflow_dispatch with -f dry_run=true)
+   │
+   ▼
+.github/workflows/stale.yml
+   │  mints an org-installation App token, calls
+   │  GET /installation/repositories to enumerate every active repo
+   │  the maintainer App can reach (excludes archived + .github itself),
+   │  fans out matrix
+   ▼
+per-repo job:
+   │  mints a per-target scoped token
+   │  step 1: gh issue list updated:<30d -label:stale (minus exempt) → add `stale` label + warning comment
+   │  step 2: gh issue list label:stale updated:<7d → close with comment
+   ▼
+issues across every reachable repo
+```
+
+Distinct from the sync/agent orchestrators:
+
+- **Matrix source is the App's installed repos, not `repos.yaml`.** Installing or uninstalling the App on a repo automatically expands or contracts coverage; no edit here is needed.
+- **Cannot use `actions/stale` directly** - that action is hard-coded to operate on `github.context.repo` (the runner's own repo) and has no foreign-repo input. The orchestrator does the equivalent with `gh issue` calls against the matrix target.
+- **Exempt labels:** `pinned`, `security` (human override), and `sdk-drift`, `adk-drift` (long-lived drift trackers filed by the sync orchestrators - they may legitimately sit open while a maintainer triages).
+- **Dry-run support:** `gh workflow run stale.yml -f dry_run=true` prints the planned mark/close set per repo without modifying anything.
+- **Issues only.** PRs are intentionally left alone.
+
 ## Layout
 
 ```
@@ -110,7 +142,8 @@ Fire-and-forget: this orchestrator does **not** wait for the dispatched releases
     sync-adks.yml    # ADK audit (kind: adk)
     bump-adl.yml     # ADL CLI version bump fan-out (kind: agent)
     trigger-cd.yml   # release fan-out (kind: agent)
-repos.yaml           # downstream registry - drives every matrix
+    stale.yml        # org-wide stale-issue sweep (every App-installed repo)
+repos.yaml           # downstream registry - drives the sync + agent matrices
 profile/             # GitHub-rendered org profile
 ```
 
@@ -127,6 +160,10 @@ gh workflow run sync-adks.yml --repo inference-gateway/.github
 gh workflow run bump-adl.yml --repo inference-gateway/.github -f adl_version=vX.Y.Z
 gh workflow run bump-adl.yml --repo inference-gateway/.github -f adl_version=vX.Y.Z -f dry_run=true   # preview only
 gh workflow run trigger-cd.yml --repo inference-gateway/.github
+
+# Lifecycle orchestrators:
+gh workflow run stale.yml --repo inference-gateway/.github
+gh workflow run stale.yml --repo inference-gateway/.github -f dry_run=true   # preview only
 ```
 
 For SDK targets the workflow uses each SDK's own `task oas-download` to pull the canonical `openapi.yaml`. For docs it fetches raw from `inference-gateway/schemas`. For ADK targets the workflow uses each ADK's own `task a2a:download-schema` to pull the canonical `a2a/a2a-schema.yaml`. Both sync workflows always audit against current `main` of `schemas`.
@@ -140,6 +177,7 @@ Before the orchestrators can run end-to-end, the following pieces need to land s
    - Sync workflows: `issues: write` on the target + `contents: read` on the target and `schemas`.
    - `bump-adl.yml`: `contents: write`, `pull-requests: write`, and `workflows: write` (because regeneration rewrites `.github/workflows/{ci,cd}.yml`) on every `kind: agent` target.
    - `trigger-cd.yml`: `actions: write` on every `kind: agent` target (to call `gh workflow run cd.yml`).
+   - `stale.yml`: `issues: write` (label, comment, close) + `metadata: read` (implicit, used by `GET /installation/repositories`) on every repo where the App is installed. Coverage tracks where the App is installed, not `repos.yaml` - install it on any extra org repo (e.g. `inference-gateway`, `cli`, `operator`, `registry`, `awesome-a2a`) that should be swept.
 3. **Dispatch workflows in `inference-gateway/schemas`** that fire `repository_dispatch` to this repo:
    - `event_type: spec-updated` whenever `openapi.yaml` changes on `main` (drives `sync-sdks.yml`).
    - `event_type: a2a-spec-updated` whenever `a2a/a2a-schema.yaml` changes on `main` (drives `sync-adks.yml`).

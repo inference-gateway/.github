@@ -1,0 +1,151 @@
+name: Stale issues sweep across org
+
+# Daily sweep across every active repo where the maintainer App is installed.
+# For each repo, marks issues with no activity for 30 days as `stale` and
+# closes ones that remain stale for another 7 days. Replaces per-repo
+# stale.yml workflows so the policy lives in one place.
+#
+# Exempt labels:
+#   - pinned, security: human override - never touch
+#   - sdk-drift, adk-drift: filed by sync-sdks.yml / sync-adks.yml as
+#     long-lived drift trackers; they may legitimately sit open for weeks
+#     while a maintainer triages.
+#
+# The matrix source is `gh api /installation/repositories` rather than
+# `repos.yaml`, so adding/removing the App on a repo automatically expands
+# or contracts coverage. Pre-merge: install
+# `inference-gateway-maintainer-bot` on every repo you want swept.
+
+on:
+  schedule:
+    - cron: '15 3 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Print planned actions without modifying issues'
+        required: false
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+  enumerate:
+    runs-on: ubuntu-24.04
+    outputs:
+      repos: ${{ steps.list.outputs.repos }}
+    steps:
+      - name: Mint App token (org installation)
+        id: token
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          client-id: ${{ secrets.BOT_MAINTAINER_APP_ID }}
+          private-key: ${{ secrets.BOT_MAINTAINER_APP_PRIVATE_KEY }}
+          owner: inference-gateway
+
+      - name: List repos the App is installed on
+        id: list
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          set -euo pipefail
+          repos=$(gh api /installation/repositories --paginate \
+            --jq '[.repositories[]
+                   | select(.archived == false)
+                   | select(.name != ".github")
+                   | .name]')
+          count=$(jq length <<<"$repos")
+          echo "Found ${count} repos to sweep" >&2
+          jq -r '.[]' <<<"$repos" | sed 's/^/- /' >&2
+          echo "repos=$(jq -c <<<"$repos")" >> "$GITHUB_OUTPUT"
+
+  sweep:
+    needs: enumerate
+    if: needs.enumerate.outputs.repos != '[]'
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        repo: ${{ fromJSON(needs.enumerate.outputs.repos) }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Mint App token (scoped to ${{ matrix.repo }})
+        id: token
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          client-id: ${{ secrets.BOT_MAINTAINER_APP_ID }}
+          private-key: ${{ secrets.BOT_MAINTAINER_APP_PRIVATE_KEY }}
+          owner: inference-gateway
+          repositories: |
+            ${{ matrix.repo }}
+
+      - name: Sweep stale issues in inference-gateway/${{ matrix.repo }}
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          GH_REPO: inference-gateway/${{ matrix.repo }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: |
+          set -euo pipefail
+
+          STALE_LABEL=stale
+          STALE_DAYS=30
+          CLOSE_DAYS=7
+          EXEMPT='-label:pinned -label:security -label:sdk-drift -label:adk-drift'
+
+          stale_cutoff=$(date -u -d "${STALE_DAYS} days ago" +%Y-%m-%d)
+          close_cutoff=$(date -u -d "${CLOSE_DAYS} days ago" +%Y-%m-%d)
+
+          {
+            echo "### ${GH_REPO}"
+            echo
+            echo "- mark cutoff: \`${stale_cutoff}\` (no activity since)"
+            echo "- close cutoff: \`${close_cutoff}\` (stale label + no activity since)"
+            echo "- dry run: \`${DRY_RUN}\`"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # 1. Mark newly-stale issues
+          mapfile -t to_mark < <(
+            gh issue list \
+              --state open \
+              --search "updated:<${stale_cutoff} -label:${STALE_LABEL} ${EXEMPT}" \
+              --limit 200 \
+              --json number \
+              --jq '.[].number'
+          )
+          echo "Marking ${#to_mark[@]} issue(s) as stale"
+          echo "Mark candidates: ${#to_mark[@]}" >> "$GITHUB_STEP_SUMMARY"
+          for n in "${to_mark[@]}"; do
+            if [ "${DRY_RUN}" = "true" ]; then
+              echo "  [DRY] would mark #${n}"
+              echo "  - [DRY] mark #${n}" >> "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+            gh issue edit "${n}" --add-label "${STALE_LABEL}"
+            gh issue comment "${n}" --body "This issue has been automatically marked as stale because it has not had any activity for ${STALE_DAYS} days. It will be closed in ${CLOSE_DAYS} days if no further activity occurs. Comment or remove the \`${STALE_LABEL}\` label to keep it open."
+            echo "  marked #${n}"
+            echo "  - marked #${n}" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+          # 2. Close issues that have remained stale
+          mapfile -t to_close < <(
+            gh issue list \
+              --state open \
+              --label "${STALE_LABEL}" \
+              --search "updated:<${close_cutoff}" \
+              --limit 200 \
+              --json number \
+              --jq '.[].number'
+          )
+          echo "Closing ${#to_close[@]} stale issue(s)"
+          echo "Close candidates: ${#to_close[@]}" >> "$GITHUB_STEP_SUMMARY"
+          for n in "${to_close[@]}"; do
+            if [ "${DRY_RUN}" = "true" ]; then
+              echo "  [DRY] would close #${n}"
+              echo "  - [DRY] close #${n}" >> "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+            gh issue close "${n}" --comment "This issue has been automatically closed due to inactivity. Feel free to reopen it if it is still relevant."
+            echo "  closed #${n}"
+            echo "  - closed #${n}" >> "$GITHUB_STEP_SUMMARY"
+          done
