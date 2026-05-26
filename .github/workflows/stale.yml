@@ -12,8 +12,8 @@ name: Stale issues sweep
 #     while a maintainer triages.
 
 on:
-  schedule:
-    - cron: '15 3 * * *'
+  # schedule:
+  #   - cron: '15 3 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
