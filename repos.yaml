@@ -23,6 +23,9 @@ targets:
   - name: rust-adk
     language: Rust
     kind: adk
+  - name: typescript-adk
+    language: Typescript
+    kind: adk
   - name: browser-agent
     language: Go
     kind: agent
