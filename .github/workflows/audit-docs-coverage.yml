@@ -1,0 +1,360 @@
+name: Audit docs coverage across ecosystem
+
+# Maintainer-triggered sweep. For each non-docs target in repos.yaml, runs
+# Claude Code Action with an audit prompt that compares the source repo's
+# user-facing surface (README, examples, exported APIs, agent skills/tools,
+# config) against inference-gateway/docs and files structured [DOCS] /
+# [TASK] Refactor issues on the DOCS repo for a human to triage. Inverts
+# the sync-sdks/sync-adks shape: one shared OUTPUT (docs) audited against
+# many sources, not one shared spec audited across many targets.
+#
+# The orchestrator does NOT mention @claude on the issues and does NOT
+# trigger any downstream automation - issues are notifications only; a
+# maintainer decides whether to implement, defer, or close.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run audit but skip issue create/edit/comment (log planned actions only)'
+        required: false
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+  matrix:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      targets: ${{ steps.read.outputs.targets }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - id: read
+        run: echo "targets=$(yq -o=json -I=0 '[.targets[] | select(.kind != "docs")]' repos.yaml)" >> "$GITHUB_OUTPUT"
+
+  audit:
+    needs: matrix
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        target: ${{ fromJSON(needs.matrix.outputs.targets) }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout orchestrator (.github)
+        uses: actions/checkout@v6.0.2
+
+      - name: Mint GitHub App token (scoped to source + docs)
+        id: token
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          client-id: ${{ secrets.BOT_MAINTAINER_APP_ID }}
+          private-key: ${{ secrets.BOT_MAINTAINER_APP_PRIVATE_KEY }}
+          owner: inference-gateway
+          repositories: |
+            ${{ matrix.target.name }}
+            docs
+
+      - name: Checkout source target
+        uses: actions/checkout@v6.0.2
+        with:
+          repository: inference-gateway/${{ matrix.target.name }}
+          path: source
+          token: ${{ steps.token.outputs.token }}
+
+      - name: Checkout docs repo
+        uses: actions/checkout@v6.0.2
+        with:
+          repository: inference-gateway/docs
+          path: docs
+          token: ${{ steps.token.outputs.token }}
+
+      - name: Resolve docs main HEAD SHA
+        id: docs
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          sha=$(gh api repos/inference-gateway/docs/commits/main --jq .sha)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Audit source surface against docs and file coverage issues
+        uses: anthropics/claude-code-action@v1.0.133
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ steps.token.outputs.token }}
+          display_report: true
+          claude_args: '--model claude-opus-4-7 --allowedTools "Read,Bash(gh:*),Bash(git:*),Bash(grep:*),Bash(rg:*),Bash(find:*),Bash(ls:*),Bash(cat:*),Bash(wc:*),Bash(diff:*),Bash(yq:*),Bash(jq:*)"'
+          prompt: |
+            You are auditing the GitHub repository
+            `inference-gateway/${{ matrix.target.name }}`
+            (${{ matrix.target.language }}, kind=${{ matrix.target.kind }})
+            against `inference-gateway/docs` to detect documentation-coverage
+            drift. File structured issues on the DOCS repo (not on the source
+            repo) so a maintainer can review and triage them.
+
+            **You are NOT triggering any automation. Do not mention `@claude`
+            anywhere in issue titles, bodies, or comments. Issues are
+            notifications for a human reviewer; the maintainer will decide
+            whether to implement, defer, or close.**
+
+            **Inputs already on disk:**
+            - `./source/` - the source repo's working tree at its default branch
+            - `./docs/` - inference-gateway/docs at SHA `${{ steps.docs.outputs.sha }}`
+              (VitePress site; all top-level `.md` files are the user-facing
+              pages, e.g. `sdks.md`, `a2a.md`, `adl-cli.md`, `api-reference.md`,
+              `mcp.md`, `cli.md`, `configuration.md`, `supported-providers.md`,
+              `registry.md`)
+
+            **Dry-run:** if `DRY_RUN=true`, run the analysis and print every
+            planned `gh issue create / edit / comment` command prefixed
+            `[DRY]` to stdout instead of executing them. Read-only `gh issue
+            list` queries and the GraphQL Issue Type lookups still run so the
+            dry-run output reflects what types would have been applied. Still
+            print the final per-source summary line.
+
+            **Authentication:** use `gh` (token in `GH_TOKEN`). The token has
+            `issues:write` on `inference-gateway/docs` and `contents:read` on
+            `inference-gateway/${{ matrix.target.name }}` and
+            `inference-gateway/docs`. No other permissions. Do not attempt to
+            push, open PRs, or modify code in either repo.
+
+            ---
+
+            ## Think before you file
+
+            Before invoking any `gh` write command, think through what the
+            user-facing surface of `inference-gateway/${{ matrix.target.name }}`
+            actually is, and which `docs/*.md` page (or pages) is its natural
+            home. Use `Read`, `grep`, and `find` against `./source/` to
+            enumerate that surface; use the same tools against `./docs/` to
+            see what is documented. The goal is to file high-signal tickets
+            that a docs maintainer can act on, not exhaustive diffs.
+
+            ## Scope by kind
+
+            The orchestrator routes every non-docs target here. The
+            `repos.yaml` `kind` field tells you which surface and which docs
+            pages matter:
+
+            ### kind=sdk (python-sdk, typescript-sdk, rust-sdk, sdk)
+
+            Surface to enumerate from `./source/`:
+            - public client methods (`Client.<method>` in Python/Rust/TS;
+              exported methods on `clientImpl` for the Go SDK; the Rust SDK
+              exposes its API via a `pub trait` whose method names are the
+              surface)
+            - README "Quick start" / "Features" / "Usage" sections
+            - top-level `examples/` directory (each file is a documented
+              capability)
+            - constructor options / env-var support (e.g. `with*` builders)
+
+            Docs pages that should reference SDK features:
+            - `docs/sdks.md` (primary - installation, usage, supported methods)
+            - `docs/api-reference.md` (operation list)
+            - per-page mentions where SDKs come up (e.g. `configuration.md`
+              env vars that SDK constructors mirror)
+
+            ### kind=adk (adk, rust-adk, typescript-adk)
+
+            Surface to enumerate from `./source/`:
+            - A2A server / client public methods (`A2AServer`,
+              `A2AServerBuilder`, `A2AClient` and their methods)
+            - README "Quick start" / "Features" sections
+            - `examples/` directory
+            - ADL CLI scaffolding behavior the ADK depends on
+
+            Docs pages that should reference ADK features:
+            - `docs/a2a.md` (A2A protocol)
+            - `docs/adl-cli.md` (ADL CLI usage that scaffolds these ADKs)
+            - overlap in `docs/sdks.md`
+
+            ### kind=agent (browser-agent, documentation-agent, google-calendar-agent, grafana-agent, mock-agent, n8n-agent)
+
+            Surface to enumerate from `./source/`:
+            - `agent.yaml` `spec.skills[]` (the agent's advertised skills)
+            - `agent.yaml` `spec.tools[]` (callable tools)
+            - `agent.yaml` `spec.config[]` / `spec.services[]` (config and
+              runtime dependencies)
+            - README capability list / examples
+
+            Docs pages that should reference agent capabilities:
+            - `docs/registry.md` (the registry of available agents in the
+              ecosystem)
+            - any agent-specific page (look for the agent name as filename
+              or H1 heading)
+
+            ## What NOT to flag
+
+            - Internal implementation details (private helpers, internal
+              packages, test utilities) - docs only cover the user-facing
+              surface.
+            - Generated files (anything under `generated*` paths,
+              `*_types.go`, `src/generated/`, `src/types/generated/`,
+              `a2a_types.rs`, `models.py`) - these are tracked by the
+              existing `sync-sdks.yml` / `sync-adks.yml` workflows, NOT
+              here. Filing duplicate "regenerate types" tickets would
+              collide with their long-lived `sdk-drift` / `adk-drift`
+              issues.
+            - The five proxy operations (`proxyGet`, `proxyPost`, `proxyPut`,
+              `proxyDelete`, `proxyPatch`) under `/proxy/{provider}/{path}` -
+              they are gateway-internal pass-throughs, not part of any
+              documented surface. This is load-bearing: the tracker has
+              been polluted by repeated false-positive issues about these
+              endpoints.
+            - OpenAPI `operationId` or A2A JSON-RPC method coverage gaps -
+              those are the domain of `sync-sdks.yml` (class E) and
+              `sync-adks.yml`. THIS workflow audits README / examples /
+              skills / tools narrative coverage only, never spec-level
+              operation coverage.
+            - Trivial wording / typo nits - file high-signal coverage gaps
+              only.
+
+            ## What to do for each finding
+
+            For each drift class with at least one finding for THIS source
+            target, file or refresh **exactly one** issue on
+            `inference-gateway/docs`. Use these **exact** stable titles for
+            de-dup (idempotency depends on byte-exact title match), with the
+            matching Issue Type and labels:
+
+            | Class | Title | Type | Labels |
+            | --- | --- | --- | --- |
+            | A | `[DOCS] Document missing features for inference-gateway/${{ matrix.target.name }}` | `documentation` | `documentation,docs-coverage` |
+            | B | `[TASK] Refactor stale documentation for inference-gateway/${{ matrix.target.name }}` | `task` | `refactor,docs-coverage` |
+
+            The title prefixes (`[DOCS] ` / `[TASK] Refactor `) are inherited
+            from the org-default `documentation_request.md` /
+            `refactor_request.md` templates. Embedding the fully-qualified
+            source repo name in the title is what keeps titles unique across
+            the parallel matrix jobs writing into the same `docs` tracker -
+            changing the source-name segment orphans every open issue using
+            the prior title, exactly the same constraint as sync-sdks /
+            sync-adks issue titles.
+
+            **Body shape** must follow the org's `documentation_request.md` /
+            `refactor_request.md` template style. ASCII-only (target is
+            `docs`). Do not include `@claude` anywhere:
+
+            ```
+            ## Summary
+
+            <one paragraph naming the gap. Reference the source repo at its
+            current default branch and the docs SHA being audited against:
+            https://github.com/inference-gateway/docs/tree/${{ steps.docs.outputs.sha }}>
+
+            <bulleted gap list - feature names, file paths in ./source/, and
+            the docs page(s) where the documentation belongs or is currently
+            stale>
+
+            ### Acceptance Criteria
+
+            - [ ] <concrete, repo-specific step 1, e.g. "Add a `Streaming`
+                  section to `sdks.md` covering the Python SDK's
+                  `chat_completions_stream` helper">
+            - [ ] <concrete, repo-specific step 2>
+            - [ ] PR description links this issue.
+
+            ---
+
+            <sub>Filed automatically by the inference-gateway docs-coverage audit orchestrator (source: `inference-gateway/${{ matrix.target.name }}`). Re-runs refresh this body in place. A maintainer should review and decide on next steps.</sub>
+            ```
+
+            ## Idempotency
+
+            Before creating any issue, search the **docs repo** (not the
+            source repo) for an existing open issue with the exact same title:
+
+            ```
+            gh issue list --repo inference-gateway/docs \
+              --state open \
+              --search "in:title \"<exact title>\"" \
+              --json number,title
+            ```
+
+            - If a match exists: `gh issue edit <num> --repo inference-gateway/docs --body-file -`
+              (read body from stdin) to refresh, then
+              `gh issue comment <num> --repo inference-gateway/docs --body "Re-audit complete - refreshed gap list above. Docs is now at ${{ steps.docs.outputs.sha }}."`
+            - If no match: `gh issue create --repo inference-gateway/docs`
+              with the labels from the table above for that class
+              (`--label documentation,docs-coverage` for class A;
+              `--label refactor,docs-coverage` for class B).
+
+            Under `DRY_RUN=true`, print every `gh issue create / edit /
+            comment` command you would have run, prefixed `[DRY]`, and skip
+            execution. Read-only `gh issue list` queries and the GraphQL
+            type-ID lookups in the next section still run.
+
+            ## Setting the Issue Type
+
+            `gh issue create` and `gh issue edit` have **no** `--type` flag -
+            template `type:` frontmatter is only honored when issues are
+            filed through the GitHub UI. After every create or edit, set the
+            Issue Type via the GraphQL `updateIssueIssueType` mutation. Skip
+            this step under `DRY_RUN=true`.
+
+            Resolve the org's Issue Type IDs **once per run** and reuse them:
+
+            ```
+            gh api graphql -f query='
+              query($org:String!) {
+                organization(login:$org) {
+                  issueTypes(first:20) { nodes { id name } }
+                }
+              }' -f org=inference-gateway
+            ```
+
+            Match `name` case-insensitively to the class's type from the table
+            above (`documentation` or `task`). Then resolve the issue's node
+            ID and patch:
+
+            ```
+            issue_id=$(gh api graphql -f query='
+              query($owner:String!,$repo:String!,$num:Int!) {
+                repository(owner:$owner,name:$repo) { issue(number:$num) { id } }
+              }' -f owner=inference-gateway -f repo=docs \
+                 -F num=<n> --jq .data.repository.issue.id)
+
+            gh api graphql -f query='
+              mutation($issueId:ID!,$typeId:ID!) {
+                updateIssueIssueType(input:{issueId:$issueId,issueTypeId:$typeId}) {
+                  issue { number issueType { name } }
+                }
+              }' -f issueId="$issue_id" -f typeId="<resolved type id>"
+            ```
+
+            If the lookup returns no matching type (e.g. `documentation` not
+            yet defined on the org), log a clear warning to stdout
+            (`warn: missing issue type "<name>" on inference-gateway org - leaving issue untyped`)
+            and continue - do not fail the run.
+
+            ## Hard rules
+
+            - Never modify any file under `./source/` or `./docs/`.
+            - Never open a PR.
+            - Never mention `@claude` in issue titles, bodies, or comments.
+            - File at most one issue per drift class per source target per
+              run (so at most 2 issues per matrix job: one class A, one
+              class B).
+            - Always file against `inference-gateway/docs`, never against
+              `inference-gateway/${{ matrix.target.name }}`. The source
+              repo's tracker is out of scope for this workflow.
+            - Since the target is `docs`, never use em dashes (U+2014) or
+              en dashes (U+2013) in issue titles, bodies, or comments - use
+              a plain ASCII hyphen-minus (U+002D) instead. This applies to
+              every character you emit, including the `<sub>` footer and
+              the "Re-audit complete" comment.
+            - Do not duplicate findings already tracked by sync-sdks /
+              sync-adks: spec-level operation gaps belong there;
+              README / examples / skills narrative coverage belongs here.
+            - If both drift classes are clean for this source target, file
+              nothing and just print
+              `summary: source=${{ matrix.target.name }} status=in-sync`.
+            - End with a single-line summary, e.g.
+              `summary: source=${{ matrix.target.name }} filed=[A] clean=[B]`
+              (suffix ` (DRY_RUN)` under dry-run).

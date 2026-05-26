@@ -7,9 +7,10 @@ name: Stale issues sweep
 #
 # Exempt labels:
 #   - pinned, security: human override - never touch
-#   - sdk-drift, adk-drift: filed by sync-sdks.yml / sync-adks.yml as
-#     long-lived drift trackers; they may legitimately sit open for weeks
-#     while a maintainer triages.
+#   - sdk-drift, adk-drift, docs-coverage: filed by sync-sdks.yml /
+#     sync-adks.yml / audit-docs-coverage.yml as long-lived drift
+#     trackers; they may legitimately sit open for weeks while a
+#     maintainer triages.
 
 on:
   # schedule:
@@ -67,7 +68,7 @@ jobs:
           STALE_LABEL=stale
           STALE_DAYS=30
           CLOSE_DAYS=7
-          EXEMPT='-label:pinned -label:security -label:sdk-drift -label:adk-drift'
+          EXEMPT='-label:pinned -label:security -label:sdk-drift -label:adk-drift -label:docs-coverage'
 
           stale_cutoff=$(date -u -d "${STALE_DAYS} days ago" +%Y-%m-%d)
           close_cutoff=$(date -u -d "${CLOSE_DAYS} days ago" +%Y-%m-%d)

@@ -21,24 +21,39 @@ Every orchestrator reads `repos.yaml`. Adding or removing a downstream repo = on
 
 | `kind`     | Picked up by                                                |
 | ---------- | ----------------------------------------------------------- |
-| `sdk`      | `sync-sdks.yml`, `stale.yml`                                |
+| `sdk`      | `sync-sdks.yml`, `audit-docs-coverage.yml`, `stale.yml`     |
 | `docs`     | `sync-sdks.yml` (separate drift class E), `stale.yml`       |
-| `adk`      | `sync-adks.yml`, `stale.yml`                                |
-| `agent`    | `bump-adl.yml`, `refresh-agent-manifest.yml`, `trigger-cd.yml`, `stale.yml` |
+| `adk`      | `sync-adks.yml`, `audit-docs-coverage.yml`, `stale.yml`     |
+| `agent`    | `bump-adl.yml`, `refresh-agent-manifest.yml`, `trigger-cd.yml`, `audit-docs-coverage.yml`, `stale.yml` |
 
-`stale.yml` is the only orchestrator that does not filter by `kind` - it sweeps every target. The sync and agent workflows filter via `yq -o=json -I=0 '[.targets[] | select(.kind == "<kind>")]' repos.yaml`; `stale.yml` uses the unfiltered `'[.targets[]]'`. Keep the same `yq` shape if you add new workflows.
+Three `yq` shapes exist; pick the one that matches what your workflow needs:
+
+- `select(.kind == "<kind>")` - `sync-sdks.yml` (`sdk` or `docs`), `sync-adks.yml` (`adk`), and every `kind: agent` orchestrator filter this way.
+- `[.targets[]]` (no filter) - `stale.yml` sweeps every target regardless of `kind`.
+- `select(.kind != "docs")` - `audit-docs-coverage.yml` inverts the filter to exclude the audit's *output* (`docs`) from the source list. It is the only workflow that does this.
+
+Keep one of these shapes if you add a new workflow; don't invent a fourth.
 
 ## Three workflow families, different rules
 
-### Sync orchestrators (`sync-sdks.yml`, `sync-adks.yml`) — issues only
+### Sync orchestrators (`sync-sdks.yml`, `sync-adks.yml`, `audit-docs-coverage.yml`) — issues only
 
-These run `anthropics/claude-code-action` with an audit prompt and file structured drift issues on the target repo. Hard invariants when editing their prompts:
+These run `anthropics/claude-code-action` with an audit prompt and file structured drift issues. Hard invariants when editing their prompts:
 
 - **Never open PRs, never modify target code, never mention `@claude`.** Issues are notifications for a human reviewer.
 - **Issue titles are load-bearing for idempotency.** Re-runs find existing issues via byte-exact title match (`gh issue list --search 'in:title "<exact title>"'`). Changing a title in the prompt orphans every open issue using the old title — open issues will pile up as duplicates. The title→class→Issue Type→labels table in each prompt is the contract.
 - **`gh issue create/edit` has no `--type` flag.** Setting the Issue Type requires the GraphQL `updateIssueIssueType` mutation after creation. The prompt walks through this — preserve that sequence.
-- **Proxy endpoints are exempt** from drift classes A, C, E across every SDK and docs target (`proxyGet/Post/Put/Delete/Patch` under `/proxy/{provider}/{path}`). This exemption is explicitly called out as load-bearing because the tracker was repeatedly polluted by false-positive class A issues about these endpoints.
-- **`docs` target is ASCII-only.** No em dashes (`—` U+2014) or en dashes (`–` U+2013) anywhere in titles, bodies, or comments — plain hyphen-minus (`-`) only. Applies to every character emitted for that target.
+- **Proxy endpoints are exempt** from drift classes A, C, E across every SDK and docs target (`proxyGet/Post/Put/Delete/Patch` under `/proxy/{provider}/{path}`). This exemption is explicitly called out as load-bearing because the tracker was repeatedly polluted by false-positive class A issues about these endpoints. `audit-docs-coverage.yml` carries the same exemption.
+- **`docs` target is ASCII-only.** No em dashes (`—` U+2014) or en dashes (`–` U+2013) anywhere in titles, bodies, or comments — plain hyphen-minus (`-`) only. Applies to every character emitted for that target. `audit-docs-coverage.yml` always writes to `docs`, so the rule applies to every issue it files, regardless of source kind.
+
+**`audit-docs-coverage.yml` inverts the direction of the other two.** sync-sdks and sync-adks audit many targets against one shared spec and file on the target repo. audit-docs-coverage audits one shared output (`docs`) against many sources and files on `inference-gateway/docs`. Practical consequences when editing its prompt:
+
+- Matrix filter is `select(.kind != "docs")` (excludes the output from the source list), not `select(.kind == "X")`.
+- The App token's `repositories:` field lists **both** the source target and `docs`.
+- Issue titles MUST embed the fully-qualified source repo name (`[DOCS] Document missing features for inference-gateway/<source>` and `[TASK] Refactor stale documentation for inference-gateway/<source>`) so the byte-exact match stays unique across the parallel matrix writing to one tracker. Changing the source-name segment orphans every open issue using the prior title - same load-bearing constraint as the title→class→type table in sync-sdks / sync-adks.
+- The `docs-coverage` label narrows the broad `documentation` / `refactor` labels (same role `sdk-drift` / `adk-drift` play for sync-sdks / sync-adks) so `stale.yml` exempts only the auto-filed coverage tickets, not unrelated human-filed `documentation` issues.
+- Trigger is `workflow_dispatch` only (with a `dry_run: boolean` input) — there is no upstream "docs changed" event to react to; coverage gaps drift on the source side.
+- Stays out of `sync-sdks.yml` / `sync-adks.yml` territory: spec-level operation gaps (operationIds, JSON-RPC methods, generated types, vendored spec staleness) belong to those workflows; this one audits README / examples / skills / tools narrative coverage only. Duplicate "regenerate types" tickets would collide with the existing long-lived `sdk-drift` / `adk-drift` issues.
 
 ### Agent orchestrators (`bump-adl.yml`, `refresh-agent-manifest.yml`, `trigger-cd.yml`) — PRs or dispatch
 
@@ -54,7 +69,7 @@ Daily cron + manual `workflow_dispatch` (with `-f dry_run=true` for preview). Di
 
 - **Cannot use `actions/stale`.** That action is hard-coded to `github.context.repo`; there is no input to target a foreign repo. The orchestrator does the equivalent via `gh issue list --search "updated:<… -label:stale …"` → label + comment, then `gh issue list --label stale --search "updated:<…"` → close.
 - **Matrix is every target in `repos.yaml` (no `kind` filter).** Out-of-`repos.yaml` org repos (e.g. `inference-gateway`, `cli`, `operator`, `registry`, `awesome-a2a`) are intentionally not swept by this workflow.
-- **Defaults: 30 d → mark `stale` → 7 d → close.** Exempt labels: `pinned`, `security`, `sdk-drift`, `adk-drift`. The two drift labels matter - the sync orchestrators file `[FEATURE] / [TASK] / [DOCS]` tickets that may legitimately sit open while a maintainer triages, so they must never get auto-closed.
+- **Defaults: 30 d → mark `stale` → 7 d → close.** Exempt labels: `pinned`, `security`, `sdk-drift`, `adk-drift`, `docs-coverage`. The three drift labels matter - all three sync orchestrators (sync-sdks, sync-adks, audit-docs-coverage) file `[FEATURE] / [TASK] / [DOCS]` tickets that may legitimately sit open while a maintainer triages, so they must never get auto-closed.
 - **Search-query semantics rely on `updatedAt`.** Adding a label or comment bumps `updatedAt`, so the close step's `updated:<7d ago` filter correctly excludes any issue that received activity (including ours) within the grace window. This is why removal of the `stale` label on re-activity is *not* implemented - the close query already does the right thing.
 - **Issues only.** PRs are intentionally untouched.
 
@@ -74,6 +89,8 @@ Per-workflow App permission requirements are documented in `README.md` under "Pr
 # Manual runs (any workflow supports workflow_dispatch):
 gh workflow run sync-sdks.yml --repo inference-gateway/.github
 gh workflow run sync-adks.yml --repo inference-gateway/.github
+gh workflow run audit-docs-coverage.yml --repo inference-gateway/.github
+gh workflow run audit-docs-coverage.yml --repo inference-gateway/.github -f dry_run=true
 gh workflow run bump-adl.yml --repo inference-gateway/.github -f adl_version=vX.Y.Z
 gh workflow run bump-adl.yml --repo inference-gateway/.github -f adl_version=vX.Y.Z -f dry_run=true
 gh workflow run refresh-agent-manifest.yml --repo inference-gateway/.github -f adl_version=vX.Y.Z

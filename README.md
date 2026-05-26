@@ -5,9 +5,10 @@ Org-level repo holding:
 - **Org profile** (`profile/README.md`) - what GitHub renders on the org page.
 - **Org-default issue templates** (`.github/ISSUE_TEMPLATE/`) - applied to any repo without local templates.
 - **Cross-repo orchestrators** - workflows that fan out across downstream repos listed in [`repos.yaml`](./repos.yaml). Three families:
-  - **Sync orchestrators** - audit downstream repos against canonical specs in [`inference-gateway/schemas`](https://github.com/inference-gateway/schemas) and file structured drift issues for human review:
-    - `sync-sdks.yml` audits each SDK and the docs site against the canonical OpenAPI spec.
-    - `sync-adks.yml` audits each ADK against the canonical A2A JSON-RPC schema.
+  - **Sync orchestrators** - audit downstream repos and file structured drift issues for human review:
+    - `sync-sdks.yml` audits each SDK and the docs site against the canonical OpenAPI spec in [`inference-gateway/schemas`](https://github.com/inference-gateway/schemas).
+    - `sync-adks.yml` audits each ADK against the canonical A2A JSON-RPC schema in [`inference-gateway/schemas`](https://github.com/inference-gateway/schemas).
+    - `audit-docs-coverage.yml` audits each SDK, ADK, and agent's user-facing surface (README, examples, skills, tools, config) against the [`inference-gateway/docs`](https://github.com/inference-gateway/docs) site and files `[DOCS]` / `[TASK] Refactor` issues on the docs repo.
   - **Agent orchestrators** - mechanical fan-out across `kind: agent` targets:
     - `bump-adl.yml` bumps every agent's ADL CLI pin to a given version, regenerates, and opens one PR per agent.
     - `trigger-cd.yml` dispatches each agent's own `cd.yml` to cut releases (fire-and-forget).
@@ -51,6 +52,33 @@ issues on adk / rust-adk (typescript-adk added once the repo exists)
    ▼
 maintainer reviews each issue and decides next steps
 ```
+
+## How the docs-coverage orchestrator works
+
+```
+maintainer runs: gh workflow run audit-docs-coverage.yml [-f dry_run=true]
+   │
+   ▼
+.github/workflows/audit-docs-coverage.yml
+   │  reads repos.yaml (every kind except docs), fans out matrix
+   ▼
+claude-code-action (one per source repo)
+   │  reads source tree + docs tree, detects coverage gaps,
+   │  files structured [DOCS] / [TASK] Refactor issues
+   ▼
+issues on inference-gateway/docs (NOT on the source repos)
+   │
+   ▼
+maintainer reviews each issue and decides next steps
+```
+
+Distinct from `sync-sdks.yml` / `sync-adks.yml`:
+
+- **Inverted direction.** Those audit many targets against one shared spec; this orchestrator audits one shared output (`docs`) against many sources. The matrix filter is `select(.kind != "docs")` to exclude the audit's output from the source list.
+- **No `repository_dispatch` trigger.** Coverage gaps drift on the source side, not on a spec push, so there is no upstream event to react to. Maintainer-triggered via `workflow_dispatch` only.
+- **Two drift classes only.** A = missing docs (`[DOCS]`, type `documentation`), B = stale docs (`[TASK] Refactor`, type `task`). Spec-level operation gaps belong to `sync-sdks.yml` (class E) and `sync-adks.yml`; this workflow audits narrative coverage (README / examples / skills / tools / config) only.
+- **Title contains the source name.** Because all 13 matrix jobs write to the same `docs` tracker, titles must be unique per source: `[DOCS] Document missing features for inference-gateway/<source>` and `[TASK] Refactor stale documentation for inference-gateway/<source>`.
+- **Always ASCII.** Output target is always `docs`, so the hyphen-minus rule applies to every emitted character (titles, bodies, comments).
 
 Key invariants for the sync orchestrators (do **not** apply to the agent orchestrators below):
 
@@ -125,7 +153,7 @@ Distinct from the sync/agent orchestrators:
 
 - **No `kind` filter.** Every target in `repos.yaml` is swept regardless of `kind`. Adding or removing a target from the sweep = same single PR to `repos.yaml` that already routes the target to its sync or agent workflow.
 - **Cannot use `actions/stale` directly** - that action is hard-coded to operate on `github.context.repo` (the runner's own repo) and has no foreign-repo input. The orchestrator does the equivalent with `gh issue` calls against the matrix target.
-- **Exempt labels:** `pinned`, `security` (human override), and `sdk-drift`, `adk-drift` (long-lived drift trackers filed by the sync orchestrators - they may legitimately sit open while a maintainer triages).
+- **Exempt labels:** `pinned`, `security` (human override), and `sdk-drift`, `adk-drift`, `docs-coverage` (long-lived drift trackers filed by the sync orchestrators - they may legitimately sit open while a maintainer triages).
 - **Dry-run support:** `gh workflow run stale.yml -f dry_run=true` prints the planned mark/close set per repo without modifying anything.
 - **Issues only.** PRs are intentionally left alone.
 
@@ -135,15 +163,16 @@ Out-of-scope repos (anything not in `repos.yaml` - e.g. `inference-gateway`, `cl
 
 ```
 .github/
-  ISSUE_TEMPLATE/    # org-default issue templates (feature, refactor, bug, documentation)
+  ISSUE_TEMPLATE/             # org-default issue templates (feature, refactor, bug, documentation)
   workflows/
-    sync-sdks.yml    # SDK + docs audit (kind: sdk | docs)
-    sync-adks.yml    # ADK audit (kind: adk)
-    bump-adl.yml     # ADL CLI version bump fan-out (kind: agent)
-    trigger-cd.yml   # release fan-out (kind: agent)
-    stale.yml        # stale-issue sweep (every target in repos.yaml)
-repos.yaml           # downstream registry - drives every matrix
-profile/             # GitHub-rendered org profile
+    sync-sdks.yml             # SDK + docs audit against OpenAPI (kind: sdk | docs)
+    sync-adks.yml             # ADK audit against A2A schema (kind: adk)
+    audit-docs-coverage.yml   # docs site audit against all sources (kind: != docs)
+    bump-adl.yml              # ADL CLI version bump fan-out (kind: agent)
+    trigger-cd.yml            # release fan-out (kind: agent)
+    stale.yml                 # stale-issue sweep (every target in repos.yaml)
+repos.yaml                    # downstream registry - drives every matrix
+profile/                      # GitHub-rendered org profile
 ```
 
 ## Triggering
@@ -154,6 +183,10 @@ Once the GitHub App secrets (`BOT_MAINTAINER_APP_ID`, `BOT_MAINTAINER_APP_PRIVAT
 # Sync orchestrators (audit against current schemas main HEAD):
 gh workflow run sync-sdks.yml --repo inference-gateway/.github
 gh workflow run sync-adks.yml --repo inference-gateway/.github
+
+# Docs-coverage orchestrator (audit every non-docs source against the docs site):
+gh workflow run audit-docs-coverage.yml --repo inference-gateway/.github
+gh workflow run audit-docs-coverage.yml --repo inference-gateway/.github -f dry_run=true   # preview only
 
 # Agent orchestrators:
 gh workflow run bump-adl.yml --repo inference-gateway/.github -f adl_version=vX.Y.Z
@@ -174,6 +207,7 @@ Before the orchestrators can run end-to-end, the following pieces need to land s
 1. **GitHub App** `inference-gateway-maintainer-bot` provisioned and installed on every target listed in `repos.yaml`. Its `BOT_MAINTAINER_APP_ID` (client ID) and `BOT_MAINTAINER_APP_PRIVATE_KEY` saved as repo or org secrets, plus `CLAUDE_CODE_OAUTH_TOKEN` for the Claude Code Max subscription auth.
 2. **App installation permissions** must cover what every orchestrator needs:
    - Sync workflows: `issues: write` on the target + `contents: read` on the target and `schemas`.
+   - `audit-docs-coverage.yml`: `issues: write` on `inference-gateway/docs` + `contents: read` on `inference-gateway/docs` and on every non-docs target in `repos.yaml`. No new scopes beyond what the sync workflows already require.
    - `bump-adl.yml`: `contents: write`, `pull-requests: write`, and `workflows: write` (because regeneration rewrites `.github/workflows/{ci,cd}.yml`) on every `kind: agent` target.
    - `trigger-cd.yml`: `actions: write` on every `kind: agent` target (to call `gh workflow run cd.yml`).
    - `stale.yml`: `issues: write` (label, comment, close) on every target in `repos.yaml`. No new scope beyond what the sync workflows already require.
@@ -181,7 +215,7 @@ Before the orchestrators can run end-to-end, the following pieces need to land s
    - `event_type: spec-updated` whenever `openapi.yaml` changes on `main` (drives `sync-sdks.yml`).
    - `event_type: a2a-spec-updated` whenever `a2a/a2a-schema.yaml` changes on `main` (drives `sync-adks.yml`).
    Until these land, the sync orchestrators only run on manual trigger.
-4. **Drift labels** must exist on each sync target before issues file cleanly: `sdk-drift` on every `kind: sdk` / `kind: docs` repo, `adk-drift` on every `kind: adk` repo.
+4. **Drift labels** must exist on each sync target before issues file cleanly: `sdk-drift` on every `kind: sdk` / `kind: docs` repo, `adk-drift` on every `kind: adk` repo, and `docs-coverage` on `inference-gateway/docs` (where `audit-docs-coverage.yml` files its issues; `stale.yml` exempts the label to keep these long-lived).
 5. **PR labels** `dependencies` and `adl-cli` should exist on every `kind: agent` repo for the bump-adl PRs (the action will create them if the App has permission, but pre-existing is cleaner).
 
 Until these are in place, `workflow_dispatch` lets a maintainer kick any workflow off manually for testing.
@@ -208,4 +242,13 @@ Until these are in place, `workflow_dispatch` lets a maintainer kick any workflo
 - **C. README / examples** - JSON-RPC methods not demonstrated in `README.md` or `examples/`.
 - **D. Vendored schema staleness** - ADK's checked-in `schema.yaml` diverging from the canonical `a2a/a2a-schema.yaml`.
 
-Each class maps to one stable issue title and a matching Issue Type (`feature` for A/C, `task` for B/D, `documentation` for E); re-runs refresh in place.
+### Docs-coverage targets (`audit-docs-coverage.yml`, kind: != docs)
+
+Audits each SDK, ADK, and agent's user-facing surface against the `inference-gateway/docs` site. Issues are filed on the docs repo (not on the source) so a docs maintainer triages from a single tracker.
+
+- **A. Missing documentation** - SDK methods / ADK builders / agent skills / tools / config keys present in the source repo's README, examples, or `agent.yaml` but not mentioned in any `docs/*.md` page. Filed as `[DOCS] Document missing features for inference-gateway/<source>` with `type: documentation`.
+- **B. Stale documentation** - docs pages describing source-repo behavior that has since changed (signatures, flag names, config keys, etc.). Filed as `[TASK] Refactor stale documentation for inference-gateway/<source>` with `type: task`.
+
+Both classes carry the `docs-coverage` label so `stale.yml` exempts them while maintainers triage. Spec-level coverage (operationIds, JSON-RPC methods, schemas) is intentionally **not** in scope here - that lives in `sync-sdks.yml` class E and `sync-adks.yml`.
+
+Each class maps to one stable issue title and a matching Issue Type (`feature` for sync-sdks/sync-adks A/C, `task` for B/D, `documentation` for sync-sdks E and docs-coverage A, `task` for docs-coverage B); re-runs refresh in place.
