@@ -82,6 +82,7 @@ Distinct from `sync-sdks.yml` / `sync-adks.yml`:
 
 Key invariants for the sync orchestrators (do **not** apply to the agent orchestrators below):
 
+- Each sync orchestrator installs the shared `maintainer` skill from [`inference-gateway/skills`](https://github.com/inference-gateway/skills/tree/main/skills/maintainer) before running `claude-code-action`. Prompts keep only workflow-specific audit rules inline and delegate shared issue filing mechanics to the skill's GitHub Issues reference.
 - The orchestrator **only files issues**. It never opens PRs, never mentions `@claude`, and never modifies any code on the target repos.
 - Issues are notifications. A human reviews each and decides whether to implement, defer, or close.
 - One GitHub App (`inference-gateway-maintainer-bot`) provides cross-repo auth - `issues:write` on the target + `contents:read` on the target and `schemas`. No PATs.

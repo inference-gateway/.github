@@ -40,9 +40,10 @@ Keep one of these shapes if you add a new workflow; don't invent a fourth.
 
 These run `anthropics/claude-code-action` with an audit prompt and file structured drift issues. Hard invariants when editing their prompts:
 
+- **They install the shared `maintainer` skill first.** Keep shared issue-filing mechanics in `inference-gateway/skills`' maintainer skill references where possible; keep workflow-specific drift classes, exact titles, labels, and hard safety rules inline here.
 - **Never open PRs, never modify target code, never mention `@claude`.** Issues are notifications for a human reviewer.
 - **Issue titles are load-bearing for idempotency.** Re-runs find existing issues via byte-exact title match (`gh issue list --search 'in:title "<exact title>"'`). Changing a title in the prompt orphans every open issue using the old title — open issues will pile up as duplicates. The title→class→Issue Type→labels table in each prompt is the contract.
-- **`gh issue create/edit` has no `--type` flag.** Setting the Issue Type requires the GraphQL `updateIssueIssueType` mutation after creation. The prompt walks through this — preserve that sequence.
+- **`gh issue create/edit` has no `--type` flag.** Setting the Issue Type requires the GraphQL `updateIssueIssueType` mutation after creation. The prompts delegate the shared procedure to the maintainer skill; preserve that sequence when editing either side.
 - **Proxy endpoints are exempt** from drift classes A, C, E across every SDK and docs target (`proxyGet/Post/Put/Delete/Patch` under `/proxy/{provider}/{path}`). This exemption is explicitly called out as load-bearing because the tracker was repeatedly polluted by false-positive class A issues about these endpoints. `audit-docs-coverage.yml` carries the same exemption.
 - **`docs` target is ASCII-only.** No em dashes (`—` U+2014) or en dashes (`–` U+2013) anywhere in titles, bodies, or comments — plain hyphen-minus (`-`) only. Applies to every character emitted for that target. `audit-docs-coverage.yml` always writes to `docs`, so the rule applies to every issue it files, regardless of source kind.
 
