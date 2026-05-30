@@ -232,9 +232,6 @@ jobs:
             [ -n "$EXTRA_TOOLS" ]      && tools="$tools,$EXTRA_TOOLS"
           fi
 
-          # Manual workflow_dispatch runs aren't tied to an issue/PR, so the action
-          # does not auto-allow its file-edit tools. Grant them explicitly; the bot
-          # commits with Bash(git) since use_commit_signing is off for dispatch.
           if [ "$EVENT" = "workflow_dispatch" ]; then
             tools="$tools,Edit,Write,MultiEdit"
           fi
@@ -323,8 +320,6 @@ jobs:
           display_report: true
           additional_permissions: |
             actions: read
-          # Signed commits via the auto-allowed file-ops tools on issue/PR events;
-          # off for manual dispatch so the bot edits + commits with git directly.
           use_commit_signing: ${{ github.event_name != 'workflow_dispatch' }}
           base_branch: main
           branch_prefix: ${{ steps.prefix.outputs.value }}
