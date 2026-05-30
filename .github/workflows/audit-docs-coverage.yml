@@ -97,8 +97,8 @@ jobs:
           github_token: ${{ steps.token.outputs.token }}
           display_report: true
           claude_args: |
-            --effort max
-            --model claude-opus-4-7
+            --effort ultracode
+            --model claude-opus-4-8
             --allowedTools "Read,Bash(gh:*),Bash(git:*),Bash(grep:*),Bash(rg:*),Bash(find:*),Bash(ls:*),Bash(cat:*),Bash(wc:*),Bash(diff:*),Bash(yq:*),Bash(jq:*)"
           prompt: |
             You are auditing the GitHub repository
