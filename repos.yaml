@@ -107,7 +107,7 @@ claude_targets:
     language: go
     node: true
   - name: operator
-    language: operator
+    language: go
   - name: registry
     language: go
     markdownlint: true
