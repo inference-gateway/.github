@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.1](https://github.com/inference-gateway/.github/compare/v0.2.0...v0.2.1) (2026-05-30)
+
+### 🐛 Bug Fixes
+
+* **claude:** grant edit/npm tools on workflow_dispatch runs ([#25](https://github.com/inference-gateway/.github/issues/25)) ([afd3d34](https://github.com/inference-gateway/.github/commit/afd3d34612525f57df1d8fa7bd793697095ac108))
+
 ## [0.2.0](https://github.com/inference-gateway/.github/compare/v0.1.0...v0.2.0) (2026-05-30)
 
 ### ✨ Features
