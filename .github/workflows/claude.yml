@@ -39,6 +39,10 @@ on:
         description: 'Claude model id'
         type: string
         default: claude-opus-4-8
+      prompt:
+        description: 'Free-text task for manual (workflow_dispatch) runs. Empty = issue/PR mode (task comes from the @claude comment).'
+        type: string
+        default: ''
       extra-tools:
         description: 'Comma-separated tools appended to the default + language tool set, e.g. "Bash(helm:*)"'
         type: string
@@ -249,6 +253,8 @@ jobs:
             --allowedTools "${{ steps.args.outputs.tools }}"
             ${{ steps.args.outputs.mcp_arg }}
           prompt: |
+            ${{ inputs.prompt }}
+
             **IMPORTANT - WHEN WORKING ON ISSUES:**
             After you finish implementing the code changes and committing them, create a pull request:
             ```
