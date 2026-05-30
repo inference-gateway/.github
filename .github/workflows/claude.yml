@@ -1,0 +1,277 @@
+name: Claude Code (reusable)
+
+# Reusable @claude bot workflow for the inference-gateway org.
+#
+# Single source of truth for the per-repo `.github/workflows/claude.yml` that
+# every repo used to copy-paste (~120 lines, ~80% identical). Callers now reduce
+# to a ~10-line `uses:` invocation; a fix here (e.g. an invalid --effort value)
+# is one commit + a tag move instead of one PR per repo.
+#
+# Caller contract:
+#   jobs.claude.uses: inference-gateway/.github/.github/workflows/claude.yml@v1
+# The `on:` triggers and the `@claude` gate `if:` stay in the caller (event
+# triggers cannot live in a reusable workflow, and keeping the gate on the
+# caller job avoids spinning up this runner for every non-@claude comment).
+#
+# Tools model: a constant default set applies to EVERY repo; the `language`
+# preset appends its toolchain tools; `extra-tools` appends per-repo specifics.
+
+on:
+  workflow_call:
+    inputs:
+      language:
+        description: 'Toolchain preset: go | rust | typescript | node | python | operator | none'
+        type: string
+        default: none
+      skill:
+        description: 'Org skill to install: maintainer | adl'
+        type: string
+        default: maintainer
+      runner:
+        description: 'Runner image (low-code passes ubuntu-latest)'
+        type: string
+        default: ubuntu-24.04
+      effort:
+        description: 'Claude effort: low | medium | high | xhigh | max (NOT ultracode)'
+        type: string
+        default: max
+      model:
+        description: 'Claude model id'
+        type: string
+        default: claude-opus-4-8
+      extra-tools:
+        description: 'Comma-separated tools appended to the default + language tool set, e.g. "Bash(helm:*)"'
+        type: string
+        default: ''
+      allowed-tools:
+        description: 'Full --allowedTools override. When set, replaces the default+language+extra set entirely (escape hatch for repos that deliberately narrow scope).'
+        type: string
+        default: ''
+      node:
+        description: 'Force Node setup even when language is not typescript/node (Go repos that also need Node)'
+        type: boolean
+        default: false
+      context7:
+        description: 'Include the context7 MCP server (+ mcp__context7 tool)'
+        type: boolean
+        default: true
+      playwright:
+        description: 'Install Chromium and add the playwright MCP server (+ mcp__playwright tool)'
+        type: boolean
+        default: false
+      markdownlint:
+        description: 'Set up Node and install markdownlint-cli'
+        type: boolean
+        default: false
+      precommit:
+        description: 'Install pre-commit and run `task precommit:install`'
+        type: boolean
+        default: false
+      extra-mcp-servers:
+        description: 'JSON object of additional mcpServers merged into --mcp-config'
+        type: string
+        default: '{}'
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        description: 'OAuth token for anthropics/claude-code-action (callers use `secrets: inherit`)'
+        required: true
+
+jobs:
+  claude:
+    runs-on: ${{ inputs.runner }}
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 1
+
+      - name: Install task
+        uses: arduino/setup-task@v2.0.0
+        with:
+          version: 3.48.0
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Go
+        if: inputs.language == 'go' || inputs.language == 'operator'
+        uses: actions/setup-go@v6.4.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Install golangci-lint
+        if: inputs.language == 'go' || inputs.language == 'operator'
+        uses: golangci/golangci-lint-action@v9.2.1
+        with:
+          version: v2.12.2
+          args: --help
+
+      - name: Set up Rust
+        if: inputs.language == 'rust'
+        uses: actions-rust-lang/setup-rust-toolchain@v1.16.1
+        with:
+          components: clippy, rustfmt
+
+      - name: Set up Python
+        if: inputs.language == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Set up Node.js
+        if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.language == 'operator' || inputs.node || inputs.markdownlint || inputs.playwright
+        uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 'lts/*'
+
+      - name: Install operator toolchain
+        if: inputs.language == 'operator'
+        run: |
+          set -euo pipefail
+          npm install -g prettier@3.6.2
+          go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.20.1
+          go install sigs.k8s.io/kustomize/kustomize/v5@v5.8.1
+
+      - name: Install markdownlint
+        if: inputs.markdownlint
+        run: npm install -g markdownlint-cli
+
+      - name: Install pre-commit
+        if: inputs.precommit
+        run: |
+          set -euo pipefail
+          pip install pre-commit
+          task precommit:install
+
+      - name: Install Playwright + Chromium
+        if: inputs.playwright
+        run: npx -y playwright@latest install --with-deps chromium
+
+      - name: Install ${{ inputs.skill }} skill
+        env:
+          SKILL: ${{ inputs.skill }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.claude/skills
+          if [ "$SKILL" = "adl" ]; then
+            mkdir -p ~/.claude/skills/adl
+            curl -fsSL \
+              https://raw.githubusercontent.com/inference-gateway/skills/main/skills/adl/SKILL.md \
+              -o ~/.claude/skills/adl/SKILL.md
+          else
+            rm -rf ~/.claude/skills/"$SKILL"
+            curl -fsSL https://codeload.github.com/inference-gateway/skills/tar.gz/main |
+              tar -xz --strip-components=2 -C ~/.claude/skills "skills-main/skills/$SKILL"
+          fi
+
+      - name: Determine branch prefix
+        id: prefix
+        env:
+          ISSUE_LABELS: ${{ join(github.event.issue.labels.*.name, ',') }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          text="$(printf '%s %s' "$ISSUE_LABELS" "$ISSUE_TITLE" | tr '[:upper:]' '[:lower:]')"
+          case "$text" in
+            *bug*|*fix*|*defect*|*regression*|*hotfix*) prefix="fix/" ;;
+            *feat*|*feature*|*enhancement*)             prefix="feat/" ;;
+            *docs*|*documentation*)                     prefix="docs/" ;;
+            *refactor*)                                 prefix="refactor/" ;;
+            *)                                          prefix="claude/" ;;
+          esac
+          echo "Resolved branch prefix: $prefix"
+          echo "value=$prefix" >> "$GITHUB_OUTPUT"
+
+      - name: Compose Claude args
+        id: args
+        env:
+          LANGUAGE: ${{ inputs.language }}
+          ALLOWED: ${{ inputs.allowed-tools }}
+          EXTRA_TOOLS: ${{ inputs.extra-tools }}
+          CONTEXT7: ${{ inputs.context7 }}
+          PLAYWRIGHT: ${{ inputs.playwright }}
+          EXTRA_MCP: ${{ inputs.extra-mcp-servers }}
+        run: |
+          set -euo pipefail
+
+          # MCP servers config — built independently of the tools string so it
+          # is correct even when allowed-tools is overridden.
+          servers='{}'
+          if [ "$CONTEXT7" = "true" ]; then
+            servers="$(echo "$servers" | jq -c '. + {context7:{command:"npx",args:["-y","@upstash/context7-mcp@latest"]}}')"
+          fi
+          if [ "$PLAYWRIGHT" = "true" ]; then
+            servers="$(echo "$servers" | jq -c '. + {playwright:{command:"npx",args:["-y","@playwright/mcp@latest","--headless","--browser","chromium","--isolated"]}}')"
+          fi
+          servers="$(echo "$servers" | jq -c --argjson extra "$EXTRA_MCP" '. + $extra')"
+
+          # Tools string: full override, or default + language + mcp + extra.
+          if [ -n "$ALLOWED" ]; then
+            tools="$ALLOWED"
+          else
+            tools='Bash(task:*),Bash(gh:*),Bash(git:*)'
+            case "$LANGUAGE" in
+              go|operator)      tools="$tools,Bash(go:*)" ;;
+              rust)             tools="$tools,Bash(cargo:*),Bash(rustup:*),Bash(rustc:*)" ;;
+              typescript|node)  tools="$tools,Bash(node:*),Bash(npm:*)" ;;
+              python)           tools="$tools,Bash(python:*),Bash(python3:*)" ;;
+            esac
+            [ "$CONTEXT7" = "true" ]   && tools="$tools,mcp__context7"
+            [ "$PLAYWRIGHT" = "true" ] && tools="$tools,mcp__playwright"
+            [ -n "$EXTRA_TOOLS" ]      && tools="$tools,$EXTRA_TOOLS"
+          fi
+
+          echo "tools=$tools" >> "$GITHUB_OUTPUT"
+          if [ "$servers" = "{}" ]; then
+            echo "mcp_arg=" >> "$GITHUB_OUTPUT"
+          else
+            echo "mcp_arg=--mcp-config '{\"mcpServers\":$servers}'" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run Claude Code
+        id: claude
+        uses: anthropics/claude-code-action@v1.0.133
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          display_report: true
+          additional_permissions: |
+            actions: read
+          use_commit_signing: true
+          base_branch: main
+          branch_prefix: ${{ steps.prefix.outputs.value }}
+          claude_args: |
+            --effort ${{ inputs.effort }}
+            --model ${{ inputs.model }}
+            --allowedTools "${{ steps.args.outputs.tools }}"
+            ${{ steps.args.outputs.mcp_arg }}
+          prompt: |
+            **IMPORTANT - WHEN WORKING ON ISSUES:**
+            After you finish implementing the code changes and committing them, create a pull request:
+            ```
+            gh pr create --title "Your descriptive title" --body "## Summary
+            Your summary of what was implemented.
+
+            Closes #${{ github.event.issue.number }}"
+            ```
+            Always include a summary of changes AND "Closes #${{ github.event.issue.number }}" in the body.
+
+            **COMMIT RULES:**
+            - Do NOT add "Co-authored-by" lines to commits
+            - Do NOT add "Generated with Claude Code" or similar attributions
+            - Keep commits clean and professional
+
+            **WHEN WORKING ON PR FEEDBACK:**
+            Make the requested changes and commit. The PR will automatically update - do NOT create a new PR.
+
+            **WHEN FIXING CI FAILURES:**
+            Fix the issues, commit the fix. The CI will automatically re-run.
+
+            **OUTPUT RULES:**
+
+            ## Commit Message Requirements (max 72 chars)
+            - Use conventional commit format with lowercase type (e.g., "fix:", "feat:", "refactor:")
+          track_progress: true
