@@ -236,6 +236,75 @@ jobs:
             echo "mcp_arg=--mcp-config '{\"mcpServers\":$servers}'" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Compose prompt
+        id: prompt
+        env:
+          EVENT: ${{ github.event_name }}
+          USER_PROMPT: ${{ inputs.prompt }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          IS_PR_COMMENT: ${{ github.event.issue.pull_request != null }}
+        run: |
+          set -euo pipefail
+
+          # Pick the context the bot is running in: issue | pr | task (manual dispatch).
+          case "$EVENT" in
+            issues)                                          context=issue ;;
+            pull_request_review|pull_request_review_comment) context=pr ;;
+            issue_comment) if [ "$IS_PR_COMMENT" = "true" ]; then context=pr; else context=issue; fi ;;
+            *)                                               context=task ;;
+          esac
+
+          # Shared house rules appended to every context.
+          common="$(cat <<'RULES'
+          **COMMIT RULES:**
+          - Do NOT add "Co-authored-by" lines to commits
+          - Do NOT add "Generated with Claude Code" or similar attributions
+          - Keep commits clean and professional
+
+          **OUTPUT RULES:**
+
+          ## Commit Message Requirements (max 72 chars)
+          - Use conventional commit format with lowercase type (e.g., "fix:", "feat:", "refactor:")
+          RULES
+          )"
+
+          if [ "$context" = "issue" ]; then
+          body="$(cat <<'ISSUE'
+          **WHEN WORKING ON THIS ISSUE:**
+          After you finish implementing the code changes and committing them, open a pull request:
+          ```
+          gh pr create --title "Your descriptive title" --body "## Summary
+          Your summary of what was implemented.
+
+          Closes #__N__"
+          ```
+          Always include a summary of changes AND "Closes #__N__" in the body.
+          ISSUE
+          )"
+          body="${body//__N__/$ISSUE_NUMBER}"
+          elif [ "$context" = "pr" ]; then
+          body="$(cat <<'PR'
+          **WHEN WORKING ON PR FEEDBACK:**
+          Make the requested changes and commit. The PR will automatically update - do NOT open a new PR.
+
+          **WHEN FIXING CI FAILURES:**
+          Fix the issues, commit the fix. The CI will automatically re-run.
+          PR
+          )"
+          else
+          body="$USER_PROMPT"
+          fi
+
+          {
+            echo 'text<<__CLAUDE_PROMPT_EOF__'
+            printf '%s\n\n%s\n' "$body" "$common"
+            echo '__CLAUDE_PROMPT_EOF__'
+          } >> "$GITHUB_OUTPUT"
+
+          echo "::group::Composed prompt (context=$context)"
+          printf '%s\n\n%s\n' "$body" "$common"
+          echo "::endgroup::"
+
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1.0.133
@@ -252,32 +321,5 @@ jobs:
             --model ${{ inputs.model }}
             --allowedTools "${{ steps.args.outputs.tools }}"
             ${{ steps.args.outputs.mcp_arg }}
-          prompt: |
-            ${{ inputs.prompt }}
-
-            **IMPORTANT - WHEN WORKING ON ISSUES:**
-            After you finish implementing the code changes and committing them, create a pull request:
-            ```
-            gh pr create --title "Your descriptive title" --body "## Summary
-            Your summary of what was implemented.
-
-            Closes #${{ github.event.issue.number }}"
-            ```
-            Always include a summary of changes AND "Closes #${{ github.event.issue.number }}" in the body.
-
-            **COMMIT RULES:**
-            - Do NOT add "Co-authored-by" lines to commits
-            - Do NOT add "Generated with Claude Code" or similar attributions
-            - Keep commits clean and professional
-
-            **WHEN WORKING ON PR FEEDBACK:**
-            Make the requested changes and commit. The PR will automatically update - do NOT create a new PR.
-
-            **WHEN FIXING CI FAILURES:**
-            Fix the issues, commit the fix. The CI will automatically re-run.
-
-            **OUTPUT RULES:**
-
-            ## Commit Message Requirements (max 72 chars)
-            - Use conventional commit format with lowercase type (e.g., "fix:", "feat:", "refactor:")
+          prompt: ${{ steps.prompt.outputs.text }}
           track_progress: ${{ github.event_name != 'workflow_dispatch' }}
