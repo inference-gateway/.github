@@ -44,3 +44,75 @@ targets:
   - name: n8n-agent
     language: Go
     kind: agent
+
+# Registry for migrate-claude.yml — every repo whose .github/workflows/claude.yml
+# is a thin caller of the reusable workflow at
+# inference-gateway/.github/.github/workflows/claude.yml.
+#
+# Deliberately SEPARATE from `targets:` above. `stale.yml` and
+# `cleanup-skipped-runs.yml` sweep `[.targets[]]` with no kind filter, so adding
+# infra/tool repos (cli, operator, registry, inference-gateway, ...) to `targets:`
+# would start auto-staling their issues. They belong here instead.
+#
+# The 6 kind=agent repos are intentionally absent: their claude.yml is generated
+# by adl-cli (ai-claude-code.yaml.tmpl) and migrates via the generator + bump-adl.yml,
+# not by overwriting a committed file.
+#
+# Each field maps 1:1 to a reusable-workflow input; omitted fields take the
+# workflow default (skill=maintainer, runner=ubuntu-24.04, effort=max, context7=true).
+claude_targets:
+  - name: cli
+    language: go
+    markdownlint: true
+    precommit: true
+  - name: sdk
+    language: go
+    node: true
+  - name: python-sdk
+    language: python
+  - name: typescript-sdk
+    language: typescript
+    markdownlint: true
+  - name: rust-sdk
+    language: rust
+  - name: docs
+    language: node
+    markdownlint: true
+  - name: adk
+    language: go
+    node: true
+    markdownlint: true
+  - name: rust-adk
+    language: rust
+  - name: typescript-adk
+    language: typescript
+    markdownlint: true
+    # Preserves the deliberately narrowed gh scope + pnpm.
+    allowed-tools: "Bash(task:*),Bash(node:*),Bash(npm:*),Bash(pnpm:*),Bash(gh pr:*),Bash(gh issue:*),Bash(gh repo:*)"
+  - name: a2a-debugger
+    language: go
+    # Preserves the deliberately narrowed gh scope.
+    allowed-tools: "Bash(task:*),Bash(go:*),Bash(git:*),Bash(gh pr:*),Bash(gh issue:*),Bash(gh repo:*),Bash(gh run:*)"
+  - name: adl-cli
+    language: go
+    node: true
+  - name: adl
+    language: node
+    playwright: true
+  - name: inference-gateway
+    language: go
+    node: true
+    extra-tools: "Bash(helm:*)"
+  - name: infer-action
+    language: go
+    node: true
+  - name: operator
+    language: operator
+  - name: registry
+    language: go
+    markdownlint: true
+  - name: schemas
+    language: node
+  - name: skills
+    language: none
+    node: true
