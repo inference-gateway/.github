@@ -280,4 +280,4 @@ jobs:
 
             ## Commit Message Requirements (max 72 chars)
             - Use conventional commit format with lowercase type (e.g., "fix:", "feat:", "refactor:")
-          track_progress: true
+          track_progress: ${{ github.event_name != 'workflow_dispatch' }}
