@@ -21,15 +21,15 @@ Every orchestrator reads `repos.yaml`. Adding or removing a downstream repo = on
 
 | `kind`     | Picked up by                                                |
 | ---------- | ----------------------------------------------------------- |
-| `sdk`      | `sync-sdks.yml`, `audit-docs-coverage.yml`, `stale.yml`     |
-| `docs`     | `sync-sdks.yml` (separate drift class E), `stale.yml`       |
-| `adk`      | `sync-adks.yml`, `audit-docs-coverage.yml`, `stale.yml`     |
-| `agent`    | `bump-adl.yml`, `refresh-agent-manifest.yml`, `trigger-cd.yml`, `audit-docs-coverage.yml`, `stale.yml` |
+| `sdk`      | `sync-sdks.yml`, `audit-docs-coverage.yml`, `stale.yml`, `cleanup-skipped-runs.yml` |
+| `docs`     | `sync-sdks.yml` (separate drift class E), `stale.yml`, `cleanup-skipped-runs.yml` |
+| `adk`      | `sync-adks.yml`, `audit-docs-coverage.yml`, `stale.yml`, `cleanup-skipped-runs.yml` |
+| `agent`    | `bump-adl.yml`, `refresh-agent-manifest.yml`, `trigger-cd.yml`, `audit-docs-coverage.yml`, `stale.yml`, `cleanup-skipped-runs.yml` |
 
 Three `yq` shapes exist; pick the one that matches what your workflow needs:
 
 - `select(.kind == "<kind>")` - `sync-sdks.yml` (`sdk` or `docs`), `sync-adks.yml` (`adk`), and every `kind: agent` orchestrator filter this way.
-- `[.targets[]]` (no filter) - `stale.yml` sweeps every target regardless of `kind`.
+- `[.targets[]]` (no filter) - `stale.yml` and `cleanup-skipped-runs.yml` sweep every target regardless of `kind`.
 - `select(.kind != "docs")` - `audit-docs-coverage.yml` inverts the filter to exclude the audit's *output* (`docs`) from the source list. It is the only workflow that does this.
 
 Keep one of these shapes if you add a new workflow; don't invent a fourth.
@@ -64,15 +64,22 @@ These open PRs (mechanical, reviewable) or fire `workflow_dispatch` calls. Disti
 - **`refresh-agent-manifest.yml` is the only workflow that edits `agent.yaml`,** and only additively. It snapshots the paths in `PRESERVE_KEYS` (`spec.tools`, `spec.skills`, `spec.config`, `spec.services`), runs an additive deep merge of the fresh `adl init --defaults` scaffold (existing values win), then restores the preserved paths byte-for-byte. Keep the snapshot→merge→restore→validate order intact.
 - **`trigger-cd.yml` is fire-and-forget.** It dispatches each agent's own `cd.yml` and exits without waiting. Outcomes are observed on each target's Actions tab.
 
-### Lifecycle orchestrators (`stale.yml`) — write-through to issues across `repos.yaml`
+### Lifecycle orchestrators (`stale.yml`, `cleanup-skipped-runs.yml`) — cross-repo sweeps across `repos.yaml`
 
-Daily cron + manual `workflow_dispatch` (with `-f dry_run=true` for preview). Distinct contracts:
+Daily cron + manual `workflow_dispatch` (with `-f dry_run=true` for preview). `stale.yml` contracts:
 
 - **Cannot use `actions/stale`.** That action is hard-coded to `github.context.repo`; there is no input to target a foreign repo. The orchestrator does the equivalent via `gh issue list --search "updated:<… -label:stale …"` → label + comment, then `gh issue list --label stale --search "updated:<…"` → close.
 - **Matrix is every target in `repos.yaml` (no `kind` filter).** Out-of-`repos.yaml` org repos (e.g. `inference-gateway`, `cli`, `operator`, `registry`, `awesome-a2a`) are intentionally not swept by this workflow.
 - **Defaults: 30 d → mark `stale` → 7 d → close.** Exempt labels: `pinned`, `security`, `sdk-drift`, `adk-drift`, `docs-coverage`. The three drift labels matter - all three sync orchestrators (sync-sdks, sync-adks, audit-docs-coverage) file `[FEATURE] / [TASK] / [DOCS]` tickets that may legitimately sit open while a maintainer triages, so they must never get auto-closed.
 - **Search-query semantics rely on `updatedAt`.** Adding a label or comment bumps `updatedAt`, so the close step's `updated:<7d ago` filter correctly excludes any issue that received activity (including ours) within the grace window. This is why removal of the `stale` label on re-activity is *not* implemented - the close query already does the right thing.
 - **Issues only.** PRs are intentionally untouched.
+
+`cleanup-skipped-runs.yml` contracts:
+
+- **Deletes workflow runs, not issues.** Only runs with `conclusion: skipped` are removed - a server-side `?status=skipped` filter plus a per-run re-check of `.conclusion` immediately before each `DELETE`. `cancelled` / `failure` runs are left intact.
+- **Same matrix as `stale.yml`** (`[.targets[]]`, no `kind` filter), so out-of-`repos.yaml` repos are intentionally not swept. The optional `repository` input narrows the matrix to one target for testing; it filters in `jq` so the `yq` shape stays `[.targets[]]`.
+- **`actions: write` per target** via the scoped App token (already granted; `trigger-cd.yml` uses the same scope). No `claude-code-action`, no `CLAUDE_CODE_OAUTH_TOKEN`.
+- **`dry_run` defaults to `true` on manual dispatch** (deletion is irreversible); the scheduled run deletes. The `schedule:` block ships commented out until validated on one repo.
 
 ## Auth model
 
@@ -98,6 +105,9 @@ gh workflow run refresh-agent-manifest.yml --repo inference-gateway/.github -f a
 gh workflow run trigger-cd.yml --repo inference-gateway/.github
 gh workflow run stale.yml --repo inference-gateway/.github
 gh workflow run stale.yml --repo inference-gateway/.github -f dry_run=true
+gh workflow run cleanup-skipped-runs.yml --repo inference-gateway/.github -f dry_run=true                    # preview all targets
+gh workflow run cleanup-skipped-runs.yml --repo inference-gateway/.github -f dry_run=true -f repository=docs  # preview one target
+gh workflow run cleanup-skipped-runs.yml --repo inference-gateway/.github -f dry_run=false                   # delete across all targets
 
 # Validate repos.yaml shape after edits:
 yq '.targets[] | .kind' repos.yaml | sort -u   # should only print: adk agent docs sdk

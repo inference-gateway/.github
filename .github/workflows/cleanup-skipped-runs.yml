@@ -1,0 +1,151 @@
+name: Cleanup skipped workflow runs
+
+# Daily sweep across every target in repos.yaml. For each repo, deletes
+# workflow runs with conclusion == "skipped". inference-gateway/infer-action
+# (@infer) and anthropics/claude-code-action (@claude) fire on every issues /
+# issue_comment event and then skip at the job-level `if:` guard, leaving runs
+# with status: completed, conclusion: skipped. GitHub has no native auto-prune,
+# so they accumulate and bury meaningful runs in each repo's Actions tab.
+#
+# Scope: repos.yaml targets only (same matrix as stale.yml). Out-of-repos.yaml
+# org repos (inference-gateway, cli, operator, registry, ...) are intentionally
+# not swept - consistent with stale.yml.
+#
+# Auth: per-target scoped App token via inference-gateway-maintainer-bot (needs
+# actions: write on each target - already granted; trigger-cd.yml dispatches
+# cd.yml on agent targets using the same scope). The default GITHUB_TOKEN is
+# scoped to .github only and cannot delete runs in other repos.
+#
+# Safety: only conclusion == "skipped" runs are deleted (server-side
+# ?status=skipped filter + a per-run re-check immediately before each delete).
+# dry_run lists/counts without deleting; manual dispatch previews by default,
+# the scheduled run deletes.
+
+on:
+  # Enable after validating on one repo (see README rollout procedure).
+  # schedule:
+  #   - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'List/count skipped runs without deleting (manual runs preview by default)'
+        required: false
+        type: boolean
+        default: true
+      repository:
+        description: 'Single repos.yaml target to sweep (omit = all targets). Use to test on one repo.'
+        required: false
+        type: string
+        default: ''
+
+permissions: {}
+
+concurrency:
+  group: cleanup-skipped-runs
+  cancel-in-progress: false
+
+jobs:
+  matrix:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      targets: ${{ steps.read.outputs.targets }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - id: read
+        env:
+          ONLY_REPO: ${{ inputs.repository }}
+        run: |
+          set -euo pipefail
+          # Same [.targets[]] shape as stale.yml (CLAUDE.md "three yq shapes").
+          targets=$(yq -o=json -I=0 '[.targets[]]' repos.yaml)
+          # Optional test-on-one-repo narrowing (AC#3), done in jq so the yq
+          # shape stays unchanged.
+          if [ -n "${ONLY_REPO}" ]; then
+            targets=$(printf '%s' "${targets}" | jq -c --arg n "${ONLY_REPO}" '[.[] | select(.name == $n)]')
+            if [ "$(printf '%s' "${targets}" | jq 'length')" -eq 0 ]; then
+              echo "Repository '${ONLY_REPO}' is not a target in repos.yaml" >&2
+              exit 1
+            fi
+          fi
+          echo "targets=${targets}" >> "$GITHUB_OUTPUT"
+
+  cleanup:
+    needs: matrix
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        target: ${{ fromJSON(needs.matrix.outputs.targets) }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Mint App token (scoped to ${{ matrix.target.name }})
+        id: token
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          client-id: ${{ secrets.BOT_MAINTAINER_APP_ID }}
+          private-key: ${{ secrets.BOT_MAINTAINER_APP_PRIVATE_KEY }}
+          owner: inference-gateway
+          repositories: |
+            ${{ matrix.target.name }}
+
+      - name: Delete skipped runs in inference-gateway/${{ matrix.target.name }}
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          GH_REPO: inference-gateway/${{ matrix.target.name }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          SLEEP_BETWEEN_DELETES: '1'
+        run: |
+          set -euo pipefail
+
+          {
+            echo "### ${GH_REPO}"
+            echo
+            echo "- dry run: \`${DRY_RUN}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Server-side filter: status=skipped returns runs whose conclusion
+          # field == "skipped" (a documented filter value for this query param).
+          mapfile -t run_ids < <(
+            gh api "repos/${GH_REPO}/actions/runs?status=skipped&per_page=100" \
+              --paginate --jq '.workflow_runs[].id'
+          )
+          found=${#run_ids[@]}
+          echo "Found ${found} skipped run(s) in ${GH_REPO}"
+          echo "- found: ${found}" >> "$GITHUB_STEP_SUMMARY"
+
+          deleted=0
+          for id in "${run_ids[@]}"; do
+            if [ "${DRY_RUN}" = "true" ]; then
+              echo "  [DRY] would delete run ${id}"
+              continue
+            fi
+
+            # Belt-and-suspenders: re-read conclusion right before deleting so we
+            # never delete a run that is not conclusion == "skipped".
+            concl=$(gh api "repos/${GH_REPO}/actions/runs/${id}" --jq '.conclusion' 2>/dev/null || echo "")
+            if [ "${concl}" != "skipped" ]; then
+              echo "  skip run ${id}: conclusion='${concl}' (not skipped)"
+              continue
+            fi
+
+            if gh api -X DELETE "repos/${GH_REPO}/actions/runs/${id}" >/dev/null 2>&1; then
+              deleted=$((deleted + 1))
+            else
+              echo "::warning::failed to delete run ${id} in ${GH_REPO} (rate limit or transient; next daily run retries)"
+            fi
+            sleep "${SLEEP_BETWEEN_DELETES}"
+          done
+
+          if [ "${DRY_RUN}" = "true" ]; then
+            echo "- would delete: ${found}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            remaining=$(gh api "repos/${GH_REPO}/actions/runs?status=skipped&per_page=1" --jq '.total_count' 2>/dev/null || echo "?")
+            echo "Deleted ${deleted} run(s); ${remaining} skipped run(s) remaining"
+            {
+              echo "- deleted: ${deleted}"
+              echo "- remaining: ${remaining}"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo >> "$GITHUB_STEP_SUMMARY"

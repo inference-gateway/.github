@@ -7,7 +7,7 @@ This is the org-level `.github` repository for `inference-gateway`. It contains 
 - `README.md` documents workflow behavior and should stay authoritative.
 - `profile/README.md` renders on the GitHub organization profile.
 - `.github/ISSUE_TEMPLATE/` holds default issue templates inherited by repos without local templates.
-- `.github/workflows/` contains cross-repo orchestrators such as `sync-sdks.yml`, `sync-adks.yml`, `bump-adl.yml`, `refresh-agent-manifest.yml`, and `trigger-cd.yml`.
+- `.github/workflows/` contains cross-repo orchestrators such as `sync-sdks.yml`, `sync-adks.yml`, `bump-adl.yml`, `refresh-agent-manifest.yml`, `trigger-cd.yml`, and `cleanup-skipped-runs.yml`.
 - `repos.yaml` is the downstream registry used by workflow matrices.
 - `assets/` stores org profile assets, including star history SVGs.
 
