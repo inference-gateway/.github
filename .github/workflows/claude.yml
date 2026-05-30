@@ -20,7 +20,7 @@ on:
   workflow_call:
     inputs:
       language:
-        description: 'Toolchain preset: go | rust | typescript | node | python | operator | none'
+        description: 'Toolchain preset: go | rust | typescript | node | python | none'
         type: string
         default: none
       skill:
@@ -204,8 +204,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # MCP servers config — built independently of the tools string so it
-          # is correct even when allowed-tools is overridden.
           servers='{}'
           if [ "$CONTEXT7" = "true" ]; then
             servers="$(echo "$servers" | jq -c '. + {context7:{command:"npx",args:["-y","@upstash/context7-mcp@latest"]}}')"
@@ -215,7 +213,6 @@ jobs:
           fi
           servers="$(echo "$servers" | jq -c --argjson extra "$EXTRA_MCP" '. + $extra')"
 
-          # Tools string: full override, or default + language + mcp + extra.
           if [ -n "$ALLOWED" ]; then
             tools="$ALLOWED"
           else
@@ -253,7 +250,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Pick the context the bot is running in: issue | pr | task (manual dispatch).
           case "$EVENT" in
             issues)                                          context=issue ;;
             pull_request_review|pull_request_review_comment) context=pr ;;
@@ -261,7 +257,6 @@ jobs:
             *)                                               context=task ;;
           esac
 
-          # Shared house rules appended to every context.
           common="$(cat <<'RULES'
           **COMMIT RULES:**
           - Do NOT add "Co-authored-by" lines to commits
