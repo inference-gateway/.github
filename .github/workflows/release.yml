@@ -97,35 +97,3 @@ jobs:
             echo "Release failed"
             exit 1
           fi
-
-      # Repo-specific: this repo is consumed as a reusable-workflow source, and callers
-      # pin a moving major tag (e.g. @v1). semantic-release only cuts immutable vX.Y.Z,
-      # so point the major tag at the latest stable release after every run.
-      - name: Update moving major tag
-        if: github.ref == 'refs/heads/main'
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          TAG=$(gh release view --json tagName --jq .tagName 2>/dev/null || true)
-          if [ -z "$TAG" ]; then
-            echo "No stable release yet; nothing to point a major tag at."
-            exit 0
-          fi
-          MAJOR="v$(echo "${TAG#v}" | cut -d. -f1)"
-
-          # Resolve the tag ref to its commit SHA (handles annotated tag objects).
-          SHA=$(gh api "repos/$REPO/git/refs/tags/$TAG" --jq .object.sha)
-          TYPE=$(gh api "repos/$REPO/git/refs/tags/$TAG" --jq .object.type)
-          if [ "$TYPE" = "tag" ]; then
-            SHA=$(gh api "repos/$REPO/git/tags/$SHA" --jq .object.sha)
-          fi
-
-          echo "Pointing $MAJOR -> $SHA ($TAG)"
-          if gh api "repos/$REPO/git/refs/tags/$MAJOR" >/dev/null 2>&1; then
-            gh api -X PATCH "repos/$REPO/git/refs/tags/$MAJOR" -f sha="$SHA" -F force=true >/dev/null
-          else
-            gh api -X POST "repos/$REPO/git/refs" -f ref="refs/tags/$MAJOR" -f sha="$SHA" >/dev/null
-          fi
-          echo "Updated moving tag $MAJOR"
