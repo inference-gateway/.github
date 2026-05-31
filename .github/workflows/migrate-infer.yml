@@ -98,15 +98,18 @@ jobs:
         working-directory: target
         env:
           INFER_JSON: ${{ toJSON(matrix.target.orchestrators.infer) }}
+          LANG: ${{ matrix.target.language }}
           REF: ${{ needs.matrix.outputs.ref }}
         run: |
           set -euo pipefail
           mkdir -p .github/workflows
 
-          # Build the `with:` block from the entry's orchestrators.infer block; strings
-          # quoted, booleans/numbers bare. Keys map 1:1 to reusable infer.yml inputs.
-          with_block=$(echo "$INFER_JSON" | jq -r '
-            to_entries
+          # Build the `with:` block: `language` comes from the entry's top-level `language`
+          # (prepended so it renders first), the remaining keys from its `orchestrators.infer`
+          # block. Strings quoted, booleans/numbers bare; keys map 1:1 to reusable infer.yml inputs.
+          with_block=$(echo "$INFER_JSON" | jq -r --arg lang "$LANG" '
+            {language: $lang} + .
+            | to_entries
             | map("      \(.key): \(.value | if type == "string" then "\"\(.)\"" else tostring end)")
             | .[]')
 

@@ -100,15 +100,18 @@ jobs:
         working-directory: target
         env:
           CLAUDE_JSON: ${{ toJSON(matrix.target.orchestrators.claude) }}
+          LANG: ${{ matrix.target.language }}
           REF: ${{ needs.matrix.outputs.ref }}
         run: |
           set -euo pipefail
           mkdir -p .github/workflows
 
-          # Build the `with:` block from the entry's `orchestrators.claude` block; strings
-          # quoted, booleans/numbers bare. Keys map 1:1 to reusable inputs.
-          with_block=$(echo "$CLAUDE_JSON" | jq -r '
-            to_entries
+          # Build the `with:` block: `language` comes from the entry's top-level `language`
+          # (prepended so it renders first), the remaining keys from its `orchestrators.claude`
+          # block. Strings quoted, booleans/numbers bare; keys map 1:1 to reusable inputs.
+          with_block=$(echo "$CLAUDE_JSON" | jq -r --arg lang "$LANG" '
+            {language: $lang} + .
+            | to_entries
             | map("      \(.key): \(.value | if type == "string" then "\"\(.)\"" else tostring end)")
             | .[]')
 

@@ -124,9 +124,9 @@ jobs:
         run: |
           set -euo pipefail
           case "$REPO_LANG" in
-            Go)         ADL_LANG=go ;;
-            Rust)       ADL_LANG=rust ;;
-            TypeScript) ADL_LANG=typescript ;;
+            go)         ADL_LANG=go ;;
+            rust)       ADL_LANG=rust ;;
+            typescript) ADL_LANG=typescript ;;
             *)
               echo "::error::Unsupported language '$REPO_LANG' for target ${{ matrix.target.name }}"
               exit 1

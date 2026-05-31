@@ -18,7 +18,7 @@ There is no build, no test suite, no application. Changes here are YAML/Markdown
 
 Every orchestrator reads `repos.yaml`. Adding or removing a downstream repo = one PR editing this file.
 
-It is **one list** (`targets`); there is no separate `claude_targets`. Each entry has `name`, `kind`, `language`, and an optional nested `orchestrators:` block grouping the per-bot reusable-workflow inputs: `orchestrators.claude` (for repos with a centralized `claude.yml` caller) and `orchestrators.infer` (for repos with a centralized `infer.yml` caller).
+It is **one list** (`targets`); there is no separate `claude_targets`. Each entry has `name`, `kind`, `language`, and an optional nested `orchestrators:` block grouping the per-bot reusable-workflow inputs: `orchestrators.claude` (for repos with a centralized `claude.yml` caller) and `orchestrators.infer` (for repos with a centralized `infer.yml` caller). `language` is the single, lowercase toolchain (`go | rust | typescript | python | node`) — it feeds the sync audit-prompt display, the adl `--language` flag in `refresh-agent-manifest.yml`, and (injected by the migrate workflows) the `language` input of each reusable bot workflow. The bot sub-blocks therefore carry only non-language inputs; a repo needing no extras uses an explicit empty map (`claude: {}` / `infer: {}`) so the `!= null` selection still matches it.
 
 `kind` values and which workflows pick them up:
 
@@ -86,7 +86,7 @@ Daily cron + manual `workflow_dispatch`. Both default `dry_run: true` on manual 
 
 Two reusable workflows (`on: workflow_call`) centralize the org's AI bots so each per-repo caller is ~15 lines: `claude.yml` wraps `anthropics/claude-code-action` (`@claude`); `infer.yml` wraps `inference-gateway/infer-action@v0.9.1` (`@infer`, default model `deepseek/deepseek-v4-flash`). Both pin their action to an exact tag and cap the job at `timeout-minutes: 25`. The `on:` triggers and the `@claude`/`@infer` gate `if:` live in each thin caller, not in the reusable workflow.
 
-`migrate-claude.yml` / `migrate-infer.yml` are one-shot fan-outs that write the thin caller into each target and open a PR. They select `.orchestrators.claude != null` / `.orchestrators.infer != null` and read the caller's `with:` inputs from that repo's `orchestrators.claude` / `orchestrators.infer` block. The two bots coexist (both available per repo); fixing a bot is one PR in `.github` + a tag move.
+`migrate-claude.yml` / `migrate-infer.yml` are one-shot fan-outs that write the thin caller into each target and open a PR. They select `.orchestrators.claude != null` / `.orchestrators.infer != null` and build the caller's `with:` inputs by prepending the entry's top-level `language` to that repo's `orchestrators.claude` / `orchestrators.infer` block. The two bots coexist (both available per repo); fixing a bot is one PR in `.github` + a tag move.
 
 ## Auth model
 
@@ -129,9 +129,9 @@ gh workflow run cleanup-runs.yml --repo inference-gateway/.github -f conclusions
 gh workflow run cleanup-runs.yml --repo inference-gateway/.github -f conclusions=all -f keep_last=5             # dry: keep only newest 5/workflow, prune the rest
 
 # Validate repos.yaml shape after edits:
-yq '.targets[] | .kind' repos.yaml | sort -u   # should only print: adk agent docs none sdk
-yq '.targets[] | select(.orchestrators.claude) | .name + ": " + (.orchestrators.claude.language // "MISSING")' repos.yaml  # every claude block has a toolchain language
-yq '.targets[] | select(.orchestrators.infer) | .name + ": " + (.orchestrators.infer.language // "MISSING")' repos.yaml    # every infer block has a toolchain language
+yq '.targets[] | .kind' repos.yaml | sort -u       # should only print: adk agent docs none sdk
+yq '.targets[] | .language' repos.yaml | sort -u   # should only print lowercase toolchains: go node python rust typescript
+yq '.targets[] | select(.orchestrators.claude.language != null or .orchestrators.infer.language != null) | .name' repos.yaml  # must be EMPTY: language is top-level only, never a bot sub-key
 ```
 
 The sync workflows are normally driven by `repository_dispatch` from `inference-gateway/schemas` (`event_type: spec-updated` for OpenAPI, `a2a-spec-updated` for the A2A schema). `workflow_dispatch` is the manual path for testing.
