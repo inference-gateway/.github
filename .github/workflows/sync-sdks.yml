@@ -13,6 +13,17 @@ on:
     types:
       - spec-updated
   workflow_dispatch:
+    inputs:
+      repository:
+        description: 'Single repos.yaml sdk/docs target to audit (omit = all). Use to test on one repo.'
+        required: false
+        type: string
+        default: ''
+      dry_run:
+        description: 'Audit and print the issues that WOULD be filed, without creating/editing/closing any (manual runs preview by default; spec-updated events file for real)'
+        required: false
+        type: boolean
+        default: true
 
 permissions: {}
 
@@ -26,7 +37,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6.0.2
       - id: read
-        run: echo "targets=$(yq -o=json -I=0 '[.targets[] | select(.kind == "sdk" or .kind == "docs")]' repos.yaml)" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/resolve-targets
+        with:
+          select: '.kind == "sdk" or .kind == "docs"'
+          repository: ${{ inputs.repository }}
 
   sync:
     needs: matrix
@@ -94,6 +108,7 @@ jobs:
         uses: anthropics/claude-code-action@v1.0.133
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ steps.token.outputs.token }}
@@ -117,6 +132,25 @@ jobs:
             anywhere in issue titles, bodies, or comments. Issues are
             notifications for a human reviewer; the maintainer will decide
             whether to implement, defer, or close.**
+
+            **DRY-RUN MODE.** The environment variable `DRY_RUN` is `${{ inputs.dry_run || 'false' }}`
+            for this run. When `DRY_RUN` is `true` you MUST NOT create, edit,
+            comment on, close, or otherwise mutate ANY issue, and you MUST NOT
+            call `gh issue create`, `gh issue edit`, `gh issue comment`,
+            `gh issue close`, or the `updateIssueIssueType` mutation. Instead,
+            run the SAME read-only audit and the SAME idempotency search
+            (`gh issue list --search 'in:title ...'` is allowed - it is
+            read-only), then PRINT, to your text output and to
+            `$GITHUB_STEP_SUMMARY`, the exact list of issues you WOULD file or
+            refresh: for each, the BYTE-EXACT title from the drift-class table,
+            the drift class letter, whether it would be a create or an in-place
+            edit of an existing issue (with its number), and the one-line gap
+            summary. Do not invent or alter titles - the printed title must be
+            byte-identical to what a real run would use, because titles are
+            idempotency keys. End with the usual `summary:` line plus `mode=dry-run`.
+            When `DRY_RUN` is `false`, behave exactly as specified below
+            (create/refresh issues for real). Automatic `spec-updated` runs set
+            `DRY_RUN=false`.
 
             **Inputs already on disk:**
             - `./openapi.yaml` - the canonical OpenAPI spec at SHA `${{ steps.spec.outputs.sha }}`
@@ -258,6 +292,10 @@ jobs:
 
             ## Hard rules
 
+            - When `DRY_RUN` is `true`, mutate nothing: no `gh issue create`,
+              `gh issue edit`, `gh issue comment`, `gh issue close`, or
+              `updateIssueIssueType`. Print the would-file list instead (see
+              "DRY-RUN MODE" above).
             - Never modify any file under `./target/`.
             - Never open a PR.
             - Never mention `@claude` in issue titles, bodies, or comments.

@@ -1,15 +1,16 @@
 name: Cleanup skipped workflow runs
 
-# Daily sweep across every target in repos.yaml. For each repo, deletes
+# Daily sweep across every repos.yaml target except kind: none
+# (select(.kind != "none"), same matrix as stale.yml). For each repo, deletes
 # workflow runs with conclusion == "skipped". inference-gateway/infer-action
 # (@infer) and anthropics/claude-code-action (@claude) fire on every issues /
 # issue_comment event and then skip at the job-level `if:` guard, leaving runs
 # with status: completed, conclusion: skipped. GitHub has no native auto-prune,
 # so they accumulate and bury meaningful runs in each repo's Actions tab.
 #
-# Scope: repos.yaml targets only (same matrix as stale.yml). Out-of-repos.yaml
-# org repos (inference-gateway, cli, operator, registry, ...) are intentionally
-# not swept - consistent with stale.yml.
+# Scope: product targets only. The infra/tooling repos (kind: none -
+# inference-gateway, cli, operator, registry, ...) are intentionally not swept,
+# consistent with stale.yml.
 #
 # Auth: per-target scoped App token via inference-gateway-maintainer-bot (needs
 # actions: write on each target - already granted; trigger-cd.yml dispatches
@@ -54,22 +55,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6.0.2
       - id: read
-        env:
-          ONLY_REPO: ${{ inputs.repository }}
-        run: |
-          set -euo pipefail
-          # Same [.targets[]] shape as stale.yml (CLAUDE.md "three yq shapes").
-          targets=$(yq -o=json -I=0 '[.targets[]]' repos.yaml)
-          # Optional test-on-one-repo narrowing (AC#3), done in jq so the yq
-          # shape stays unchanged.
-          if [ -n "${ONLY_REPO}" ]; then
-            targets=$(printf '%s' "${targets}" | jq -c --arg n "${ONLY_REPO}" '[.[] | select(.name == $n)]')
-            if [ "$(printf '%s' "${targets}" | jq 'length')" -eq 0 ]; then
-              echo "Repository '${ONLY_REPO}' is not a target in repos.yaml" >&2
-              exit 1
-            fi
-          fi
-          echo "targets=${targets}" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/resolve-targets
+        with:
+          # Same set as stale.yml: every target except the kind: none repos.
+          select: '.kind != "none"'
+          repository: ${{ inputs.repository }}
 
   cleanup:
     needs: matrix

@@ -1,0 +1,57 @@
+name: Resolve targets
+description: >
+  Read repos.yaml, filter entries by a jq per-entry boolean expression, optionally narrow to a
+  single target by name, and emit a compact JSON array for use as a fan-out matrix. Must run after
+  actions/checkout of the .github repo (repos.yaml is read from the repo root). Replaces the
+  copy-pasted "read repos.yaml + build matrix + narrow to one target" step in every orchestrator.
+
+inputs:
+  select:
+    description: >
+      jq per-entry boolean expression evaluated against each repos.yaml entry, e.g.
+      '.kind == "agent"', '.kind == "sdk" or .kind == "docs"', '.kind != "none"',
+      '.orchestrators.claude != null', '.orchestrators.infer != null'.
+      Default "true" = all entries. Single-quote the YAML scalar so inner double quotes survive.
+    required: false
+    default: "true"
+  repository:
+    description: >
+      Optional single target name to narrow to (for dry / one-repo testing). Empty = all entries
+      matching `select`. Fails if the name matches no entry in the filtered set.
+    required: false
+    default: ""
+
+outputs:
+  targets:
+    description: Compact JSON array of the matching repos.yaml entries (for a strategy matrix).
+    value: ${{ steps.resolve.outputs.targets }}
+
+runs:
+  using: composite
+  steps:
+    - id: resolve
+      shell: bash
+      env:
+        SELECT: ${{ inputs.select }}
+        ONLY_REPO: ${{ inputs.repository }}
+      run: |
+        set -euo pipefail
+        # 1. Whole list to compact JSON (single yq shape for ALL orchestrators).
+        all=$(yq -o=json -I=0 '.targets' repos.yaml)
+        # 2. Per-entry filter via jq. SELECT is passed as an env var and expanded inside a
+        #    double-quoted jq program so the double quotes it contains are jq string literals.
+        targets=$(printf '%s' "$all" | jq -c "[.[] | select(${SELECT})]")
+        # 3. Optional single-target narrow (kept in jq so the yq shape stays constant).
+        if [ -n "${ONLY_REPO}" ]; then
+          targets=$(printf '%s' "$targets" | jq -c --arg n "${ONLY_REPO}" '[.[] | select(.name == $n)]')
+        fi
+        # 4. Not-found / empty guard.
+        if [ "$(printf '%s' "$targets" | jq 'length')" -eq 0 ]; then
+          if [ -n "${ONLY_REPO}" ]; then
+            echo "::error::repository '${ONLY_REPO}' is not a matching target in repos.yaml (select=${SELECT})"
+          else
+            echo "::error::no targets matched select expression: ${SELECT}"
+          fi
+          exit 1
+        fi
+        echo "targets=${targets}" >> "$GITHUB_OUTPUT"

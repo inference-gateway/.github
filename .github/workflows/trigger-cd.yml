@@ -14,11 +14,16 @@ on:
         required: false
         type: string
         default: main
+      repository:
+        description: 'Single repos.yaml agent target to dispatch (omit = all agents). Use to test on one repo.'
+        required: false
+        type: string
+        default: ''
       dry_run:
-        description: 'Print plan but do not dispatch cd.yml'
+        description: 'Print plan but do not dispatch cd.yml (manual runs preview by default)'
         required: false
         type: boolean
-        default: false
+        default: true
 
 permissions: {}
 
@@ -32,8 +37,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6.0.2
       - id: read
-        run: |
-          echo "targets=$(yq -o=json -I=0 '[.targets[] | select(.kind == "agent")]' repos.yaml)" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/resolve-targets
+        with:
+          select: '.kind == "agent"'
+          repository: ${{ inputs.repository }}
 
   trigger:
     needs: matrix

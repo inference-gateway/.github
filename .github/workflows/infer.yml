@@ -1,0 +1,200 @@
+name: Infer (reusable)
+
+# Reusable @infer bot workflow for the inference-gateway org.
+#
+# Single source of truth for the per-repo `.github/workflows/infer.yml` thin caller. Wraps
+# inference-gateway/infer-action (the gateway-powered issue/comment agent). A fix here (action
+# bump, model change, tool scope) is one commit + a tag move instead of one PR per repo.
+#
+# Caller contract:
+#   jobs.infer.uses: inference-gateway/.github/.github/workflows/infer.yml@v1
+# The `on:` triggers and the `@infer` gate `if:` stay in the caller (event triggers cannot live in
+# a reusable workflow, and keeping the gate on the caller job avoids spinning up this runner for
+# every non-@infer comment).
+#
+# Tools model: infer-action ships a default bash whitelist (gh, git, coreutils); the `language`
+# preset + `markdownlint` + `extra-bash-commands` append the toolchain commands this repo needs.
+
+on:
+  workflow_call:
+    inputs:
+      language:
+        description: 'Toolchain preset: go | rust | typescript | node | python | none'
+        type: string
+        default: none
+      runner:
+        description: 'Runner image'
+        type: string
+        default: ubuntu-24.04
+      skills:
+        description: 'Newline-separated org skills to install (infer-action `skills`), e.g. "maintainer"'
+        type: string
+        default: maintainer
+      model:
+        description: 'Model id passed to infer-action (provider/model)'
+        type: string
+        default: deepseek/deepseek-v4-flash
+      trigger-phrase:
+        description: 'Mention that activates the bot'
+        type: string
+        default: '@infer'
+      max-turns:
+        description: 'Max agent turns before auto-stop'
+        type: string
+        default: '50'
+      compact-auto-at:
+        description: 'Auto-compact the conversation at this percent of the context window'
+        type: string
+        default: '50'
+      debug:
+        description: 'Enable infer-action debug logging'
+        type: boolean
+        default: false
+      markdownlint:
+        description: 'Install markdownlint-cli and add markdownlint to the bash whitelist'
+        type: boolean
+        default: false
+      precommit:
+        description: 'Install pre-commit and run `task precommit:install`'
+        type: boolean
+        default: false
+      node:
+        description: 'Force Node/pnpm setup even when language is not typescript/node'
+        type: boolean
+        default: false
+      extra-bash-commands:
+        description: 'Comma-separated bare commands appended to the language-derived bash whitelist, e.g. "helm"'
+        type: string
+        default: ''
+    secrets:
+      INFER_APP_ID:
+        description: 'Client ID of the @infer bot GitHub App (callers use `secrets: inherit`)'
+        required: true
+      INFER_APP_PRIVATE_KEY:
+        description: 'Private key of the @infer bot GitHub App (callers use `secrets: inherit`)'
+        required: true
+      # Provider API keys (ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY, DEEPSEEK_API_KEY,
+      # GROQ_API_KEY, MISTRAL_API_KEY, CLOUDFLARE_API_KEY, COHERE_API_KEY, OLLAMA_API_KEY,
+      # OLLAMA_CLOUD_API_KEY, MOONSHOT_API_KEY) are per-model optional and reach this workflow via
+      # the caller's `secrets: inherit`; they are referenced directly below without being declared
+      # here so a repo that lacks a given provider key does not fail at call time.
+
+jobs:
+  infer:
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 25
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Generate GitHub App token
+        id: app_token
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          client-id: ${{ secrets.INFER_APP_ID }}
+          private-key: ${{ secrets.INFER_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            ${{ github.event.repository.name }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v6.0.2
+        with:
+          token: ${{ steps.app_token.outputs.token }}
+
+      - name: Install task
+        uses: arduino/setup-task@v2.0.0
+        with:
+          version: 3.48.0
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Go
+        if: inputs.language == 'go'
+        uses: actions/setup-go@v6.4.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Set up Rust
+        if: inputs.language == 'rust'
+        uses: actions-rust-lang/setup-rust-toolchain@v1.16.1
+        with:
+          components: clippy, rustfmt
+
+      - name: Set up Python
+        if: inputs.language == 'python'
+        uses: actions/setup-python@v6.2.0
+        with:
+          python-version: '3.x'
+
+      - name: Set up pnpm
+        if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint
+        uses: pnpm/action-setup@v6.0.8
+        with:
+          version: 10.18.0
+          run_install: false
+
+      - name: Set up Node.js
+        if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint
+        uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 'lts/*'
+
+      - name: Install markdownlint
+        if: inputs.markdownlint
+        run: npm install -g markdownlint-cli
+
+      - name: Install pre-commit
+        if: inputs.precommit
+        run: |
+          set -euo pipefail
+          pip install pre-commit
+          task precommit:install
+
+      - name: Compose bash whitelist
+        id: whitelist
+        env:
+          LANGUAGE: ${{ inputs.language }}
+          MARKDOWNLINT: ${{ inputs.markdownlint }}
+          NODE: ${{ inputs.node }}
+          EXTRA: ${{ inputs.extra-bash-commands }}
+        run: |
+          set -euo pipefail
+          # infer-action ships a default whitelist (gh, git, coreutils); append only the toolchain
+          # + project-runner commands this repo needs. Bare command names, comma-separated.
+          cmds='task'
+          case "$LANGUAGE" in
+            go)               cmds="$cmds,go" ;;
+            rust)             cmds="$cmds,cargo,rustup,rustc" ;;
+            python)           cmds="$cmds,python,python3" ;;
+            typescript|node)  cmds="$cmds,node,npm,pnpm" ;;
+          esac
+          [ "$NODE" = "true" ]         && cmds="$cmds,node,npm,pnpm"
+          [ "$MARKDOWNLINT" = "true" ] && cmds="$cmds,node,npm,pnpm,markdownlint"
+          [ -n "$EXTRA" ]              && cmds="$cmds,$EXTRA"
+          echo "commands=$cmds" >> "$GITHUB_OUTPUT"
+          echo "Bash whitelist append: $cmds"
+
+      - name: Run Infer Agent
+        uses: inference-gateway/infer-action@v0.9.1
+        with:
+          github-token: ${{ steps.app_token.outputs.token }}
+          trigger-phrase: ${{ inputs.trigger-phrase }}
+          model: ${{ inputs.model }}
+          max-turns: ${{ inputs.max-turns }}
+          compact-auto-at: ${{ inputs.compact-auto-at }}
+          debug: ${{ inputs.debug }}
+          skills: ${{ inputs.skills }}
+          bash-whitelist-commands-append: ${{ steps.whitelist.outputs.commands }}
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          google-api-key: ${{ secrets.GOOGLE_API_KEY }}
+          deepseek-api-key: ${{ secrets.DEEPSEEK_API_KEY }}
+          groq-api-key: ${{ secrets.GROQ_API_KEY }}
+          mistral-api-key: ${{ secrets.MISTRAL_API_KEY }}
+          cloudflare-api-key: ${{ secrets.CLOUDFLARE_API_KEY }}
+          cohere-api-key: ${{ secrets.COHERE_API_KEY }}
+          ollama-api-key: ${{ secrets.OLLAMA_API_KEY }}
+          ollama-cloud-api-key: ${{ secrets.OLLAMA_CLOUD_API_KEY }}
+          moonshot-api-key: ${{ secrets.MOONSHOT_API_KEY }}

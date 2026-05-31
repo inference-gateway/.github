@@ -83,6 +83,7 @@ on:
 jobs:
   claude:
     runs-on: ${{ inputs.runner }}
+    timeout-minutes: 25
     permissions:
       contents: write
       pull-requests: write
