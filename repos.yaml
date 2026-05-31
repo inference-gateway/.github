@@ -113,14 +113,12 @@ targets:
       claude:
         language: typescript
         markdownlint: true
-        # Preserves the deliberately narrowed gh scope + pnpm.
         allowed-tools: "Bash(task:*),Bash(node:*),Bash(npm:*),Bash(pnpm:*),Bash(gh pr:*),Bash(gh issue:*),Bash(gh repo:*)"
       infer:
         language: typescript
         markdownlint: true
 
-  # --- Agents (bump-adl / refresh-agent-manifest / trigger-cd). NO `orchestrators:` block:
-  #     claude.yml is adl-cli-generated and migrates via the generator + bump-adl.yml. ---
+  # --- Agents (bump-adl / refresh-agent-manifest / trigger-cd).  ---
   - name: browser-agent
     kind: agent
     language: Go
@@ -159,7 +157,6 @@ targets:
     orchestrators:
       claude:
         language: go
-        # Preserves the deliberately narrowed gh scope.
         allowed-tools: "Bash(task:*),Bash(go:*),Bash(git:*),Bash(gh pr:*),Bash(gh issue:*),Bash(gh repo:*),Bash(gh run:*)"
       infer:
         language: go
