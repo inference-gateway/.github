@@ -3,7 +3,7 @@ name: Cleanup workflow runs
 # Daily sweep across EVERY repos.yaml target (select(true), all kinds including
 # kind: none). For each repo, deletes
 # completed workflow runs whose conclusion is in the `conclusions` input
-# (default `skipped`), honoring a per-workflow `keep_last` retention floor.
+# (default `skipped`), honoring a per-repo `keep_last` retention floor.
 # inference-gateway/infer-action (@infer) and anthropics/claude-code-action
 # (@claude) fire on every issues / issue_comment event and then skip at the
 # job-level `if:` guard, leaving runs with status: completed, conclusion:
@@ -23,15 +23,16 @@ name: Cleanup workflow runs
 #
 # Safety: deletion is gated by the `conclusions` set (default `skipped` =
 # today's behavior) and an optional `keep_last` retention floor (protects the
-# newest N runs of each workflow). A per-run re-check immediately before each
+# newest N runs in the repo). A per-run re-check immediately before each
 # delete re-confirms status: completed and conclusion in the set, so an
 # in_progress/queued run is never deleted. A MAX_DELETES cap bounds a single
 # run and logs a warning with the leftover count. dry_run lists/counts without
 # deleting; manual dispatch previews by default, the scheduled run deletes.
 #
-# keep_last is per WORKFLOW (by workflow_id), and only for workflows whose file
-# still exists: runs of a deleted/renamed workflow are pruned in FULL (otherwise
-# keep_last would preserve a tail for a workflow that no longer exists forever).
+# keep_last is per REPO: it protects the newest N runs across the whole repo,
+# regardless of workflow. Only runs of workflows whose file still exists are
+# eligible for that floor - runs of a deleted/renamed workflow are pruned in FULL
+# (otherwise keep_last would preserve a tail for a workflow that no longer exists).
 #
 # Fail-loud: every listing/re-check/delete is rate-limit aware. All matrix jobs
 # share ONE App installation token (a single 5,000-req/hr bucket), so a large
@@ -59,7 +60,7 @@ on:
         type: string
         default: 'skipped'
       keep_last:
-        description: 'Protect the newest N runs of each workflow from deletion (retention floor). 0 = no protection.'
+        description: 'Protect the newest N runs in the repo from deletion (retention floor). 0 = no protection.'
         required: false
         type: string
         default: '5'
@@ -144,7 +145,7 @@ jobs:
             echo
             echo "- dry run: \`${DRY_RUN}\`"
             echo "- conclusions: \`${CONCLUSIONS}\`"
-            echo "- keep last (per workflow): \`${KEEP_LAST}\`"
+            echo "- keep last (per repo): \`${KEEP_LAST}\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
           if ! active_json=$(
@@ -164,14 +165,9 @@ jobs:
                 --argjson keep "${KEEP_LAST}" \
                 --argjson concls "${CONCLS_JSON}" \
                 --argjson active "${active_json}" '
-                  group_by(.workflow_id)
-                  | map(
-                      if (.[0].workflow_id as $w | $active | index($w)) != null
-                      then (sort_by(.created_at) | reverse | .[$keep:])
-                      else .
-                      end
-                    )
-                  | add // []
+                  ([.[] | select(.workflow_id as $w | $active | index($w) != null)]
+                    | sort_by(.created_at) | reverse | .[$keep:])
+                  + [.[] | select(.workflow_id as $w | $active | index($w) == null)]
                   | map(select($concls == null or (.conclusion as $c | $concls | index($c) != null)))
                   | .[].id
                 '

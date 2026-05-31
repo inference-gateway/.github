@@ -14,7 +14,7 @@ Org-level repo holding:
     - `trigger-cd.yml` dispatches each agent's own `cd.yml` to cut releases (fire-and-forget).
   - **Lifecycle orchestrators** - cross-repo maintenance across `repos.yaml` targets (`stale.yml` sweeps every target except the `kind: none` infra repos, `select(.kind != "none")`; `cleanup-runs.yml` sweeps every registered target, `select(true)`, including `kind: none`):
     - `stale.yml` marks issues with no activity for 30 days as `stale` and closes them 7 days later.
-    - `cleanup-runs.yml` prunes completed workflow runs by conclusion (default `skipped` - the noise `infer-action` / `claude-code-action` leave on every issue event; `skipped,failure` also drops failed-run logs), with an optional `keep_last` per-workflow retention floor, from each target's Actions tab, daily.
+    - `cleanup-runs.yml` prunes completed workflow runs by conclusion (default `skipped` - the noise `infer-action` / `claude-code-action` leave on every issue event; `skipped,failure` also drops failed-run logs), with an optional `keep_last` per-repo retention floor, from each target's Actions tab, daily.
   - **Migration (one-shot)** - `migrate-claude.yml` rewrites each repo's `.github/workflows/claude.yml` into a thin caller of the org [reusable `claude.yml`](./.github/workflows/claude.yml), reading its inputs from that entry's `orchestrators.claude` block (`select(.orchestrators.claude != null)`); `migrate-infer.yml` does the same for `.github/workflows/infer.yml` against the org [reusable `infer.yml`](./.github/workflows/infer.yml), reading that entry's `orchestrators.infer` block (`select(.orchestrators.infer != null)`). Both operate on every repo that defines the matching block.
 
 ## How the SDK orchestrator works
@@ -147,7 +147,7 @@ cron: '0 6 * * *'  (daily, disabled until validated; manual via workflow_dispatc
 per-target job:
    │  mints a per-target scoped App token (actions: write)
    │  list:   gh api 'repos/inference-gateway/<target>/actions/runs?status=completed' --paginate
-   │  rank:   jq group_by(workflow_id) -> drop newest keep_last -> filter conclusions
+   │  rank:   jq protect newest keep_last repo-wide (live wfs) -> prune dead wfs in full -> filter conclusions
    │  delete: gh api -X DELETE 'repos/inference-gateway/<target>/actions/runs/<id>'  (re-checked)
    ▼
 each target's Actions tab is pruned per the active filters
@@ -157,8 +157,8 @@ Why these runs exist: `inference-gateway/infer-action` (`@infer`) and `anthropic
 
 Distinct from `stale.yml` (the other lifecycle orchestrator):
 
-- **Acts on workflow runs, not issues.** Deletes completed runs whose `conclusion` is in the `conclusions` input (default `skipped`; e.g. `skipped,failure` to also drop failed-run logs and shrink the secret-leak surface; `all` for any conclusion). `keep_last` protects the newest N runs **per workflow** (by `workflow_id`, not per repo), so a recent tail of every pipeline survives while the rest is pruned. Lists `?status=completed` so `keep_last` can rank every run, then filters in jq; a per-run re-check re-confirms `status: completed` and `conclusion ∈ set` before each delete.
-- **`keep_last` only protects *live* workflows.** The step first lists `actions/workflows` (the IDs whose file still exists) and applies the per-workflow floor only to those. Runs of a **deleted or renamed workflow** (a `workflow_id` no longer backed by a file) are pruned in **full** - otherwise a retired pipeline's history would sit behind `keep_last` forever.
+- **Acts on workflow runs, not issues.** Deletes completed runs whose `conclusion` is in the `conclusions` input (default `skipped`; e.g. `skipped,failure` to also drop failed-run logs and shrink the secret-leak surface; `all` for any conclusion). `keep_last` protects the newest N runs **across the repo** (regardless of workflow), so a recent tail survives while the rest is pruned. Lists `?status=completed` so `keep_last` can rank every run, then filters in jq; a per-run re-check re-confirms `status: completed` and `conclusion ∈ set` before each delete.
+- **`keep_last` only protects *live* workflows.** The step first lists `actions/workflows` (the IDs whose file still exists) and applies the retention floor only to those. Runs of a **deleted or renamed workflow** (a `workflow_id` no longer backed by a file) are pruned in **full** - otherwise a retired pipeline's history would sit behind `keep_last` forever.
 - **Fails loud, resumes idempotently.** All matrix jobs mint from **one** App installation (a single 5,000-req/hr bucket), so a large `conclusions=all` purge across many repos can exhaust it mid-sweep. A rate-limit 403 on the run/workflow listing used to surface as a false `found 0` and a green check (the `mapfile < <(...)` process substitution hid the non-zero exit from `set -e`); it now **fails the job** with an `::error::` and the leftover count. Because deletes are idempotent, just rerun (or wait for the daily cron) to continue - and prefer `-f repository=<name>` to purge one repo at a time within the shared budget.
 - **Broader matrix than `stale.yml`.** Resolves `select(true)` - every registered `repos.yaml` target, including the `kind: none` infra repos (`inference-gateway`, `cli`, `operator`, `registry`, ...), which accumulate the same skipped `@claude`/`@infer` runs. This intentionally diverges from `stale.yml` (which exempts `kind: none` so infra issue trackers are not auto-staled). Private repos are never registered in `repos.yaml`, so they are excluded by construction; repos absent from `repos.yaml` (`.github`, `agents`, `awesome-a2a`, `tools`) are untouched.
 - **Destructive, so `dry_run` defaults to `true` on manual dispatch.** `gh workflow run cleanup-runs.yml -f dry_run=false` actually deletes; the daily cron deletes by design. A per-target `MAX_DELETES` cap bounds one run and logs a `::warning::` with the leftover count when reached (leftovers handled on the next run).
@@ -169,7 +169,7 @@ Testing on one repo (AC#3): the `repository` input narrows the matrix to a singl
 ```sh
 # preview one repo (default: skipped-only, no retention)
 gh workflow run cleanup-runs.yml --repo inference-gateway/.github -f dry_run=true -f repository=docs
-# preview pruning skipped + failed runs while keeping the newest 5 of each workflow
+# preview pruning skipped + failed runs while keeping the newest 5 in the repo
 gh workflow run cleanup-runs.yml --repo inference-gateway/.github -f dry_run=true -f repository=docs -f conclusions=skipped,failure -f keep_last=5
 # delete on that one repo, then check its Actions tab
 gh workflow run cleanup-runs.yml --repo inference-gateway/.github -f dry_run=false -f repository=docs
@@ -226,8 +226,8 @@ gh workflow run migrate-infer.yml --repo inference-gateway/.github -f dry_run=fa
 gh workflow run stale.yml --repo inference-gateway/.github -f dry_run=false                               # sweep for real
 gh workflow run cleanup-runs.yml --repo inference-gateway/.github                                               # dry, all targets, skipped-only
 gh workflow run cleanup-runs.yml --repo inference-gateway/.github -f dry_run=false -f repository=docs           # delete skipped on one target
-gh workflow run cleanup-runs.yml --repo inference-gateway/.github -f conclusions=skipped,failure -f keep_last=5 # dry: prune skipped+failed, keep newest 5/workflow
-gh workflow run cleanup-runs.yml --repo inference-gateway/.github -f conclusions=all -f keep_last=5             # dry: keep only newest 5/workflow, prune the rest
+gh workflow run cleanup-runs.yml --repo inference-gateway/.github -f conclusions=skipped,failure -f keep_last=5 # dry: prune skipped+failed, keep newest 5 repo-wide
+gh workflow run cleanup-runs.yml --repo inference-gateway/.github -f conclusions=all -f keep_last=5             # dry: keep only newest 5 in the repo, prune the rest
 ```
 
 For SDK targets the workflow uses each SDK's own `task oas-download` to pull the canonical `openapi.yaml`. For docs it fetches raw from `inference-gateway/schemas`. For ADK targets the workflow uses each ADK's own `task a2a:download-schema` to pull the canonical `a2a/a2a-schema.yaml`. Both sync workflows always audit against current `main` of `schemas`.
