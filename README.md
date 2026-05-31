@@ -12,7 +12,7 @@ Org-level repo holding:
     - `bump-adl.yml` bumps every agent's ADL CLI pin to a given version, regenerates, and opens one PR per agent.
     - `refresh-agent-manifest.yml` additively merges new `adl init` defaults into each agent's `agent.yaml` (one PR per agent).
     - `trigger-cd.yml` dispatches each agent's own `cd.yml` to cut releases (fire-and-forget).
-  - **Lifecycle orchestrators** - cross-repo maintenance across every target except the `kind: none` infra repos (`select(.kind != "none")`):
+  - **Lifecycle orchestrators** - cross-repo maintenance across `repos.yaml` targets (`stale.yml` sweeps every target except the `kind: none` infra repos, `select(.kind != "none")`; `cleanup-runs.yml` sweeps every registered target, `select(true)`, including `kind: none`):
     - `stale.yml` marks issues with no activity for 30 days as `stale` and closes them 7 days later.
     - `cleanup-runs.yml` prunes completed workflow runs by conclusion (default `skipped` - the noise `infer-action` / `claude-code-action` leave on every issue event; `skipped,failure` also drops failed-run logs), with an optional `keep_last` per-workflow retention floor, from each target's Actions tab, daily.
   - **Migration (one-shot)** - `migrate-claude.yml` rewrites each repo's `.github/workflows/claude.yml` into a thin caller of the org [reusable `claude.yml`](./.github/workflows/claude.yml), reading its inputs from that entry's `orchestrators.claude` block (`select(.orchestrators.claude != null)`); `migrate-infer.yml` does the same for `.github/workflows/infer.yml` against the org [reusable `infer.yml`](./.github/workflows/infer.yml), reading that entry's `orchestrators.infer` block (`select(.orchestrators.infer != null)`). Both operate on every repo that defines the matching block.
@@ -142,7 +142,7 @@ cron: '0 6 * * *'  (daily, disabled until validated; manual via workflow_dispatc
    │
    ▼
 .github/workflows/cleanup-runs.yml
-   │  reads repos.yaml (select(.kind != "none")), fans out matrix
+   │  reads repos.yaml (select(true) - all registered targets, incl. kind: none), fans out matrix
    ▼
 per-target job:
    │  mints a per-target scoped App token (actions: write)
@@ -158,7 +158,7 @@ Why these runs exist: `inference-gateway/infer-action` (`@infer`) and `anthropic
 Distinct from `stale.yml` (the other lifecycle orchestrator):
 
 - **Acts on workflow runs, not issues.** Deletes completed runs whose `conclusion` is in the `conclusions` input (default `skipped`; e.g. `skipped,failure` to also drop failed-run logs and shrink the secret-leak surface; `all` for any conclusion). `keep_last` protects the newest N runs **per workflow** (by `workflow_id`, not per repo), so a recent tail of every pipeline survives while the rest is pruned. Lists `?status=completed` so `keep_last` can rank every run, then filters in jq; a per-run re-check re-confirms `status: completed` and `conclusion ∈ set` before each delete.
-- **Same matrix, same exclusions.** Resolves `select(.kind != "none")` exactly like `stale.yml`, so the `kind: none` infra repos (`inference-gateway`, `cli`, `operator`, `registry`, ...) are intentionally not swept.
+- **Broader matrix than `stale.yml`.** Resolves `select(true)` - every registered `repos.yaml` target, including the `kind: none` infra repos (`inference-gateway`, `cli`, `operator`, `registry`, ...), which accumulate the same skipped `@claude`/`@infer` runs. This intentionally diverges from `stale.yml` (which exempts `kind: none` so infra issue trackers are not auto-staled). Private repos are never registered in `repos.yaml`, so they are excluded by construction; repos absent from `repos.yaml` (`.github`, `agents`, `awesome-a2a`, `tools`) are untouched.
 - **Destructive, so `dry_run` defaults to `true` on manual dispatch.** `gh workflow run cleanup-runs.yml -f dry_run=false` actually deletes; the daily cron deletes by design. A per-target `MAX_DELETES` cap bounds one run and logs a `::warning::` with the leftover count when reached (leftovers handled on the next run).
 - **Schedule disabled on landing.** The `schedule:` block ships commented out (as `stale.yml` did); enable it once validated on one repo.
 
@@ -189,7 +189,7 @@ gh workflow run cleanup-runs.yml --repo inference-gateway/.github -f dry_run=fal
     migrate-claude.yml        # rewrite claude.yml into a thin caller (select(.orchestrators.claude != null))
     migrate-infer.yml         # write infer.yml thin caller (select(.orchestrators.infer != null))
     stale.yml                 # stale-issue sweep (select(.kind != "none"))
-    cleanup-runs.yml          # prune completed runs by conclusion/retention (select(.kind != "none"))
+    cleanup-runs.yml          # prune completed runs by conclusion/retention (select(true) - all registered targets, incl. kind: none)
     claude.yml                # reusable @claude workflow (workflow_call)
     infer.yml                 # reusable @infer workflow (workflow_call)
 repos.yaml                    # single downstream registry - drives every matrix
@@ -242,7 +242,7 @@ Before the orchestrators can run end-to-end, the following pieces need to land s
    - `migrate-claude.yml`: `contents: write`, `pull-requests: write`, and `workflows: write` (it writes `.github/workflows/claude.yml`) on every target with an `orchestrators.claude` block.
    - `migrate-infer.yml`: `contents: write`, `pull-requests: write`, and `workflows: write` (it writes `.github/workflows/infer.yml`) on every target with an `orchestrators.infer` block.
    - `stale.yml`: `issues: write` (label, comment, close) on every swept target (`select(.kind != "none")`). No new scope beyond what the sync workflows already require.
-   - `cleanup-runs.yml`: `actions: write` on every swept target (`select(.kind != "none")`) to delete workflow runs (deleting skipped, failed, or any conclusion needs no broader scope). Already granted - `trigger-cd.yml` relies on the same scope on agent targets.
+   - `cleanup-runs.yml`: `actions: write` on every swept target (`select(true)` - every registered target, **including the `kind: none` infra repos** `cli`, `operator`, `inference-gateway`, `registry`, `schemas`, `skills`, `adl`, `adl-cli`, `a2a-debugger`, `infer-action`) to delete workflow runs (deleting skipped, failed, or any conclusion needs no broader scope). The maintainer App is already installed on these repos (the `migrate-*` workflows mint tokens for them) and its `actions: write` permission is installation-wide; `trigger-cd.yml` relies on the same scope on agent targets.
 3. **Dispatch workflows in `inference-gateway/schemas`** that fire `repository_dispatch` to this repo:
    - `event_type: spec-updated` whenever `openapi.yaml` changes on `main` (drives `sync-sdks.yml`).
    - `event_type: a2a-spec-updated` whenever `a2a/a2a-schema.yaml` changes on `main` (drives `sync-adks.yml`).
