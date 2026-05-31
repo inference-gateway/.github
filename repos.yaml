@@ -13,7 +13,7 @@
 #                                agent -> bump-adl.yml, refresh-agent-manifest.yml, trigger-cd.yml
 #                                none  -> infra/tooling repos with no sync/agent family;
 #                                         migrate-claude / migrate-infer only
-#                              stale.yml + cleanup-skipped-runs.yml sweep `select(.kind != "none")`
+#                              stale.yml + cleanup-runs.yml sweep `select(.kind != "none")`
 #                              (every product repo EXCEPT the kind: none repos, which are
 #                              intentionally not auto-swept).
 #   language       (required)  DESCRIPTIVE label (Go/Rust/TypeScript/Python/MDX/Node/...). Read by the

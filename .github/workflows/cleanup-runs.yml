@@ -1,0 +1,201 @@
+name: Cleanup workflow runs
+
+# Daily sweep across every repos.yaml target except kind: none
+# (select(.kind != "none"), same matrix as stale.yml). For each repo, deletes
+# completed workflow runs whose conclusion is in the `conclusions` input
+# (default `skipped`), honoring a per-workflow `keep_last` retention floor.
+# inference-gateway/infer-action (@infer) and anthropics/claude-code-action
+# (@claude) fire on every issues / issue_comment event and then skip at the
+# job-level `if:` guard, leaving runs with status: completed, conclusion:
+# skipped. GitHub has no native auto-prune, so they accumulate and bury
+# meaningful runs in each repo's Actions tab.
+#
+# Scope: product targets only. The infra/tooling repos (kind: none -
+# inference-gateway, cli, operator, registry, ...) are intentionally not swept,
+# consistent with stale.yml.
+#
+# Auth: per-target scoped App token via inference-gateway-maintainer-bot (needs
+# actions: write on each target - already granted; trigger-cd.yml dispatches
+# cd.yml on agent targets using the same scope). The default GITHUB_TOKEN is
+# scoped to .github only and cannot delete runs in other repos.
+#
+# Safety: deletion is gated by the `conclusions` set (default `skipped` =
+# today's behavior) and an optional `keep_last` retention floor (protects the
+# newest N runs of each workflow). A per-run re-check immediately before each
+# delete re-confirms status: completed and conclusion in the set, so an
+# in_progress/queued run is never deleted. A MAX_DELETES cap bounds a single
+# run and logs a warning with the leftover count. dry_run lists/counts without
+# deleting; manual dispatch previews by default, the scheduled run deletes.
+
+on:
+  # Enable after validating on one repo (see README rollout procedure).
+  # schedule:
+  #   - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'List/count matching runs without deleting (manual runs preview by default)'
+        required: false
+        type: boolean
+        default: true
+      conclusions:
+        description: 'Space/comma-separated run conclusions to delete (e.g. skipped, "skipped,failure", "failure,cancelled"). "all" = any conclusion. Default = the skipped-only sweep.'
+        required: false
+        type: string
+        default: 'skipped'
+      keep_last:
+        description: 'Protect the newest N runs of each workflow from deletion (retention floor). 0 = no protection.'
+        required: false
+        type: string
+        default: '5'
+      repository:
+        description: 'Single repos.yaml target to sweep (omit = all targets). Use to test on one repo.'
+        required: false
+        type: string
+        default: ''
+
+permissions: {}
+
+concurrency:
+  group: cleanup-runs
+  cancel-in-progress: false
+
+jobs:
+  matrix:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      targets: ${{ steps.read.outputs.targets }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - id: read
+        uses: ./.github/actions/resolve-targets
+        with:
+          select: '.kind != "none"'
+          repository: ${{ inputs.repository }}
+
+  cleanup:
+    needs: matrix
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        target: ${{ fromJSON(needs.matrix.outputs.targets) }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Validate inputs
+        env:
+          KEEP_LAST: ${{ inputs.keep_last || '0' }}
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$KEEP_LAST" | grep -qE '^[0-9]+$'; then
+            echo "::error::keep_last must be a non-negative integer, got: ${KEEP_LAST}"
+            exit 1
+          fi
+
+      - name: Mint App token (scoped to ${{ matrix.target.name }})
+        id: token
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          client-id: ${{ secrets.BOT_MAINTAINER_APP_ID }}
+          private-key: ${{ secrets.BOT_MAINTAINER_APP_PRIVATE_KEY }}
+          owner: inference-gateway
+          repositories: |
+            ${{ matrix.target.name }}
+
+      - name: Cleanup workflow runs in inference-gateway/${{ matrix.target.name }}
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          GH_REPO: inference-gateway/${{ matrix.target.name }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          CONCLUSIONS: ${{ inputs.conclusions || 'skipped' }}
+          KEEP_LAST: ${{ inputs.keep_last || '0' }}
+          SLEEP_BETWEEN_DELETES: '1'
+          MAX_DELETES: '500'
+        run: |
+          set -euo pipefail
+
+          # Build the conclusion filter. "all" => match any conclusion (jq null).
+          if [ "${CONCLUSIONS}" = "all" ]; then
+            CONCLS_JSON='null'
+          else
+            CONCLS_JSON=$(printf '%s' "${CONCLUSIONS}" | tr ',' ' ' | tr -s ' ' '\n' | grep -v '^$' | jq -R . | jq -s -c .)
+          fi
+
+          {
+            echo "### ${GH_REPO}"
+            echo
+            echo "- dry run: \`${DRY_RUN}\`"
+            echo "- conclusions: \`${CONCLUSIONS}\`"
+            echo "- keep last (per workflow): \`${KEEP_LAST}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # keep=0 => .[0:] = every run is a candidate (reproduces the old sweep).
+          mapfile -t run_ids < <(
+            gh api "repos/${GH_REPO}/actions/runs?status=completed&per_page=100" \
+              --paginate \
+              --jq '.workflow_runs[] | {id, workflow_id, created_at, conclusion}' \
+            | jq -s -c \
+                --argjson keep "${KEEP_LAST}" \
+                --argjson concls "${CONCLS_JSON}" '
+                  group_by(.workflow_id)
+                  | map(sort_by(.created_at) | reverse | .[$keep:])
+                  | add // []
+                  | map(select($concls == null or (.conclusion as $c | $concls | index($c) != null)))
+                  | .[].id
+                '
+          )
+          found=${#run_ids[@]}
+          echo "Found ${found} matching run(s) in ${GH_REPO}"
+          echo "- found: ${found}" >> "$GITHUB_STEP_SUMMARY"
+
+          deleted=0
+          capped=0
+          for id in "${run_ids[@]}"; do
+            if [ "${DRY_RUN}" = "true" ]; then
+              echo "  [DRY] would delete run ${id}"
+              continue
+            fi
+            if [ "${deleted}" -ge "${MAX_DELETES}" ]; then
+              capped=1
+              break
+            fi
+
+            read -r st concl < <(
+              gh api "repos/${GH_REPO}/actions/runs/${id}" \
+                --jq '"\(.status) \(.conclusion)"' 2>/dev/null || echo "unknown unknown"
+            )
+            if [ "${st}" != "completed" ]; then
+              echo "  skip run ${id}: status='${st}' (not completed)"
+              continue
+            fi
+            if [ "${CONCLUSIONS}" != "all" ] && ! printf '%s' "${CONCLS_JSON}" | jq -e --arg c "${concl}" 'index($c) != null' >/dev/null; then
+              echo "  skip run ${id}: conclusion='${concl}' (not in set)"
+              continue
+            fi
+
+            if gh api -X DELETE "repos/${GH_REPO}/actions/runs/${id}" >/dev/null 2>&1; then
+              deleted=$((deleted + 1))
+            else
+              echo "::warning::failed to delete run ${id} in ${GH_REPO} (rate limit or transient; next run retries)"
+            fi
+            sleep "${SLEEP_BETWEEN_DELETES}"
+          done
+
+          if [ "${capped}" -eq 1 ]; then
+            echo "::warning::hit MAX_DELETES=${MAX_DELETES} cap in ${GH_REPO}; ${found} matched, $((found - deleted)) left for the next run"
+            echo "- capped at: \`${MAX_DELETES}\` (next run continues)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ "${DRY_RUN}" = "true" ]; then
+            echo "- would delete: ${found}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Deleted ${deleted} run(s); $((found - deleted)) matched run(s) not deleted this run"
+            {
+              echo "- deleted: ${deleted}"
+              echo "- remaining (matched, undeleted): $((found - deleted))"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo >> "$GITHUB_STEP_SUMMARY"
