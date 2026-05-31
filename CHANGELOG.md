@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.1](https://github.com/inference-gateway/.github/compare/v0.3.0...v0.3.1) (2026-05-31)
+
+### 👷 CI
+
+* make workflow-run cleanup flexible and rename to cleanup-runs ([#31](https://github.com/inference-gateway/.github/issues/31)) ([1b62b46](https://github.com/inference-gateway/.github/commit/1b62b46768df6e9813dcdb8349aee022c63edf10))
+* reconcile cross-repo orchestrators and add the [@infer](https://github.com/infer) reusable workflow ([#30](https://github.com/inference-gateway/.github/issues/30)) ([91ff793](https://github.com/inference-gateway/.github/commit/91ff7936414de0978f9db74b895b03a53dcbcd19))
+
+### 🔧 Miscellaneous
+
+* **assets:** Refresh org star history ([#29](https://github.com/inference-gateway/.github/issues/29)) ([f957f3f](https://github.com/inference-gateway/.github/commit/f957f3f57209901dd29c63f91e37a625c839227a))
+
 ## [0.3.0](https://github.com/inference-gateway/.github/compare/v0.2.2...v0.3.0) (2026-05-31)
 
 ### ✨ Features
