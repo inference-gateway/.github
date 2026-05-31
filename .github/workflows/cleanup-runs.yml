@@ -28,6 +28,19 @@ name: Cleanup workflow runs
 # in_progress/queued run is never deleted. A MAX_DELETES cap bounds a single
 # run and logs a warning with the leftover count. dry_run lists/counts without
 # deleting; manual dispatch previews by default, the scheduled run deletes.
+#
+# keep_last is per WORKFLOW (by workflow_id), and only for workflows whose file
+# still exists: runs of a deleted/renamed workflow are pruned in FULL (otherwise
+# keep_last would preserve a tail for a workflow that no longer exists forever).
+#
+# Fail-loud: every listing/re-check/delete is rate-limit aware. All matrix jobs
+# share ONE App installation token (a single 5,000-req/hr bucket), so a large
+# `conclusions=all` purge across many repos can exhaust it mid-sweep. Rather than
+# the old behavior - a 403 on the listing yielding a false "found 0" and a green
+# check - the job now exits non-zero with an ::error:: and the leftover count.
+# Deletions are idempotent, so a capped/rate-limited run is resumed simply by
+# rerunning (or by the next daily cron); narrow with `repository=<name>` to purge
+# one repo at a time and stay within the shared budget.
 
 on:
   # Enable after validating on one repo (see README rollout procedure).
@@ -134,21 +147,40 @@ jobs:
             echo "- keep last (per workflow): \`${KEEP_LAST}\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
-          # keep=0 => .[0:] = every run is a candidate (reproduces the old sweep).
-          mapfile -t run_ids < <(
+          if ! active_json=$(
+            gh api "repos/${GH_REPO}/actions/workflows" --paginate \
+              --jq '.workflows[].id' | jq -s -c .
+          ); then
+            echo "::error::failed to list workflows in ${GH_REPO} (rate limit or transient); aborting without deleting"
+            gh api rate_limit --jq '.resources.core' >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+            exit 1
+          fi
+
+          if ! candidates=$(
             gh api "repos/${GH_REPO}/actions/runs?status=completed&per_page=100" \
               --paginate \
               --jq '.workflow_runs[] | {id, workflow_id, created_at, conclusion}' \
             | jq -s -c \
                 --argjson keep "${KEEP_LAST}" \
-                --argjson concls "${CONCLS_JSON}" '
+                --argjson concls "${CONCLS_JSON}" \
+                --argjson active "${active_json}" '
                   group_by(.workflow_id)
-                  | map(sort_by(.created_at) | reverse | .[$keep:])
+                  | map(
+                      if (.[0].workflow_id as $w | $active | index($w)) != null
+                      then (sort_by(.created_at) | reverse | .[$keep:])
+                      else .
+                      end
+                    )
                   | add // []
                   | map(select($concls == null or (.conclusion as $c | $concls | index($c) != null)))
                   | .[].id
                 '
-          )
+          ); then
+            echo "::error::failed to list runs in ${GH_REPO} (rate limit or transient); aborting without deleting"
+            gh api rate_limit --jq '.resources.core' >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+            exit 1
+          fi
+          mapfile -t run_ids < <(printf '%s\n' "${candidates}" | grep -v '^$' || true)
           found=${#run_ids[@]}
           echo "Found ${found} matching run(s) in ${GH_REPO}"
           echo "- found: ${found}" >> "$GITHUB_STEP_SUMMARY"
@@ -165,10 +197,17 @@ jobs:
               break
             fi
 
-            read -r st concl < <(
-              gh api "repos/${GH_REPO}/actions/runs/${id}" \
-                --jq '"\(.status) \(.conclusion)"' 2>/dev/null || echo "unknown unknown"
-            )
+            meta=$(gh api "repos/${GH_REPO}/actions/runs/${id}" --jq '"\(.status) \(.conclusion)"' 2>/dev/null) || meta=""
+            if [ -z "${meta}" ]; then
+              remaining=$(gh api rate_limit --jq '.resources.core.remaining' 2>/dev/null || echo unknown)
+              if [ "${remaining}" = "0" ]; then
+                echo "::error::rate limit exhausted in ${GH_REPO}; deleted ${deleted}, $((found - deleted)) candidate(s) left. Rerun (or wait for cron) to continue."
+                exit 1
+              fi
+              echo "  skip run ${id}: re-check failed (transient; next run retries)"
+              continue
+            fi
+            read -r st concl <<< "${meta}"
             if [ "${st}" != "completed" ]; then
               echo "  skip run ${id}: status='${st}' (not completed)"
               continue
@@ -181,7 +220,12 @@ jobs:
             if gh api -X DELETE "repos/${GH_REPO}/actions/runs/${id}" >/dev/null 2>&1; then
               deleted=$((deleted + 1))
             else
-              echo "::warning::failed to delete run ${id} in ${GH_REPO} (rate limit or transient; next run retries)"
+              remaining=$(gh api rate_limit --jq '.resources.core.remaining' 2>/dev/null || echo unknown)
+              if [ "${remaining}" = "0" ]; then
+                echo "::error::rate limit exhausted in ${GH_REPO}; deleted ${deleted}, $((found - deleted)) candidate(s) left. Rerun (or wait for cron) to continue."
+                exit 1
+              fi
+              echo "::warning::failed to delete run ${id} in ${GH_REPO} (transient; next run retries)"
             fi
             sleep "${SLEEP_BETWEEN_DELETES}"
           done
