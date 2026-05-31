@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.2](https://github.com/inference-gateway/.github/compare/v0.3.1...v0.3.2) (2026-05-31)
+
+### ♻️ Improvements
+
+* **repos:** collapse per-repo language to one lowercase top-level field ([#32](https://github.com/inference-gateway/.github/issues/32)) ([5a022cb](https://github.com/inference-gateway/.github/commit/5a022cb3fb1a9ef6dafe7840d7468af77c4cac10))
+
 ## [0.3.1](https://github.com/inference-gateway/.github/compare/v0.3.0...v0.3.1) (2026-05-31)
 
 ### 👷 CI
