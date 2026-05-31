@@ -47,7 +47,7 @@ on:
         description: 'Protect the newest N runs of each workflow from deletion (retention floor). 0 = no protection.'
         required: false
         type: string
-        default: '0'
+        default: '5'
       repository:
         description: 'Single repos.yaml target to sweep (omit = all targets). Use to test on one repo.'
         required: false
