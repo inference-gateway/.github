@@ -72,7 +72,6 @@ jobs:
       - id: read
         uses: ./.github/actions/resolve-targets
         with:
-          # Same set as stale.yml: every target except the kind: none repos.
           select: '.kind != "none"'
           repository: ${{ inputs.repository }}
 
@@ -133,10 +132,6 @@ jobs:
             echo "- keep last (per workflow): \`${KEEP_LAST}\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
-          # One jq pass over ALL completed runs (status=completed, not a single
-          # conclusion) so keep_last can rank every run per workflow:
-          #   group_by workflow_id -> newest-first -> drop the newest $keep ->
-          #   keep the rest -> filter to conclusions in the set ($concls null = any).
           # keep=0 => .[0:] = every run is a candidate (reproduces the old sweep).
           mapfile -t run_ids < <(
             gh api "repos/${GH_REPO}/actions/runs?status=completed&per_page=100" \
@@ -168,8 +163,6 @@ jobs:
               break
             fi
 
-            # Belt-and-suspenders: re-confirm completed + conclusion-in-set right
-            # before deleting, so an in_progress/queued run is never deleted.
             read -r st concl < <(
               gh api "repos/${GH_REPO}/actions/runs/${id}" \
                 --jq '"\(.status) \(.conclusion)"' 2>/dev/null || echo "unknown unknown"
