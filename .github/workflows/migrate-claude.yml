@@ -63,8 +63,6 @@ jobs:
       - id: read
         uses: ./.github/actions/resolve-targets
         with:
-          # Every repo with an orchestrators.claude block (i.e. a centralized claude.yml caller).
-          # The 6 kind=agent repos have no orchestrators block and are intentionally skipped.
           select: '.orchestrators.claude != null'
           repository: ${{ inputs.repository }}
 
@@ -197,8 +195,7 @@ jobs:
           title: "ci: centralize claude.yml via reusable workflow"
           body: |
             ## Summary
-            Replaces this repo's standalone `.github/workflows/claude.yml` (~120 lines) with a thin
-            caller of the org reusable workflow
+            A thin caller of the org reusable workflow
             `inference-gateway/.github/.github/workflows/claude.yml@${{ needs.matrix.outputs.ref }}`.
 
             Behavior is preserved. Future fixes (effort, model, action versions, setup) become **one
