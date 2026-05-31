@@ -210,7 +210,7 @@ jobs:
           else
             tools='Bash(task:*),Bash(gh:*),Bash(git:*)'
             tools="$tools,Bash(grep:*),Bash(rg:*),Bash(cat:*),Bash(ls:*),Bash(find:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(sort:*),Bash(uniq:*),Bash(cut:*),Bash(diff:*),Bash(tree:*),Bash(jq:*)"
-            tools="$tools,Bash(echo:*),Bash(pwd:*),Bash(which:*),Bash(file:*),Bash(stat:*),Bash(basename:*),Bash(dirname:*)"
+            tools="$tools,Bash(echo:*),Bash(pwd:*),Bash(which:*),Bash(file:*),Bash(stat:*),Bash(basename:*),Bash(dirname:*),Bash(mkdir:*)"
             tools="$tools,Bash(sed:*),Bash(awk:*),Bash(xargs:*)"
             case "$LANGUAGE" in
               go)      tools="$tools,Bash(go:*)" ;;
