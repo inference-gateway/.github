@@ -102,14 +102,14 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Go
-        if: inputs.language == 'go' || inputs.language == 'operator'
+        if: inputs.language == 'go'
         uses: actions/setup-go@v6.4.0
         with:
           go-version-file: 'go.mod'
           cache: true
 
       - name: Install golangci-lint
-        if: inputs.language == 'go' || inputs.language == 'operator'
+        if: inputs.language == 'go'
         uses: golangci/golangci-lint-action@v9.2.1
         with:
           version: v2.12.2
@@ -128,18 +128,10 @@ jobs:
           python-version: '3.x'
 
       - name: Set up Node.js
-        if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.language == 'operator' || inputs.node || inputs.markdownlint || inputs.playwright
+        if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint || inputs.playwright
         uses: actions/setup-node@v6.4.0
         with:
           node-version: 'lts/*'
-
-      - name: Install operator toolchain
-        if: inputs.language == 'operator'
-        run: |
-          set -euo pipefail
-          npm install -g prettier@3.6.2
-          go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.20.1
-          go install sigs.k8s.io/kustomize/kustomize/v5@v5.8.1
 
       - name: Install markdownlint
         if: inputs.markdownlint
@@ -218,7 +210,7 @@ jobs:
           else
             tools='Bash(task:*),Bash(gh:*),Bash(git:*)'
             case "$LANGUAGE" in
-              go|operator)      tools="$tools,Bash(go:*)" ;;
+              go)      tools="$tools,Bash(go:*)" ;;
               rust)             tools="$tools,Bash(cargo:*),Bash(rustup:*),Bash(rustc:*)" ;;
               typescript|node)  tools="$tools,Bash(node:*),Bash(npm:*)" ;;
               python)           tools="$tools,Bash(python:*),Bash(python3:*)" ;;
