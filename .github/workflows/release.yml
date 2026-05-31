@@ -3,6 +3,12 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Compute and report the next version via semantic-release --dry-run only; skip the real release. Set false to actually cut a release.'
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -70,7 +76,11 @@ jobs:
           GIT_COMMITTER_NAME: "GitHub Actions Bot"
           GIT_COMMITTER_EMAIL: ${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com
         run: |
-          if ! gh release view v0.1.0 >/dev/null 2>&1; then
+          DRY_RUN="${{ inputs.dry_run }}"
+
+          # The v0.1.0 seed release is only needed for a real run; a dry-run
+          # must not create anything.
+          if [ "$DRY_RUN" != "true" ] && ! gh release view v0.1.0 >/dev/null 2>&1; then
             gh release create v0.1.0 --title "Initial Release" --notes "Initial Release" --target main
           fi
 
@@ -89,6 +99,17 @@ jobs:
           fi
 
           echo "new_release_version=$VERSION" >> $GITHUB_OUTPUT
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "::notice::[dry-run] next version would be ${VERSION}; skipping the real release (set dry_run=false to release)"
+            {
+              echo "## Release dry-run"
+              echo "- next version: \`${VERSION}\`"
+              echo "- real release skipped (dry_run=true)"
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "new_release_published=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
 
           if semantic-release; then
             echo "Successfully released version $VERSION"

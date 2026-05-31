@@ -15,11 +15,16 @@ on:
         required: true
         type: string
         default: latest
+      repository:
+        description: 'Single repos.yaml agent target to bump (omit = all agents). Use to test on one repo.'
+        required: false
+        type: string
+        default: ''
       dry_run:
-        description: 'Print diff but skip PR creation'
+        description: 'Print diff but skip PR creation (manual runs preview by default)'
         required: false
         type: boolean
-        default: false
+        default: true
 
 permissions: {}
 
@@ -59,8 +64,10 @@ jobs:
           echo "version=$V" >> "$GITHUB_OUTPUT"
 
       - id: read
-        run: |
-          echo "targets=$(yq -o=json -I=0 '[.targets[] | select(.kind == "agent")]' repos.yaml)" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/resolve-targets
+        with:
+          select: '.kind == "agent"'
+          repository: ${{ inputs.repository }}
 
   bump:
     needs: matrix
@@ -195,8 +202,8 @@ jobs:
           base: main
           sign-commits: true
           delete-branch: true
-          commit-message: "chore(deps): Bump ADL CLI ${{ steps.current.outputs.old }} -> ${{ env.ADL_VERSION }}"
-          title: "chore(deps): Bump ADL CLI to ${{ env.ADL_VERSION }}"
+          commit-message: "chore(deps): bump ADL CLI ${{ steps.current.outputs.old }} -> ${{ env.ADL_VERSION }}"
+          title: "chore(deps): bump ADL CLI to ${{ env.ADL_VERSION }}"
           body: |
             ## Summary
             Bumps ADL CLI from `${{ steps.current.outputs.old }}` to `${{ env.ADL_VERSION }}` and regenerates the project.

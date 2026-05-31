@@ -17,11 +17,16 @@ on:
         required: true
         type: string
         default: latest
+      repository:
+        description: 'Single repos.yaml agent target to refresh (omit = all agents). Use to test on one repo.'
+        required: false
+        type: string
+        default: ''
       dry_run:
-        description: 'Print diff but skip PR creation'
+        description: 'Print diff but skip PR creation (manual runs preview by default)'
         required: false
         type: boolean
-        default: false
+        default: true
 
 permissions: {}
 
@@ -61,8 +66,10 @@ jobs:
           echo "version=$V" >> "$GITHUB_OUTPUT"
 
       - id: read
-        run: |
-          echo "targets=$(yq -o=json -I=0 '[.targets[] | select(.kind == "agent")]' repos.yaml)" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/resolve-targets
+        with:
+          select: '.kind == "agent"'
+          repository: ${{ inputs.repository }}
 
   refresh:
     needs: matrix

@@ -5,6 +5,12 @@ on:
   schedule:
     - cron: '0 6 * * *'
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Fetch the SVGs and print the would-be PR, but do not open/update it (manual runs preview by default; the cron opens the PR)'
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -59,7 +65,18 @@ jobs:
             mv "$tmp" "$out"
           done
 
+      - name: Dry-run note
+        if: ${{ github.event_name != 'schedule' && inputs.dry_run }}
+        run: |
+          {
+            echo "## Dry-run: org star history"
+            echo "- repos: \`${{ steps.repos.outputs.list }}\`"
+            echo "- would update: \`assets/star-history.svg\`, \`assets/star-history-dark.svg\`"
+            echo "- PR step skipped (dry_run=true)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Open or update PR
+        if: ${{ github.event_name == 'schedule' || !inputs.dry_run }}
         uses: peter-evans/create-pull-request@v8.1.1
         with:
           commit-message: 'chore(assets): Refresh org star history'

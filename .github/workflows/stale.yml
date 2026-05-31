@@ -1,27 +1,33 @@
 name: Stale issues sweep
 
-# Daily sweep across every target in repos.yaml. For each repo, marks
-# issues with no activity for 30 days as `stale` and closes ones that
-# remain stale for another 7 days. Replaces per-repo stale.yml workflows
-# so the policy lives in one place.
+# Daily sweep across every target in repos.yaml except kind: none
+# (select(.kind != "none")). For each repo, marks issues with no activity
+# for 30 days as `stale` and closes ones that remain stale for another
+# 7 days. Replaces per-repo stale.yml workflows so the policy lives in one place.
 #
 # Exempt labels:
 #   - pinned, security: human override - never touch
-#   - sdk-drift, adk-drift, docs-coverage: filed by sync-sdks.yml /
-#     sync-adks.yml / audit-docs-coverage.yml as long-lived drift
-#     trackers; they may legitimately sit open for weeks while a
-#     maintainer triages.
+#   - sdk-drift, adk-drift: filed by sync-sdks.yml / sync-adks.yml as
+#     long-lived drift trackers; they may legitimately sit open for weeks
+#     while a maintainer triages.
+#   - docs-coverage: legacy label from the removed audit-docs-coverage.yml;
+#     kept exempt so any historical tickets survive.
 
 on:
   # schedule:
   #   - cron: '15 3 * * *'
   workflow_dispatch:
     inputs:
+      repository:
+        description: 'Single repos.yaml target to sweep (omit = all kind != none targets). Use to test on one repo.'
+        required: false
+        type: string
+        default: ''
       dry_run:
-        description: 'Print planned actions without modifying issues'
+        description: 'Print planned actions without modifying issues (manual runs preview by default; the cron sweeps for real)'
         required: false
         type: boolean
-        default: false
+        default: true
 
 permissions: {}
 
@@ -35,8 +41,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6.0.2
       - id: read
-        run: |
-          echo "targets=$(yq -o=json -I=0 '[.targets[]]' repos.yaml)" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/resolve-targets
+        with:
+          select: '.kind != "none"'
+          repository: ${{ inputs.repository }}
 
   sweep:
     needs: matrix
