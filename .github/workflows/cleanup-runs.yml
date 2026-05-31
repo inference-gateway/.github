@@ -74,7 +74,7 @@ jobs:
       - id: read
         uses: ./.github/actions/resolve-targets
         with:
-          select: 'true' # all registered repos.yaml targets (incl. kind: none); private repos are never registered
+          select: 'true'
           repository: ${{ inputs.repository }}
 
   cleanup:
