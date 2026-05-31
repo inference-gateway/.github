@@ -7,9 +7,9 @@ This is the org-level `.github` repository for `inference-gateway`. It contains 
 - `README.md` documents workflow behavior and should stay authoritative.
 - `profile/README.md` renders on the GitHub organization profile.
 - `.github/ISSUE_TEMPLATE/` holds default issue templates inherited by repos without local templates.
-- `.github/workflows/` contains cross-repo orchestrators such as `sync-sdks.yml`, `sync-adks.yml`, `bump-adl.yml`, `refresh-agent-manifest.yml`, `trigger-cd.yml`, `migrate-claude.yml`, `stale.yml`, and `cleanup-skipped-runs.yml`.
+- `.github/workflows/` contains cross-repo orchestrators such as `sync-sdks.yml`, `sync-adks.yml`, `bump-adl.yml`, `refresh-agent-manifest.yml`, `trigger-cd.yml`, `migrate-claude.yml`, `migrate-infer.yml`, `stale.yml`, and `cleanup-skipped-runs.yml`, plus the reusable `claude.yml` / `infer.yml` (`workflow_call`) bot workflows.
 - `.github/actions/resolve-targets/` is the shared composite action that turns `repos.yaml` + a `select` expression into a fan-out matrix.
-- `repos.yaml` is the single downstream registry used by every workflow matrix (one `targets` list; each entry may carry a nested `claude:` block).
+- `repos.yaml` is the single downstream registry used by every workflow matrix (one `targets` list; each entry may carry a nested `orchestrators:` block with `claude` and/or `infer` sub-blocks).
 - `assets/` stores org profile assets, including star history SVGs.
 
 ## Build, Test, and Development Commands
@@ -28,11 +28,11 @@ Use the `yq` command after editing `repos.yaml`; valid kinds are `adk`, `agent`,
 
 ## Coding Style & Naming Conventions
 
-Use two-space indentation for YAML. Keep Markdown concise, with descriptive headings and relative links when possible. Preserve existing workflow names and job names. Matrix selection is centralized in the `.github/actions/resolve-targets` composite action — pass it a jq `select` expression (e.g. `'.kind == "agent"'`, `'.claude != null'`) rather than reintroducing per-workflow `yq` filters. In sync workflow prompts, issue titles are idempotency keys; do not rename them casually.
+Use two-space indentation for YAML. Keep Markdown concise, with descriptive headings and relative links when possible. Preserve existing workflow names and job names. Matrix selection is centralized in the `.github/actions/resolve-targets` composite action — pass it a jq `select` expression (e.g. `'.kind == "agent"'`, `'.orchestrators.claude != null'`, `'.orchestrators.infer != null'`) rather than reintroducing per-workflow `yq` filters. In sync workflow prompts, issue titles are idempotency keys; do not rename them casually.
 
 ## Testing Guidelines
 
-For workflow edits, prefer manual dispatch with a narrow dry run: every fan-out workflow defaults `dry_run=true` and takes `-f repository=<name>`, so preview on one target before fanning out. For `repos.yaml`, verify every target has `name`, `kind`, and `language`; entries with a `claude:` block must have `claude.language`; and the `kind` routes to the intended workflow family (`sdk`/`docs` → sync-sdks, `adk` → sync-adks, `agent` → bump-adl/refresh/trigger-cd, `none` → migrate-claude only).
+For workflow edits, prefer manual dispatch with a narrow dry run: every fan-out workflow defaults `dry_run=true` and takes `-f repository=<name>`, so preview on one target before fanning out. For `repos.yaml`, verify every target has `name`, `kind`, and `language`; entries with an `orchestrators.claude` / `orchestrators.infer` block must set `.language` on each; and the `kind` routes to the intended workflow family (`sdk`/`docs` → sync-sdks, `adk` → sync-adks, `agent` → bump-adl/refresh/trigger-cd, `none` → migrate-claude + migrate-infer only).
 
 ## Commit & Pull Request Guidelines
 
