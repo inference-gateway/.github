@@ -13,9 +13,12 @@
 #                                agent -> bump-adl.yml, refresh-agent-manifest.yml, trigger-cd.yml
 #                                none  -> infra/tooling repos with no sync/agent family;
 #                                         migrate-claude / migrate-infer only
-#                              stale.yml + cleanup-runs.yml sweep `select(.kind != "none")`
-#                              (every product repo EXCEPT the kind: none repos, which are
-#                              intentionally not auto-swept).
+#                              stale.yml sweeps `select(.kind != "none")` (every product repo
+#                              EXCEPT the kind: none repos, which are intentionally not
+#                              auto-staled). cleanup-runs.yml sweeps `select(true)` -> ALL
+#                              registered targets, every kind incl. none. Private repos are never
+#                              registered here, so cleanup excludes them by construction; do NOT
+#                              add a private repo to this list or cleanup would sweep it.
 #   language       (required)  LOWERCASE TOOLCHAIN: go | rust | typescript | python | node. Single
 #                              source for both the sync-* audit-prompt display token and the bot
 #                              toolchain: the migrate workflows inject it as the `language` input of
@@ -130,7 +133,8 @@ targets:
     language: go
 
   # --- Infra/tooling repos (kind: none). Have centralized claude + infer callers (migrate-claude /
-  #     migrate-infer), but are NOT swept by stale/cleanup (select(.kind != "none")). ---
+  #     migrate-infer). NOT swept by stale (select(.kind != "none")), but ARE swept by cleanup-runs
+  #     (select(true) - all registered targets). ---
   - name: cli
     kind: none
     language: go

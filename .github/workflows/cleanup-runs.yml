@@ -1,7 +1,7 @@
 name: Cleanup workflow runs
 
-# Daily sweep across every repos.yaml target except kind: none
-# (select(.kind != "none"), same matrix as stale.yml). For each repo, deletes
+# Daily sweep across EVERY repos.yaml target (select(true), all kinds including
+# kind: none). For each repo, deletes
 # completed workflow runs whose conclusion is in the `conclusions` input
 # (default `skipped`), honoring a per-workflow `keep_last` retention floor.
 # inference-gateway/infer-action (@infer) and anthropics/claude-code-action
@@ -10,9 +10,11 @@ name: Cleanup workflow runs
 # skipped. GitHub has no native auto-prune, so they accumulate and bury
 # meaningful runs in each repo's Actions tab.
 #
-# Scope: product targets only. The infra/tooling repos (kind: none -
-# inference-gateway, cli, operator, registry, ...) are intentionally not swept,
-# consistent with stale.yml.
+# Scope: every registered repos.yaml target, including the infra/tooling repos
+# (kind: none - inference-gateway, cli, operator, registry, ...). Private repos
+# are never registered in repos.yaml, so they are excluded by construction. This
+# intentionally diverges from stale.yml, which still exempts kind: none
+# (select(.kind != "none")) so infra issue trackers are not auto-staled.
 #
 # Auth: per-target scoped App token via inference-gateway-maintainer-bot (needs
 # actions: write on each target - already granted; trigger-cd.yml dispatches
@@ -72,7 +74,7 @@ jobs:
       - id: read
         uses: ./.github/actions/resolve-targets
         with:
-          select: '.kind != "none"'
+          select: 'true'
           repository: ${{ inputs.repository }}
 
   cleanup:
