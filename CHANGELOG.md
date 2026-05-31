@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0](https://github.com/inference-gateway/.github/compare/v0.2.2...v0.3.0) (2026-05-31)
+
+### ✨ Features
+
+* **claude:** widen default safe Bash toolset, drop operator preset ([#28](https://github.com/inference-gateway/.github/issues/28)) ([8d95176](https://github.com/inference-gateway/.github/commit/8d95176506b3561cded97251965c9df674ce9d74))
+
+### 👷 CI
+
+* add claude code migration ([#27](https://github.com/inference-gateway/.github/issues/27)) ([8614a3b](https://github.com/inference-gateway/.github/commit/8614a3b5704486df2db7a9fda6bf49bb9ae14cf4))
+
+### 🔧 Miscellaneous
+
+* delete .github/workflows/audit-docs-coverage.yml ([02ff1e5](https://github.com/inference-gateway/.github/commit/02ff1e56f083787f62322fe3557e398c163789f4))
+* remove weird operator language ([e938855](https://github.com/inference-gateway/.github/commit/e9388558f2e6f9706be43dff18b62d3e81c8dbf2))
+* update repos.yaml ([b68c577](https://github.com/inference-gateway/.github/commit/b68c57714eb4ac6219b902624c73dc8208f03d57))
+
 ## [0.2.2](https://github.com/inference-gateway/.github/compare/v0.2.1...v0.2.2) (2026-05-30)
 
 ### 👷 CI
