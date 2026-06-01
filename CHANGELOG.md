@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.1](https://github.com/inference-gateway/.github/compare/v0.4.0...v0.4.1) (2026-06-01)
+
+### ♻️ Improvements
+
+* commit message for infer.yml centralization ([e8a8791](https://github.com/inference-gateway/.github/commit/e8a879176ed106bcecb29630c752fa380f6b267b))
+
 ## [0.4.0](https://github.com/inference-gateway/.github/compare/v0.3.2...v0.4.0) (2026-06-01)
 
 ### ✨ Features
