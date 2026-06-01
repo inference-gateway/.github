@@ -163,9 +163,6 @@ jobs:
           set -euo pipefail
           mkdir -p .github/workflows
 
-          # Build the `with:` block: `language` comes from the entry's top-level `language`
-          # (prepended so it renders first), the remaining keys from its `orchestrators.infer`
-          # block. Strings quoted, booleans/numbers bare; keys map 1:1 to reusable infer.yml inputs.
           with_block=$(echo "$INFER_JSON" | jq -r --arg lang "$LANG" '
             {language: $lang} + .
             | to_entries
@@ -232,13 +229,8 @@ jobs:
             fi
           done
 
-          # infer comes from the target's OWN Flox env (now pinned to ${INFER_VERSION}). `flox activate`
-          # re-locks .flox/env/manifest.lock after the bump and runs init here in target/, writing ./.infer.
           flox activate -- infer init --overwrite --skip-migrations
 
-          # Restore the preserved files byte-for-byte (only those that existed before).
-          # if/then (not `[ -f ] && cp`): a false test on the LAST iteration would otherwise
-          # become this set -e step's exit status and fail the job when a target lacks mcp.yaml.
           for f in agents.yaml mcp.yaml; do
             if [ -f "$SNAP/$f" ]; then
               cp "$SNAP/$f" ".infer/$f"
@@ -250,8 +242,6 @@ jobs:
         working-directory: target
         run: |
           set -euo pipefail
-          # Stage every managed path so new/untracked files register on first run, while each repo's
-          # nested .infer/.gitignore keeps logs/db/bin/ out (no --force).
           git add -- .github/workflows/infer.yml .flox/env/manifest.toml .flox/env/manifest.lock .infer
           if git diff --cached --quiet -- .github/workflows/infer.yml .flox/env/manifest.toml .flox/env/manifest.lock .infer; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
