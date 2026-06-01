@@ -15,7 +15,7 @@ Org-level repo holding:
   - **Lifecycle orchestrators** - cross-repo maintenance across `repos.yaml` targets (`stale.yml` sweeps every target except the `kind: none` infra repos, `select(.kind != "none")`; `cleanup-runs.yml` sweeps every registered target, `select(true)`, including `kind: none`):
     - `stale.yml` marks issues with no activity for 30 days as `stale` and closes them 7 days later.
     - `cleanup-runs.yml` prunes completed workflow runs by conclusion (default `skipped` - the noise `infer-action` / `claude-code-action` leave on every issue event; `skipped,failure` also drops failed-run logs), with an optional `keep_last` per-repo retention floor, from each target's Actions tab, daily.
-  - **Migration (one-shot)** - `migrate-claude.yml` rewrites each repo's `.github/workflows/claude.yml` into a thin caller of the org [reusable `claude.yml`](./.github/workflows/claude.yml), reading its inputs from that entry's `orchestrators.claude` block (`select(.orchestrators.claude != null)`); `migrate-infer.yml` does the same for `.github/workflows/infer.yml` against the org [reusable `infer.yml`](./.github/workflows/infer.yml), reading that entry's `orchestrators.infer` block (`select(.orchestrators.infer != null)`), and in the same PR also regenerates the target's committed `.infer/` config with `infer init --overwrite` using the `infer` CLI from this repo's Flox env (the `infer` pin in `.flox/env/manifest.toml`, run via `flox activate`), preserving `.infer/agents.yaml` and `.infer/mcp.yaml`. Both operate on every repo that defines the matching block.
+  - **Migration (one-shot)** - `migrate-claude.yml` rewrites each repo's `.github/workflows/claude.yml` into a thin caller of the org [reusable `claude.yml`](./.github/workflows/claude.yml), reading its inputs from that entry's `orchestrators.claude` block (`select(.orchestrators.claude != null)`); `migrate-infer.yml` does the same for `.github/workflows/infer.yml` against the org [reusable `infer.yml`](./.github/workflows/infer.yml), reading that entry's `orchestrators.infer` block (`select(.orchestrators.infer != null)`), and in the same PR also bumps the target's own Flox `infer` pin (`.flox/env/manifest.toml`) to the latest `inference-gateway/cli` release, refreshes the lock, and regenerates the committed `.infer/` config with `infer init --overwrite` using that CLI (preserving `.infer/agents.yaml` and `.infer/mcp.yaml`) - mirroring how `bump-adl.yml` bumps each agent's adl-cli pin. Both operate on every repo that defines the matching block.
 
 ## How the SDK orchestrator works
 
@@ -221,6 +221,7 @@ gh workflow run migrate-claude.yml --repo inference-gateway/.github -f repositor
 gh workflow run migrate-claude.yml --repo inference-gateway/.github -f dry_run=false                      # open PRs for all
 gh workflow run migrate-infer.yml --repo inference-gateway/.github -f repository=cli                      # dry, one repo
 gh workflow run migrate-infer.yml --repo inference-gateway/.github -f dry_run=false                       # open PRs for all
+# (bumps each target's own .flox/env/manifest.toml infer pin to the latest inference-gateway/cli release)
 
 # Lifecycle orchestrators (cron runs for real; manual previews by default):
 gh workflow run stale.yml --repo inference-gateway/.github -f dry_run=false                               # sweep for real
