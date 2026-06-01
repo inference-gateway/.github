@@ -272,8 +272,8 @@ jobs:
             .flox/env/manifest.toml
             .flox/env/manifest.lock
             .infer
-          commit-message: "ci: centralize infer.yml + bump infer CLI and sync .infer config"
-          title: "ci: centralize infer.yml + bump infer CLI and sync .infer config"
+          commit-message: "ci(infer): centralize infer.yml + bump infer CLI and sync .infer config"
+          title: "ci(infer): centralize infer.yml + bump infer CLI and sync .infer config"
           body: |
             ## Summary
             Centralized-config changes in one PR:
