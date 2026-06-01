@@ -89,7 +89,7 @@ Daily cron + manual `workflow_dispatch`. Both default `dry_run: true` on manual 
 
 Two reusable workflows (`on: workflow_call`) centralize the org's AI bots so each per-repo caller is ~15 lines: `claude.yml` wraps `anthropics/claude-code-action` (`@claude`); `infer.yml` wraps `inference-gateway/infer-action@v0.9.1` (`@infer`, default model `deepseek/deepseek-v4-flash`). Both pin their action to an exact tag and cap the job at `timeout-minutes: 25`. The `on:` triggers and the `@claude`/`@infer` gate `if:` live in each thin caller, not in the reusable workflow.
 
-`migrate-claude.yml` / `migrate-infer.yml` are one-shot fan-outs that write the thin caller into each target and open a PR. They select `.orchestrators.claude != null` / `.orchestrators.infer != null` and build the caller's `with:` inputs by prepending the entry's top-level `language` to that repo's `orchestrators.claude` / `orchestrators.infer` block. The two bots coexist (both available per repo); fixing a bot is one PR in `.github` + a tag move.
+`migrate-claude.yml` / `migrate-infer.yml` are one-shot fan-outs that write the thin caller into each target and open a PR. They select `.orchestrators.claude != null` / `.orchestrators.infer != null` and build the caller's `with:` inputs by prepending the entry's top-level `language` to that repo's `orchestrators.claude` / `orchestrators.infer` block. `migrate-infer.yml` additionally installs the `infer` CLI (latest, or the `infer_version` input) and regenerates the target's committed `.infer/` config in the **same PR** via `infer init --overwrite --skip-migrations`, snapshotting and restoring `.infer/agents.yaml` + `.infer/mcp.yaml` byte-for-byte (every other config file is reset to CLI defaults); the nested `.infer/.gitignore` keeps `bin/`/`logs/`/`*.db` out of the commit, so a plain `git add -- .infer` stages config only. The two bots coexist (both available per repo); fixing a bot is one PR in `.github` + a tag move.
 
 ## Auth model
 
@@ -121,7 +121,8 @@ gh workflow run trigger-cd.yml --repo inference-gateway/.github -f dry_run=false
 # Migration (one-shot): write a repo's claude.yml / infer.yml thin caller of the reusable workflow:
 gh workflow run migrate-claude.yml --repo inference-gateway/.github -f repository=cli                     # dry, one repo
 gh workflow run migrate-claude.yml --repo inference-gateway/.github -f dry_run=false                      # open PRs for all
-gh workflow run migrate-infer.yml --repo inference-gateway/.github -f repository=cli                      # dry, one repo
+gh workflow run migrate-infer.yml --repo inference-gateway/.github -f repository=cli                      # dry, one repo (latest infer CLI)
+gh workflow run migrate-infer.yml --repo inference-gateway/.github -f infer_version=vX.Y.Z -f repository=cli # dry, pin infer CLI, one repo
 gh workflow run migrate-infer.yml --repo inference-gateway/.github -f dry_run=false                       # open PRs for all
 
 # Lifecycle (cron runs for real; manual previews by default):
