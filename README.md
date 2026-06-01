@@ -221,7 +221,6 @@ gh workflow run migrate-claude.yml --repo inference-gateway/.github -f repositor
 gh workflow run migrate-claude.yml --repo inference-gateway/.github -f dry_run=false                      # open PRs for all
 gh workflow run migrate-infer.yml --repo inference-gateway/.github -f repository=cli                      # dry, one repo
 gh workflow run migrate-infer.yml --repo inference-gateway/.github -f dry_run=false                       # open PRs for all
-# (infer CLI version comes from .flox/env/manifest.toml; bump that pin to move versions)
 
 # Lifecycle orchestrators (cron runs for real; manual previews by default):
 gh workflow run stale.yml --repo inference-gateway/.github -f dry_run=false                               # sweep for real
