@@ -2,10 +2,11 @@ name: Migrate infer.yml to reusable workflow
 
 # One-shot fan-out: per target repo it (1) writes .github/workflows/infer.yml as a thin caller of
 # the org reusable workflow (.github/.github/workflows/infer.yml) and (2) regenerates the committed
-# .infer/ config with `infer init --overwrite` (latest infer CLI by default), then opens ONE PR
-# carrying both. `.infer/agents.yaml` and `.infer/mcp.yaml` (the repo-specific A2A agents + MCP
-# server config) are preserved byte-for-byte across the overwrite; every other config file is reset
-# to CLI defaults. Pin the CLI with the `infer_version` input.
+# .infer/ config with `infer init --overwrite`, then opens ONE PR carrying both. `.infer/agents.yaml`
+# and `.infer/mcp.yaml` (the repo-specific A2A agents + MCP server config) are preserved byte-for-byte
+# across the overwrite; every other config file is reset to CLI defaults. The infer CLI is provided by
+# this repo's Flox env (the `infer` pin in .flox/env/manifest.toml) via `flox activate` - bump that pin
+# to move CLI versions.
 #
 # Operates on every repos.yaml entry that has an `orchestrators.infer` block
 # (select(.orchestrators.infer != null)), reading the reusable-workflow inputs from that block. The
@@ -29,11 +30,6 @@ on:
         required: false
         type: string
         default: ''
-      infer_version:
-        description: 'infer CLI version used to regenerate .infer/ (e.g. v0.112.1 or "latest")'
-        required: false
-        type: string
-        default: latest
       dry_run:
         description: 'Render + print the diff but skip PR creation (manual runs preview by default)'
         required: false
@@ -54,29 +50,17 @@ jobs:
     steps:
       - uses: actions/checkout@v6.0.2
 
-      - name: Validate infer_version format
-        env:
-          INPUT_VERSION: ${{ inputs.infer_version }}
+      - name: Read pinned infer CLI version
+        id: resolve
         run: |
           set -euo pipefail
-          if [ "$INPUT_VERSION" != "latest" ] && ! echo "$INPUT_VERSION" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "::error::infer_version must be 'latest' or v<major>.<minor>.<patch>, got: $INPUT_VERSION"
+          V=$(grep -oE 'inference-gateway/cli/v[0-9]+\.[0-9]+\.[0-9]+' .flox/env/manifest.toml | head -1 | sed 's|.*/||')
+          if [ -z "$V" ]; then
+            echo "::error::Could not read the infer CLI pin from .flox/env/manifest.toml"
             exit 1
           fi
-
-      - name: Resolve infer CLI version
-        id: resolve
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          INPUT_VERSION: ${{ inputs.infer_version }}
-        run: |
-          set -euo pipefail
-          V="$INPUT_VERSION"
-          if [ "$V" = "latest" ]; then
-            V=$(gh api repos/inference-gateway/cli/releases/latest --jq .tag_name)
-            echo "::notice::Resolved 'latest' to ${V}"
-          fi
           echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "::notice::Regenerating .infer with infer CLI ${V} (pinned in .flox/env/manifest.toml)"
 
       - name: Resolve reusable-workflow ref
         id: ref
@@ -106,11 +90,11 @@ jobs:
       matrix:
         target: ${{ fromJSON(needs.matrix.outputs.targets) }}
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     concurrency:
       group: migrate-infer-${{ matrix.target.name }}
       cancel-in-progress: false
-    env:
-      INFER_VERSION: ${{ needs.matrix.outputs.infer_version }}
     steps:
       - name: Mint GitHub App token (scoped to ${{ matrix.target.name }})
         id: token
@@ -129,17 +113,13 @@ jobs:
           path: target
           token: ${{ steps.token.outputs.token }}
 
-      - name: Install infer CLI
-        env:
-          VERSION: ${{ env.INFER_VERSION }}
-          INSTALL_DIR: ${{ runner.temp }}/infer-bin
-        run: |
-          set -euo pipefail
-          mkdir -p "$INSTALL_DIR"
-          curl -fsSL https://raw.githubusercontent.com/inference-gateway/cli/main/install.sh \
-            | bash -s -- --version "$VERSION" --install-dir "$INSTALL_DIR"
-          echo "$INSTALL_DIR" >> "$GITHUB_PATH"
-          "$INSTALL_DIR/infer" --version
+      - name: Checkout .github for the Flox env (infer CLI pin)
+        uses: actions/checkout@v6.0.2
+        with:
+          path: infra
+
+      - name: Install Flox
+        uses: flox/install-flox-action@v2.4.1
 
       - name: Render thin caller
         working-directory: target
@@ -204,6 +184,8 @@ jobs:
         working-directory: target
         env:
           SNAP: ${{ runner.temp }}/infer-preserve
+          # Authenticate Nix's GitHub fetches (flake source) to avoid anonymous rate limits.
+          NIX_CONFIG: "access-tokens = github.com=${{ steps.token.outputs.token }}"
         run: |
           set -euo pipefail
           mkdir -p "$SNAP"
@@ -215,7 +197,9 @@ jobs:
             fi
           done
 
-          infer init --overwrite --skip-migrations
+          # infer comes from the .github Flox env (checked out at ../infra). `flox activate` does not
+          # change cwd, so `infer init` runs here in target/ and writes ./.infer.
+          flox activate --dir "$GITHUB_WORKSPACE/infra" -- infer init --overwrite --skip-migrations
 
           # Restore the preserved files byte-for-byte (only those that existed before).
           for f in agents.yaml mcp.yaml; do
@@ -265,9 +249,9 @@ jobs:
                workflow `inference-gateway/.github/.github/workflows/infer.yml@${{ needs.matrix.outputs.ref }}`,
                wiring the `@infer` bot (inference-gateway/infer-action) into this repo.
             2. Regenerates the committed `.infer/` config with `infer init --overwrite` using infer CLI
-               `${{ needs.matrix.outputs.infer_version }}`, so this repo's config matches the latest CLI.
-               `.infer/bin`, `logs`, history and the conversations DB stay out via the nested
-               `.infer/.gitignore`.
+               `${{ needs.matrix.outputs.infer_version }}` (the `infer` pin in `inference-gateway/.github`'s
+               Flox env, run via `flox activate`), so this repo's config matches that CLI. `.infer/bin`,
+               `logs`, history and the conversations DB stay out via the nested `.infer/.gitignore`.
 
             Setup lives centrally, so future fixes (action bump, model, tool scope, CLI config) become
             **one PR in `.github` + a tag move** instead of one PR per repo.
@@ -305,7 +289,7 @@ jobs:
         working-directory: target
         run: |
           {
-            echo "## Dry-run: ${{ matrix.target.name }} (infer CLI ${INFER_VERSION})"
+            echo "## Dry-run: ${{ matrix.target.name }} (infer CLI ${{ needs.matrix.outputs.infer_version }})"
             echo '```diff'
             git diff --cached -- .github/workflows/infer.yml .infer || true
             echo '```'
