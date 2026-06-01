@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0](https://github.com/inference-gateway/.github/compare/v0.3.2...v0.4.0) (2026-06-01)
+
+### ✨ Features
+
+* **migrate-infer:** regenerate .infer config in the same PR ([#36](https://github.com/inference-gateway/.github/issues/36)) ([6ee8d2f](https://github.com/inference-gateway/.github/commit/6ee8d2f72ba942db027a65a4cfe627fd770a5fdf))
+
+### ♻️ Improvements
+
+* **migrate-infer:** provide infer CLI via Flox, not curl ([#37](https://github.com/inference-gateway/.github/issues/37)) ([485aba7](https://github.com/inference-gateway/.github/commit/485aba71d7094de6ef73708290e17ff62bdfa55d))
+
+### 🐛 Bug Fixes
+
+* **cleanup-runs:** fail loud on rate-limit + prune orphaned-workflow runs ([#34](https://github.com/inference-gateway/.github/issues/34)) ([56525f5](https://github.com/inference-gateway/.github/commit/56525f52c9445084b568cf4997a1716b596927e7))
+* **cleanup-runs:** make keep_last a repo-wide floor, not per-workflow ([#35](https://github.com/inference-gateway/.github/issues/35)) ([17eaec9](https://github.com/inference-gateway/.github/commit/17eaec95faf3ea138b8acffafc171d9b4e0a46c6))
+* **infer:** pin CLI version off infer-action's broken v0.115.2 default ([#39](https://github.com/inference-gateway/.github/issues/39)) ([32ca05d](https://github.com/inference-gateway/.github/commit/32ca05d0c2ea22ccc3c8328d266d77d6e05013a8))
+* **migrate-infer:** bump each target's OWN Flox infer pin (bump-adl style) ([#38](https://github.com/inference-gateway/.github/issues/38)) ([7c074e0](https://github.com/inference-gateway/.github/commit/7c074e0ba27212711fef16176e0a6c930dc24b0f)), closes [36/#37](https://github.com/36/.github/issues/37)
+
+### 👷 CI
+
+* sweep all registered repos in cleanup-runs (incl. kind: none) ([#33](https://github.com/inference-gateway/.github/issues/33)) ([cda35d2](https://github.com/inference-gateway/.github/commit/cda35d24811af546810f5163c3b875bfc3bf5d86))
+
+### 🔧 Miscellaneous
+
+* remove scheduled job ([4d785de](https://github.com/inference-gateway/.github/commit/4d785de4ac874d0adbc5169c4504fd70a1908164))
+* update migrate-claude.yml ([ed09050](https://github.com/inference-gateway/.github/commit/ed0905010331db3288069fbd5599f0b492b9ff86))
+
 ## [0.3.2](https://github.com/inference-gateway/.github/compare/v0.3.1...v0.3.2) (2026-05-31)
 
 ### ♻️ Improvements
