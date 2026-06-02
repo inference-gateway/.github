@@ -41,7 +41,10 @@ on:
       cli-version:
         description: 'infer CLI version installed by infer-action (must be a release with published binaries)'
         type: string
-        default: v0.116.0
+        # v0.117.1 is the first release with the unconditional ~/.infer/skills sandbox carve-out
+        # (CLI PR #578 / issue #577); earlier pins (<=v0.116.0) make the agent unable to Read its
+        # own installed skill, e.g. ~/.infer/skills/maintainer/SKILL.md.
+        default: v0.117.1
       trigger-phrase:
         description: 'Mention that activates the bot'
         type: string
@@ -176,10 +179,10 @@ jobs:
             go)               cmds="$cmds,go" ;;
             rust)             cmds="$cmds,cargo,rustup,rustc" ;;
             python)           cmds="$cmds,python,python3" ;;
-            typescript|node)  cmds="$cmds,node,npm,pnpm" ;;
+            typescript|node)  cmds="$cmds,node,npm,pnpm,npx,prettier" ;;
           esac
-          [ "$NODE" = "true" ]         && cmds="$cmds,node,npm,pnpm"
-          [ "$MARKDOWNLINT" = "true" ] && cmds="$cmds,node,npm,pnpm,markdownlint"
+          [ "$NODE" = "true" ]         && cmds="$cmds,node,npm,pnpm,npx,prettier"
+          [ "$MARKDOWNLINT" = "true" ] && cmds="$cmds,node,npm,pnpm,npx,prettier,markdownlint"
           [ -n "$EXTRA" ]              && cmds="$cmds,$EXTRA"
           echo "commands=$cmds" >> "$GITHUB_OUTPUT"
           echo "Bash whitelist append: $cmds"
