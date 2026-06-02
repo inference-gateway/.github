@@ -50,6 +50,7 @@ jobs:
       targets: ${{ steps.read.outputs.targets }}
       ref: ${{ steps.ref.outputs.ref }}
       infer_version: ${{ steps.resolve.outputs.version }}
+      infer_action_version: ${{ steps.actionver.outputs.version }}
     steps:
       - uses: actions/checkout@v6.0.2
 
@@ -82,6 +83,17 @@ jobs:
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
           echo "::notice::Callers will pin inference-gateway/.github/.github/workflows/infer.yml@${ref}"
 
+      - name: Resolve infer-action pinned at the reusable-workflow ref
+        id: actionver
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REF: ${{ steps.ref.outputs.ref }}
+        run: |
+          set -euo pipefail
+          IA=$(gh api "repos/inference-gateway/.github/contents/.github/workflows/infer.yml?ref=${REF}" -H "Accept: application/vnd.github.raw" 2>/dev/null | grep -oE 'inference-gateway/infer-action@v[0-9]+\.[0-9]+\.[0-9]+' | head -1 | sed 's|.*@||' || true)
+          echo "version=$IA" >> "$GITHUB_OUTPUT"
+          echo "::notice::infer-action pinned at ${REF}: ${IA:-<unresolved>}"
+
       - id: read
         uses: ./.github/actions/resolve-targets
         with:
@@ -95,6 +107,8 @@ jobs:
       matrix:
         target: ${{ fromJSON(needs.matrix.outputs.targets) }}
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     concurrency:
       group: migrate-infer-${{ matrix.target.name }}
       cancel-in-progress: false
@@ -117,6 +131,23 @@ jobs:
           repository: inference-gateway/${{ matrix.target.name }}
           path: target
           token: ${{ steps.token.outputs.token }}
+
+      - name: Resolve target's current infer-action (via its existing caller ref)
+        id: oldia
+        working-directory: target
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          OLD_REF=$(grep -oE 'inference-gateway/\.github/\.github/workflows/infer\.yml@[^[:space:]"'"'"']+' .github/workflows/infer.yml 2>/dev/null | head -1 | sed 's|.*@||' || true)
+          if [ -z "$OLD_REF" ]; then
+            echo "infer_action_old=" >> "$GITHUB_OUTPUT"
+            echo "::notice::${{ matrix.target.name }}: no existing infer.yml caller ref; infer-action transition omitted"
+          else
+            IA_OLD=$(gh api "repos/inference-gateway/.github/contents/.github/workflows/infer.yml?ref=${OLD_REF}" -H "Accept: application/vnd.github.raw" 2>/dev/null | grep -oE 'inference-gateway/infer-action@v[0-9]+\.[0-9]+\.[0-9]+' | head -1 | sed 's|.*@||' || true)
+            echo "infer_action_old=$IA_OLD" >> "$GITHUB_OUTPUT"
+            echo "::notice::${{ matrix.target.name }}: current caller @${OLD_REF} -> infer-action ${IA_OLD:-<unresolved>}"
+          fi
 
       - name: Install Flox
         uses: flox/install-flox-action@v2.4.1
@@ -264,6 +295,33 @@ jobs:
         working-directory: target
         run: git -c color.ui=always diff --cached -- .github/workflows/infer.yml .flox/env/manifest.toml .flox/env/manifest.lock .infer || true
 
+      - name: Compose PR title
+        id: meta
+        if: steps.skip.outputs.skip != 'true'
+        env:
+          CLI_OLD: ${{ steps.bump.outputs.old }}
+          CLI_NEW: ${{ env.INFER_VERSION }}
+          IA_OLD: ${{ steps.oldia.outputs.infer_action_old }}
+          IA_NEW: ${{ needs.matrix.outputs.infer_action_version }}
+        run: |
+          set -euo pipefail
+          parts=()
+          if [ "$CLI_OLD" != "$CLI_NEW" ]; then
+            parts+=("infer CLI ${CLI_OLD} -> ${CLI_NEW}")
+          fi
+          if [ -n "$IA_OLD" ] && [ -n "$IA_NEW" ] && [ "$IA_OLD" != "$IA_NEW" ]; then
+            parts+=("infer-action ${IA_OLD} -> ${IA_NEW}")
+          fi
+          if [ "${#parts[@]}" -gt 0 ]; then
+            joined="${parts[0]}"
+            for p in "${parts[@]:1}"; do joined="${joined}, ${p}"; done
+            title="chore(deps): bump ${joined}"
+          else
+            title="ci(infer): centralize infer.yml + sync .infer config"
+          fi
+          echo "title=$title" >> "$GITHUB_OUTPUT"
+          echo "::notice::PR title -> $title"
+
       - name: Create or update pull request
         if: ${{ steps.skip.outputs.skip != 'true' && !inputs.dry_run }}
         id: pr
@@ -280,8 +338,8 @@ jobs:
             .flox/env/manifest.toml
             .flox/env/manifest.lock
             .infer
-          commit-message: "ci(infer): centralize infer.yml + bump infer CLI and sync .infer config"
-          title: "ci(infer): centralize infer.yml + bump infer CLI and sync .infer config"
+          commit-message: ${{ steps.meta.outputs.title }}
+          title: ${{ steps.meta.outputs.title }}
           body: |
             ## Summary
             Centralized-config changes in one PR:
@@ -328,11 +386,18 @@ jobs:
 
       - name: Report PR outcome
         if: ${{ steps.skip.outputs.skip != 'true' && !inputs.dry_run && steps.pr.outputs.pull-request-number != '' }}
+        env:
+          IA_OLD: ${{ steps.oldia.outputs.infer_action_old }}
+          IA_NEW: ${{ needs.matrix.outputs.infer_action_version }}
         run: |
           {
             echo "### ${{ matrix.target.name }}"
             echo "- Operation: \`${{ steps.pr.outputs.pull-request-operation }}\`"
+            echo "- Title: \`${{ steps.meta.outputs.title }}\`"
             echo "- infer CLI: \`${{ steps.bump.outputs.old }}\` -> \`${{ needs.matrix.outputs.infer_version }}\`"
+            if [ -n "$IA_OLD" ] && [ -n "$IA_NEW" ] && [ "$IA_OLD" != "$IA_NEW" ]; then
+              echo "- infer-action: \`${IA_OLD}\` -> \`${IA_NEW}\` (via reusable ref)"
+            fi
             echo "- PR: ${{ steps.pr.outputs.pull-request-url }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -341,7 +406,9 @@ jobs:
         working-directory: target
         run: |
           {
-            echo "## Dry-run: ${{ matrix.target.name }} (infer CLI ${{ steps.bump.outputs.old }} -> ${INFER_VERSION})"
+            echo "## Dry-run: ${{ matrix.target.name }}"
+            echo "Would open PR titled: \`${{ steps.meta.outputs.title }}\`"
+            echo
             echo '```diff'
             git diff --cached -- .github/workflows/infer.yml .flox/env/manifest.toml .flox/env/manifest.lock .infer || true
             echo '```'
