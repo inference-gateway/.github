@@ -34,6 +34,10 @@ on:
         description: 'Model id passed to infer-action (provider/model)'
         type: string
         default: deepseek/deepseek-v4-flash
+      prompt:
+        description: 'Free-text task for manual (workflow_dispatch) runs. Empty = issue/comment mode (task comes from the @infer comment).'
+        type: string
+        default: ''
       cli-version:
         description: 'infer CLI version installed by infer-action (must be a release with published binaries)'
         type: string
@@ -181,12 +185,13 @@ jobs:
           echo "Bash whitelist append: $cmds"
 
       - name: Run Infer Agent
-        uses: inference-gateway/infer-action@v0.9.1
+        uses: inference-gateway/infer-action@v0.11.0
         with:
           version: ${{ inputs.cli-version }}
           github-token: ${{ steps.app_token.outputs.token }}
           trigger-phrase: ${{ inputs.trigger-phrase }}
           model: ${{ inputs.model }}
+          direct-prompt: ${{ inputs.prompt }}
           max-turns: ${{ inputs.max-turns }}
           compact-auto-at: ${{ inputs.compact-auto-at }}
           debug: ${{ inputs.debug }}

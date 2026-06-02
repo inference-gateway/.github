@@ -178,6 +178,12 @@ jobs:
           # Do not hand-edit setup here; change the reusable workflow or repos.yaml instead.
 
           on:
+            workflow_dispatch:
+              inputs:
+                prompt:
+                  description: 'Free-text task for infer (deepseek) to work on in this repo'
+                  required: true
+                  type: string
             issues:
               types:
                 - opened
@@ -189,11 +195,14 @@ jobs:
           jobs:
             infer:
               if: |
-                github.event.sender.type != 'Bot' &&
-                !endsWith(github.actor, '[bot]') &&
+                github.event_name == 'workflow_dispatch' ||
                 (
-                  (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@infer')) ||
-                  (github.event_name == 'issues' && (contains(github.event.issue.body, '@infer') || contains(github.event.issue.title, '@infer')))
+                  github.event.sender.type != 'Bot' &&
+                  !endsWith(github.actor, '[bot]') &&
+                  (
+                    (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@infer')) ||
+                    (github.event_name == 'issues' && (contains(github.event.issue.body, '@infer') || contains(github.event.issue.title, '@infer')))
+                  )
                 )
               permissions:
                 contents: write
@@ -203,6 +212,8 @@ jobs:
             echo "    uses: inference-gateway/.github/.github/workflows/infer.yml@${REF}"
             echo "    with:"
             echo "$with_block"
+            d='$'
+            echo "      prompt: ${d}{{ inputs.prompt }}"
             echo "    secrets: inherit"
           } > .github/workflows/infer.yml
 
@@ -302,6 +313,9 @@ jobs:
             ### Notes
             - Triggers on `@infer` mentions in issues / issue comments. Default model
               `deepseek/deepseek-v4-flash`. The `infer-action` pin lives in the reusable `infer.yml`.
+            - Also adds a manual `workflow_dispatch` form: from this repo's Actions tab pick **Infer**,
+              type a free-text `prompt`, and the bot works it in that run and opens a PR (no issue
+              needed) - mirroring the `@claude` workflow.
             - Tools = infer-action's default bash whitelist + the language preset (+ markdownlint where
               set), configured in `repos.yaml` (the entry's `orchestrators.infer` block).
             - Requires the `@infer` GitHub App (`INFER_APP_ID` / `INFER_APP_PRIVATE_KEY`) installed on
