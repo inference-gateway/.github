@@ -41,9 +41,6 @@ on:
       cli-version:
         description: 'infer CLI version installed by infer-action (must be a release with published binaries)'
         type: string
-        # v0.117.1 is the first release with the unconditional ~/.infer/skills sandbox carve-out
-        # (CLI PR #578 / issue #577); earlier pins (<=v0.116.0) make the agent unable to Read its
-        # own installed skill, e.g. ~/.infer/skills/maintainer/SKILL.md.
         default: v0.117.1
       trigger-phrase:
         description: 'Mention that activates the bot'
