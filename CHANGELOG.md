@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.3](https://github.com/inference-gateway/.github/compare/v0.5.2...v0.5.3) (2026-06-02)
+
+### 👷 CI
+
+* **migrate-infer:** derive descriptive PR title from cli + infer-action bumps ([632baf5](https://github.com/inference-gateway/.github/commit/632baf5ac6476269c44c0f94f52928306450fff3))
+
 ## [0.5.2](https://github.com/inference-gateway/.github/compare/v0.5.1...v0.5.2) (2026-06-02)
 
 ### 🔧 Miscellaneous
