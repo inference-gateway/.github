@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.2](https://github.com/inference-gateway/.github/compare/v0.4.1...v0.4.2) (2026-06-02)
+
+### ♻️ Improvements
+
+* remove hardcoded version from pr body ([b4e2f08](https://github.com/inference-gateway/.github/commit/b4e2f08b585af642250caf1ac6b9006f107cc270))
+
+### 🔧 Miscellaneous
+
+* remove redundant inline comment ([3d5087e](https://github.com/inference-gateway/.github/commit/3d5087eedc4a68272de0f7cfe00c010d4eed86d9))
+
 ## [0.4.1](https://github.com/inference-gateway/.github/compare/v0.4.0...v0.4.1) (2026-06-01)
 
 ### ♻️ Improvements
