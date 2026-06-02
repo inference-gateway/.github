@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0](https://github.com/inference-gateway/.github/compare/v0.4.2...v0.5.0) (2026-06-02)
+
+### ✨ Features
+
+* **infer:** add workflow_dispatch free-text prompt via direct-prompt ([#41](https://github.com/inference-gateway/.github/issues/41)) ([a394151](https://github.com/inference-gateway/.github/commit/a394151dfde83e9bf60c4e7e2edf3d90031ea6a4))
+
 ## [0.4.2](https://github.com/inference-gateway/.github/compare/v0.4.1...v0.4.2) (2026-06-02)
 
 ### ♻️ Improvements
