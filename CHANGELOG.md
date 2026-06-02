@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1](https://github.com/inference-gateway/.github/compare/v0.5.0...v0.5.1) (2026-06-02)
+
+### 🐛 Bug Fixes
+
+* **infer:** pin CLI to v0.117.1 (sandbox skill read) and whitelist npx/prettier ([#42](https://github.com/inference-gateway/.github/issues/42)) ([af365a0](https://github.com/inference-gateway/.github/commit/af365a0a291162dec2029b6434c61577905a5cfd)), closes [#577](https://github.com/inference-gateway/.github/issues/577) [#578](https://github.com/inference-gateway/.github/issues/578)
+
 ## [0.5.0](https://github.com/inference-gateway/.github/compare/v0.4.2...v0.5.0) (2026-06-02)
 
 ### ✨ Features
