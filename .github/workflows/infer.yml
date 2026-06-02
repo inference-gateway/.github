@@ -41,7 +41,7 @@ on:
       cli-version:
         description: 'infer CLI version installed by infer-action (must be a release with published binaries)'
         type: string
-        default: v0.116.0
+        default: v0.117.1
       trigger-phrase:
         description: 'Mention that activates the bot'
         type: string
@@ -176,10 +176,10 @@ jobs:
             go)               cmds="$cmds,go" ;;
             rust)             cmds="$cmds,cargo,rustup,rustc" ;;
             python)           cmds="$cmds,python,python3" ;;
-            typescript|node)  cmds="$cmds,node,npm,pnpm" ;;
+            typescript|node)  cmds="$cmds,node,npm,pnpm,npx,prettier" ;;
           esac
-          [ "$NODE" = "true" ]         && cmds="$cmds,node,npm,pnpm"
-          [ "$MARKDOWNLINT" = "true" ] && cmds="$cmds,node,npm,pnpm,markdownlint"
+          [ "$NODE" = "true" ]         && cmds="$cmds,node,npm,pnpm,npx,prettier"
+          [ "$MARKDOWNLINT" = "true" ] && cmds="$cmds,node,npm,pnpm,npx,prettier,markdownlint"
           [ -n "$EXTRA" ]              && cmds="$cmds,$EXTRA"
           echo "commands=$cmds" >> "$GITHUB_OUTPUT"
           echo "Bash whitelist append: $cmds"
