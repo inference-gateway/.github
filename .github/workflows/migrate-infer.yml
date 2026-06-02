@@ -85,8 +85,6 @@ jobs:
       - id: read
         uses: ./.github/actions/resolve-targets
         with:
-          # Every repo with an orchestrators.infer block (i.e. a centralized infer.yml caller).
-          # The 6 kind=agent repos have no orchestrators block and are intentionally skipped.
           select: '.orchestrators.infer != null'
           repository: ${{ inputs.repository }}
 
