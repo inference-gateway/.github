@@ -216,7 +216,6 @@ jobs:
         working-directory: target
         env:
           SNAP: ${{ runner.temp }}/infer-preserve
-          # Authenticate Nix's GitHub fetches (flake source) to avoid anonymous rate limits.
           NIX_CONFIG: "access-tokens = github.com=${{ steps.token.outputs.token }}"
         run: |
           set -euo pipefail
@@ -303,8 +302,8 @@ jobs:
             > `.infer/.gitignore`. Review the diff before merging.
 
             ### Notes
-            - Triggers on `@infer` mentions in issues / issue comments. The reusable workflow pins
-              `inference-gateway/infer-action@v0.9.1` and defaults the model to `deepseek/deepseek-v4-flash`.
+            - Triggers on `@infer` mentions in issues / issue comments. Default model
+              `deepseek/deepseek-v4-flash`. The `infer-action` pin lives in the reusable `infer.yml`.
             - Tools = infer-action's default bash whitelist + the language preset (+ markdownlint where
               set), configured in `repos.yaml` (the entry's `orchestrators.infer` block).
             - Requires the `@infer` GitHub App (`INFER_APP_ID` / `INFER_APP_PRIVATE_KEY`) installed on
