@@ -5,7 +5,9 @@ name: Migrate claude.yml to reusable workflow
 # Flox claude-code pin (.flox/env/manifest.toml) to the latest flox-catalog version and refreshes
 # the lock - then opens ONE PR carrying both. Unlike migrate-infer.yml there is no config-regen step
 # (claude-code has no `init` analog), and claude-code is a flox CATALOG package (nixpkgs mirror), so
-# the latest version comes from `flox show claude-code`, NOT a GitHub release API.
+# the latest version comes from `flox show claude-code`, NOT a GitHub release API. The bump also
+# isolates claude-code in its own flox pkg-group ("claude-code"): flox resolves a group against one
+# catalog page, and sharing the default "ai" group with codex makes a bumped pin unsatisfiable.
 #
 # Operates on every repos.yaml entry that has an `orchestrators.claude` block
 # (select(.orchestrators.claude != null)), reading the reusable-workflow inputs from that block.
@@ -166,6 +168,22 @@ jobs:
             exit 1
           fi
           echo "old=$OLD" >> "$GITHUB_OUTPUT"
+
+          # Isolate claude-code in its OWN flox pkg-group. Flox resolves every package in a group
+          # against a single catalog page; sharing the default "ai" group with codex made the bumped
+          # constraints unsatisfiable ("resolution failed: constraints for group 'ai' are too tight").
+          # A dedicated group lets claude-code float to its latest independently of codex.
+          CUR_GROUP=$(grep -E '^claude-code\.pkg-group' .flox/env/manifest.toml | head -1 | cut -d'"' -f2 || true)
+          if [ "$CUR_GROUP" = "claude-code" ]; then
+            echo "::notice::${{ matrix.target.name }}: claude-code already isolated in its own pkg-group"
+          elif [ -n "$CUR_GROUP" ]; then
+            sed -i "s|claude-code.pkg-group = \"${CUR_GROUP}\"|claude-code.pkg-group = \"claude-code\"|" .flox/env/manifest.toml
+            echo "::notice::${{ matrix.target.name }}: claude-code pkg-group ${CUR_GROUP} -> claude-code"
+          else
+            sed -i "s|^\(claude-code\.pkg-path = .*\)$|\1\nclaude-code.pkg-group = \"claude-code\"|" .flox/env/manifest.toml
+            echo "::notice::${{ matrix.target.name }}: added claude-code.pkg-group = claude-code"
+          fi
+
           if [ "$OLD" = "$NEW" ]; then
             echo "::notice::${{ matrix.target.name }} already pins claude-code ${NEW}"
           else
@@ -336,6 +354,9 @@ jobs:
 
             Ran in CI:
             - sed the `claude-code.version` floor in `.flox/env/manifest.toml` to the latest catalog version
+            - moved `claude-code` into its own `pkg-group = "claude-code"` so its bumped floor resolves
+              independently of co-resident packages (sharing the default `ai` group with `codex` made
+              the constraints unsatisfiable)
             - `flox upgrade claude-code` to refresh `.flox/env/manifest.lock`
 
             > **Note:** `claude-code` is a flox catalog package (nixpkgs mirror), not a GitHub release,
