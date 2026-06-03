@@ -197,11 +197,6 @@ jobs:
         working-directory: target
         env:
           NIX_CONFIG: "access-tokens = github.com=${{ steps.token.outputs.token }}"
-        # `flox upgrade` re-resolves the bumped claude-code pin; `flox activate -- true` then re-locks
-        # the manifest so .flox/env/manifest.lock is written in its canonical form (byte-identical to
-        # what a local `flox activate` produces). migrate-infer.yml / bump-adl.yml get this for free
-        # from their config-regen step (`flox activate -- infer init` / `task generate`); claude-code
-        # has no such step, so the activate must be invoked explicitly here.
         run: |
           flox upgrade claude-code
           flox activate -- true
