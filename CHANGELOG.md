@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0](https://github.com/inference-gateway/.github/compare/v0.5.3...v0.6.0) (2026-06-03)
+
+### ✨ Features
+
+* **migrate-claude:** bump target's Flox claude-code pin in the same PR ([#43](https://github.com/inference-gateway/.github/issues/43)) ([de2e9cd](https://github.com/inference-gateway/.github/commit/de2e9cde9f8e817da3d3dfe804c24c9151ea29d1))
+
 ## [0.5.3](https://github.com/inference-gateway/.github/compare/v0.5.2...v0.5.3) (2026-06-02)
 
 ### 👷 CI
