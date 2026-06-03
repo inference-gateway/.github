@@ -4,7 +4,8 @@ name: Migrate claude.yml to reusable workflow
 # the org reusable workflow (.github/.github/workflows/claude.yml) and (2) bumps the target's OWN
 # Flox claude-code pin (.flox/env/manifest.toml) to the latest flox-catalog version and refreshes
 # the lock - then opens ONE PR carrying both. Unlike migrate-infer.yml there is no config-regen step
-# (claude-code has no `init` analog), and claude-code is a flox CATALOG package (nixpkgs mirror), so
+# (claude-code has no `init` analog), so `flox activate -- true` runs explicitly after the bump purely
+# to write manifest.lock in canonical form; and claude-code is a flox CATALOG package (nixpkgs mirror), so
 # the latest version comes from `flox show claude-code`, NOT a GitHub release API. The bump also
 # isolates claude-code in its own flox pkg-group ("claude-code"): flox resolves a group against one
 # catalog page, and sharing the default "ai" group with codex makes a bumped pin unsatisfiable.
@@ -196,7 +197,9 @@ jobs:
         working-directory: target
         env:
           NIX_CONFIG: "access-tokens = github.com=${{ steps.token.outputs.token }}"
-        run: flox upgrade claude-code
+        run: |
+          flox upgrade claude-code
+          flox activate -- true
 
       - name: Render thin caller
         working-directory: target
@@ -357,7 +360,7 @@ jobs:
             - moved `claude-code` into its own `pkg-group = "claude-code"` so its bumped floor resolves
               independently of co-resident packages (sharing the default `ai` group with `codex` made
               the constraints unsatisfiable)
-            - `flox upgrade claude-code` to refresh `.flox/env/manifest.lock`
+            - `flox upgrade claude-code` + `flox activate` to refresh `.flox/env/manifest.lock` in canonical form
 
             > **Note:** `claude-code` is a flox catalog package (nixpkgs mirror), not a GitHub release,
             > so the latest version is read from `flox show claude-code`. No `.claude/` config is
