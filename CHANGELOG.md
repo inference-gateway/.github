@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.1](https://github.com/inference-gateway/.github/compare/v0.6.0...v0.6.1) (2026-06-03)
+
+### 🐛 Bug Fixes
+
+* **migrate-claude:** isolate claude-code in its own flox pkg-group ([7f26aa4](https://github.com/inference-gateway/.github/commit/7f26aa49ad8cc7f7ff0f894a1ca0660d5e5aba9d))
+
 ## [0.6.0](https://github.com/inference-gateway/.github/compare/v0.5.3...v0.6.0) (2026-06-03)
 
 ### ✨ Features
