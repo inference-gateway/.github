@@ -37,7 +37,7 @@ jobs:
       targets: ${{ steps.read.outputs.targets }}
       adl_version: ${{ steps.resolve.outputs.version }}
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6.0.3
 
       - name: Validate version format
         env:
@@ -93,14 +93,14 @@ jobs:
             ${{ matrix.target.name }}
 
       - name: Checkout target
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6.0.3
         with:
           repository: inference-gateway/${{ matrix.target.name }}
           path: target
           token: ${{ steps.token.outputs.token }}
 
       - name: Install Flox
-        uses: flox/install-flox-action@v2.4.1
+        uses: flox/install-flox-action@v2.5.1
 
       - name: Detect current ADL version
         id: current

@@ -51,10 +51,10 @@ jobs:
       claude_code_version: ${{ steps.resolve.outputs.version }}
       claude_action_version: ${{ steps.actionver.outputs.version }}
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6.0.3
 
       - name: Install Flox
-        uses: flox/install-flox-action@v2.4.1
+        uses: flox/install-flox-action@v2.5.1
 
       - name: Resolve latest claude-code catalog version
         id: resolve
@@ -124,7 +124,7 @@ jobs:
             ${{ matrix.target.name }}
 
       - name: Checkout target
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6.0.3
         with:
           repository: inference-gateway/${{ matrix.target.name }}
           path: target
@@ -148,7 +148,7 @@ jobs:
           fi
 
       - name: Install Flox
-        uses: flox/install-flox-action@v2.4.1
+        uses: flox/install-flox-action@v2.5.1
 
       - name: Bump claude-code pin in the target's Flox manifest
         id: bump

@@ -35,7 +35,7 @@ jobs:
     outputs:
       targets: ${{ steps.read.outputs.targets }}
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6.0.3
       - id: read
         uses: ./.github/actions/resolve-targets
         with:
@@ -51,7 +51,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout orchestrator (.github)
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6.0.3
 
       - name: Mint GitHub App token
         id: token
@@ -64,7 +64,7 @@ jobs:
             ${{ matrix.target.name }}
 
       - name: Checkout target
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6.0.3
         with:
           repository: inference-gateway/${{ matrix.target.name }}
           path: target
@@ -105,7 +105,7 @@ jobs:
             tar -xz --strip-components=2 -C ~/.claude/skills skills-main/skills/maintainer
 
       - name: Audit target against spec and file drift issues
-        uses: anthropics/claude-code-action@v1.0.133
+        uses: anthropics/claude-code-action@v1.0.135
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
