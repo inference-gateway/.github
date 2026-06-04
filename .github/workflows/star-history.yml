@@ -20,7 +20,7 @@ jobs:
   refresh:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6.0.3
 
       - name: Build repo list
         id: repos
