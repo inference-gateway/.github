@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.2](https://github.com/inference-gateway/.github/compare/v0.6.1...v0.6.2) (2026-06-04)
+
+### 👷 CI
+
+* **migrate-claude:** regenerate manifest.lock canonically via flox activate ([#44](https://github.com/inference-gateway/.github/issues/44)) ([fdfecbb](https://github.com/inference-gateway/.github/commit/fdfecbb68ac271ffbbef27ce81a9b9d80f00d003))
+
+### 🔧 Miscellaneous
+
+* **deps:** bump infer-action version v0.11.1 -> v0.11.2 ([4109ef7](https://github.com/inference-gateway/.github/commit/4109ef7373f69ff06633105c9dd710edc437768c))
+* **deps:** bump the github-actions group with 3 updates ([#45](https://github.com/inference-gateway/.github/issues/45)) ([5f324fa](https://github.com/inference-gateway/.github/commit/5f324fadad21718def441fd5f4d547c24a420dcb))
+
 ## [0.6.1](https://github.com/inference-gateway/.github/compare/v0.6.0...v0.6.1) (2026-06-03)
 
 ### 🐛 Bug Fixes
