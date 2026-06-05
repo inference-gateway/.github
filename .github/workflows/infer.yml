@@ -13,7 +13,8 @@ name: Infer (reusable)
 # every non-@infer comment).
 #
 # Tools model: infer-action ships a default bash whitelist (gh, git, coreutils); the `language`
-# preset + `markdownlint` + `extra-bash-commands` append the toolchain commands this repo needs.
+# preset + `markdownlint` + `extra-bash-commands` append the toolchain commands this repo needs,
+# and `extra-bash-patterns` appends regex patterns (e.g. to allow `gh issue create`) per repo.
 
 on:
   workflow_call:
@@ -72,6 +73,10 @@ on:
         default: false
       extra-bash-commands:
         description: 'Comma-separated bare commands appended to the language-derived bash whitelist, e.g. "helm"'
+        type: string
+        default: ''
+      extra-bash-patterns:
+        description: 'Comma-separated regex patterns appended to the base bash whitelist (infer-action bash-whitelist-patterns-append). Prefix-anchored against the full command, e.g. "^gh issue create( |$)".'
         type: string
         default: ''
     secrets:
@@ -197,6 +202,7 @@ jobs:
           debug: ${{ inputs.debug }}
           skills: ${{ inputs.skills }}
           bash-whitelist-commands-append: ${{ steps.whitelist.outputs.commands }}
+          bash-whitelist-patterns-append: ${{ inputs.extra-bash-patterns }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           google-api-key: ${{ secrets.GOOGLE_API_KEY }}
