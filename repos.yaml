@@ -16,7 +16,10 @@
 #                              stale.yml sweeps `select(.kind != "none")` (every product repo
 #                              EXCEPT the kind: none repos, which are intentionally not
 #                              auto-staled). cleanup-runs.yml sweeps `select(true)` -> ALL
-#                              registered targets, every kind incl. none. Private repos are never
+#                              registered targets, every kind incl. none. bump-codex.yml sweeps
+#                              `select(.kind != "agent")` -> every codex-bearing repo (all kinds
+#                              except agent; codex is a local-authoring CLI absent from the
+#                              adl-generated agent dev envs). Private repos are never
 #                              registered here, so cleanup excludes them by construction; do NOT
 #                              add a private repo to this list or cleanup would sweep it.
 #   language       (required)  LOWERCASE TOOLCHAIN: go | rust | typescript | python | node. Single

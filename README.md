@@ -16,6 +16,7 @@ Org-level repo holding:
     - `stale.yml` marks issues with no activity for 30 days as `stale` and closes them 7 days later.
     - `cleanup-runs.yml` prunes completed workflow runs by conclusion (default `skipped` - the noise `infer-action` / `claude-code-action` leave on every issue event; `skipped,failure` also drops failed-run logs), with an optional `keep_last` per-repo retention floor, from each target's Actions tab, daily.
   - **Migration (one-shot)** - `migrate-claude.yml` rewrites each repo's `.github/workflows/claude.yml` into a thin caller of the org [reusable `claude.yml`](./.github/workflows/claude.yml), reading its inputs from that entry's `orchestrators.claude` block (`select(.orchestrators.claude != null)`), and in the same PR also bumps the target's own Flox `claude-code` pin (`.flox/env/manifest.toml`) to the latest flox catalog version, isolates `claude-code` in its own `pkg-group = "claude-code"` (so the bumped floor resolves independently of `codex` - a shared `ai` group made the constraints unsatisfiable), and refreshes the lock - note `claude-code` is a flox catalog package (`claude-code.version = "^X.Y.Z"`), not a GitHub release, so the latest comes from `flox show claude-code` (never npm, which can be ahead of the catalog), and there is no config-regen step - so `flox activate -- true` runs explicitly after `flox upgrade claude-code` purely to write `manifest.lock` in its canonical form. Its PR title names the moves - `chore(deps): bump claude-code X -> Y, claude-code-action vA -> vB` (claude-code-action read from the reusable `claude.yml` at the caller's old vs. new ref) - falling back to `ci: centralize claude.yml via reusable workflow`. `migrate-infer.yml` does the same for `.github/workflows/infer.yml` against the org [reusable `infer.yml`](./.github/workflows/infer.yml), reading that entry's `orchestrators.infer` block (`select(.orchestrators.infer != null)`), and in the same PR also bumps the target's own Flox `infer` pin (`.flox/env/manifest.toml`) to the latest `inference-gateway/cli` release, refreshes the lock, and regenerates the committed `.infer/` config with `infer init --overwrite` using that CLI (preserving `.infer/agents.yaml` and `.infer/mcp.yaml`) - mirroring how `bump-adl.yml` bumps each agent's adl-cli pin. The migrate-infer PR title names the actual version moves - `chore(deps): bump infer CLI vX -> vY, infer-action vA -> vB` - listing only the component(s) that changed (infer-action is read from the reusable `infer.yml` at the caller's old vs. new ref), and falls back to `ci(infer): centralize infer.yml + sync .infer config` when no version moved. Both operate on every repo that defines the matching block.
+  - **Dependency bumps (standalone)** - `bump-codex.yml` bumps every codex-bearing target's Flox `codex` pin (`.flox/env/manifest.toml`) to the latest flox catalog version, isolates `codex` in its own `pkg-group = "codex"`, and refreshes the lock - one PR per repo. It selects `select(.kind != "agent")`: `codex` is a local-authoring CLI present in every non-agent repo but absent from the adl-generated agent envs. Like `bump-adl.yml` it opens PRs (mechanical, reviewable); like `migrate-claude.yml`'s `claude-code` bump the latest comes from `flox show codex` (a catalog package, not a GitHub release) and it runs `flox upgrade codex` + `flox activate -- true` to canonicalize `manifest.lock`. Unlike the migrations there is no thin caller to write and no config to regenerate - it touches only `.flox/env/*`. PR title `chore(deps): bump codex X -> Y`, or `ci: isolate codex in its own flox pkg-group` when only the group moves.
 
 ## How the SDK orchestrator works
 
@@ -175,6 +176,33 @@ gh workflow run cleanup-runs.yml --repo inference-gateway/.github -f dry_run=tru
 gh workflow run cleanup-runs.yml --repo inference-gateway/.github -f dry_run=false -f repository=docs
 ```
 
+## How the codex bump works
+
+`codex` is a local-authoring CLI (like `claude-code` and `infer`), not a bot or an adl-generated dependency, so its bump is a standalone fan-out that touches only `.flox/env/*` - no thin caller, no config regen.
+
+```
+maintainer runs: gh workflow run bump-codex.yml [-f codex_version=X.Y.Z] -f dry_run=false
+   │
+   ▼
+.github/workflows/bump-codex.yml
+   │  matrix job: `flox show codex` -> latest catalog version,
+   │  reads repos.yaml (select(.kind != "agent")), fans out matrix
+   ▼
+per-target job (one per codex-bearing repo):
+   │  mints scoped App token, checks out target into ./target/,
+   │  installs Flox, sed's codex.version floor to ^X.Y.Z and isolates
+   │  codex in its own pkg-group "codex",
+   │  runs `flox upgrade codex` + `flox activate -- true`
+   ▼
+peter-evans/create-pull-request opens (or updates) a PR titled
+`chore(deps): bump codex X -> Y` on branch `bot/bump-codex-X.Y.Z`
+   │
+   ▼
+maintainer reviews each PR and merges
+```
+
+Mirrors `migrate-claude.yml`'s `claude-code` flox bump - catalog package, latest from `flox show`, `pkg-group` isolation so the raised floor resolves independently of co-resident packages, `flox activate -- true` to write `manifest.lock` in canonical form - minus the thin-caller render. Matrix is `select(.kind != "agent")`: codex ships in every non-agent repo but is absent from the adl-generated `kind: agent` envs. Idempotent: a repo already at the latest caret floor in its own group produces no diff and opens no PR; a repo already at the latest version but still in the shared `ai` group gets a group-only PR titled `ci: isolate codex in its own flox pkg-group`. Like `bump-adl.yml` it opens PRs (mechanical, reviewable) and defaults `dry_run: true`.
+
 ## Layout
 
 ```
@@ -190,6 +218,7 @@ gh workflow run cleanup-runs.yml --repo inference-gateway/.github -f dry_run=fal
     trigger-cd.yml            # release fan-out (kind: agent)
     migrate-claude.yml        # write claude.yml thin caller + bump claude-code Flox pin (select(.orchestrators.claude != null))
     migrate-infer.yml         # write infer.yml thin caller + regenerate .infer config (select(.orchestrators.infer != null))
+    bump-codex.yml            # codex CLI Flox-pin bump fan-out (select(.kind != "agent"))
     stale.yml                 # stale-issue sweep (select(.kind != "none"))
     cleanup-runs.yml          # prune completed runs by conclusion/retention (select(true) - all registered targets, incl. kind: none)
     claude.yml                # reusable @claude workflow (workflow_call)
@@ -224,6 +253,11 @@ gh workflow run migrate-infer.yml --repo inference-gateway/.github -f repository
 gh workflow run migrate-infer.yml --repo inference-gateway/.github -f dry_run=false                       # open PRs for all
 # (bumps each target's own .flox/env/manifest.toml infer pin to the latest inference-gateway/cli release)
 
+# Dependency bumps (codex CLI Flox pin across non-agent repos):
+gh workflow run bump-codex.yml --repo inference-gateway/.github -f repository=cli                         # dry, one repo
+gh workflow run bump-codex.yml --repo inference-gateway/.github                                           # dry, all codex-bearing targets
+gh workflow run bump-codex.yml --repo inference-gateway/.github -f dry_run=false                          # open PRs for all (latest codex)
+
 # Lifecycle orchestrators (cron runs for real; manual previews by default):
 gh workflow run stale.yml --repo inference-gateway/.github -f dry_run=false                               # sweep for real
 gh workflow run cleanup-runs.yml --repo inference-gateway/.github                                               # dry, all targets, skipped-only
@@ -245,6 +279,7 @@ Before the orchestrators can run end-to-end, the following pieces need to land s
    - `trigger-cd.yml`: `actions: write` on every `kind: agent` target (to call `gh workflow run cd.yml`).
    - `migrate-claude.yml`: `contents: write`, `pull-requests: write`, and `workflows: write` (it writes `.github/workflows/claude.yml`) on every target with an `orchestrators.claude` block. Bumping the Flox `claude-code` pin needs only `contents: write` - already covered, no new scope.
    - `migrate-infer.yml`: `contents: write`, `pull-requests: write`, and `workflows: write` (it writes `.github/workflows/infer.yml`) on every target with an `orchestrators.infer` block. Regenerating `.infer/` needs only `contents: write` - already covered, no new scope.
+   - `bump-codex.yml`: `contents: write` and `pull-requests: write` on every `select(.kind != "agent")` target (it edits only `.flox/env/*`; **no** `workflows: write`). The maintainer App is already installed on these repos - the `migrate-*` workflows mint tokens for the same set - so no new scope.
    - `stale.yml`: `issues: write` (label, comment, close) on every swept target (`select(.kind != "none")`). No new scope beyond what the sync workflows already require.
    - `cleanup-runs.yml`: `actions: write` on every swept target (`select(true)` - every registered target, **including the `kind: none` infra repos** `cli`, `operator`, `inference-gateway`, `registry`, `schemas`, `skills`, `adl`, `adl-cli`, `a2a-debugger`, `infer-action`) to delete workflow runs (deleting skipped, failed, or any conclusion needs no broader scope). The maintainer App is already installed on these repos (the `migrate-*` workflows mint tokens for them) and its `actions: write` permission is installation-wide; `trigger-cd.yml` relies on the same scope on agent targets.
 3. **Dispatch workflows in `inference-gateway/schemas`** that fire `repository_dispatch` to this repo:
@@ -252,7 +287,7 @@ Before the orchestrators can run end-to-end, the following pieces need to land s
    - `event_type: a2a-spec-updated` whenever `a2a/a2a-schema.yaml` changes on `main` (drives `sync-adks.yml`).
    Until these land, the sync orchestrators only run on manual trigger.
 4. **Drift labels** must exist on each sync target before issues file cleanly: `sdk-drift` on every `kind: sdk` / `kind: docs` repo and `adk-drift` on every `kind: adk` repo. `stale.yml` also exempts a `docs-coverage` label (legacy, kept so any historical coverage tickets stay long-lived).
-5. **PR labels** `dependencies` and `adl-cli` should exist on every `kind: agent` repo for the bump-adl PRs (the action will create them if the App has permission, but pre-existing is cleaner).
+5. **PR labels** `dependencies` and `adl-cli` should exist on every `kind: agent` repo for the bump-adl PRs, and `dependencies` and `codex` on every `select(.kind != "agent")` repo for the bump-codex PRs (the action will create them if the App has permission, but pre-existing is cleaner).
 
 Until these are in place, `workflow_dispatch` lets a maintainer kick any workflow off manually for testing.
 
