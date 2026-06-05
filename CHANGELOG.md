@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0](https://github.com/inference-gateway/.github/compare/v0.6.3...v0.7.0) (2026-06-05)
+
+### ✨ Features
+
+* **infer:** add extra-bash-patterns input; let docs bot create issues ([#47](https://github.com/inference-gateway/.github/issues/47)) ([6efc1b0](https://github.com/inference-gateway/.github/commit/6efc1b05b56f505d4840e65d50898466e3133a19))
+
 ## [0.6.3](https://github.com/inference-gateway/.github/compare/v0.6.2...v0.6.3) (2026-06-05)
 
 ### 🔧 Miscellaneous
