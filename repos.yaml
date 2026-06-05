@@ -88,7 +88,7 @@ targets:
         markdownlint: true
       infer:
         markdownlint: true
-        extra-bash-patterns: "^gh issue create( |$),^gh api [^ -][^ ]*( --paginate| --jq (?:'[^']*'|\"[^\"]*\"|[^ ]+)| -q (?:'[^']*'|\"[^\"]*\"|[^ ]+)| -H (?:'[^']*'|\"[^\"]*\"|[^ ]+)| --header (?:'[^']*'|\"[^\"]*\"|[^ ]+))*$,^gh (--version|version)( |$)"
+        extra-bash-patterns: "^gh issue create( |$),^gh api .*[^ |-],^gh (--version|version)$"
 
   # --- ADKs (sync-adks.yml; all have centralized claude + infer callers) ---
   - name: adk
