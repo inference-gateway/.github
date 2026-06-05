@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.3](https://github.com/inference-gateway/.github/compare/v0.6.2...v0.6.3) (2026-06-05)
+
+### 🔧 Miscellaneous
+
+* **deps:** bump infer cli version 0.117.1 -> 0.118.0 and infer action version 0.11.2 -> 0.11.3 ([96d3667](https://github.com/inference-gateway/.github/commit/96d3667ced1964f37ea731c4799d3717bcebbb19))
+* **infer-action:** use ollama_cloud for deepseek-v4-flash ([a7a855e](https://github.com/inference-gateway/.github/commit/a7a855ec626a9aefb65fbe135380df1194349155))
+
 ## [0.6.2](https://github.com/inference-gateway/.github/compare/v0.6.1...v0.6.2) (2026-06-04)
 
 ### 👷 CI
