@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.2](https://github.com/inference-gateway/.github/compare/v0.7.1...v0.7.2) (2026-06-06)
+
+### ♻️ Improvements
+
+* remove default behaviors ([18040b8](https://github.com/inference-gateway/.github/commit/18040b84ca5db372cf95beee887b50a7c7a710a1))
+
+### 🐛 Bug Fixes
+
+* remove ai slop ([48082d8](https://github.com/inference-gateway/.github/commit/48082d89714730efaf3e7998a2361ee02fd99e00))
+
+### 👷 CI
+
+* **bump-codex:** add org-wide codex Flox-pin bump fan-out ([#49](https://github.com/inference-gateway/.github/issues/49)) ([479968f](https://github.com/inference-gateway/.github/commit/479968f448ac46b28b44f00d49070f94714721a7))
+
+### 🔧 Miscellaneous
+
+* **deps:** bump infer cli default version v0.118.0 -> v0.119.0 ([a096523](https://github.com/inference-gateway/.github/commit/a09652388d7e95b9b13c8f8a538c3b4e85873c25))
+
 ## [0.7.1](https://github.com/inference-gateway/.github/compare/v0.7.0...v0.7.1) (2026-06-05)
 
 ### 🐛 Bug Fixes
