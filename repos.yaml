@@ -88,7 +88,6 @@ targets:
         markdownlint: true
       infer:
         markdownlint: true
-        extra-bash-patterns: "^gh issue create( |$),^gh api .*[^ |-],^gh (--version|version)$"
 
   # --- ADKs (sync-adks.yml; all have centralized claude + infer callers) ---
   - name: adk
@@ -112,7 +111,7 @@ targets:
     orchestrators:
       claude:
         markdownlint: true
-        allowed-tools: "Bash(task:*),Bash(node:*),Bash(npm:*),Bash(pnpm:*),Bash(gh pr:*),Bash(gh issue:*),Bash(gh repo:*)"
+        allowed-tools: "Bash(task:*),Bash(node:*),Bash(npm:*),Bash(pnpm:*)"
       infer:
         markdownlint: true
 
@@ -153,7 +152,7 @@ targets:
     language: go
     orchestrators:
       claude:
-        allowed-tools: "Bash(task:*),Bash(go:*),Bash(git:*),Bash(gh pr:*),Bash(gh issue:*),Bash(gh repo:*),Bash(gh run:*)"
+        allowed-tools: "Bash(task:*),Bash(go:*)"
       infer: {}
   - name: adl-cli
     kind: none
