@@ -194,6 +194,7 @@ jobs:
         with:
           version: ${{ inputs.cli-version }}
           github-token: ${{ steps.app_token.outputs.token }}
+          github-app-slug: ${{ steps.app_token.outputs.app-slug }}
           trigger-phrase: ${{ inputs.trigger-phrase }}
           model: ${{ inputs.model }}
           direct-prompt: ${{ inputs.prompt }}
