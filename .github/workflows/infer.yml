@@ -50,7 +50,7 @@ on:
       max-turns:
         description: 'Max agent turns before auto-stop'
         type: string
-        default: '50'
+        default: '100'
       compact-auto-at:
         description: 'Auto-compact the conversation at this percent of the context window'
         type: string
