@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.5](https://github.com/inference-gateway/.github/compare/v0.7.4...v0.7.5) (2026-06-06)
+
+### 🔧 Miscellaneous
+
+* **deps:** bump infer cli default version to 0.120.1 and infer-action to 0.11.7 ([e6121d8](https://github.com/inference-gateway/.github/commit/e6121d82538a2b365f2e7171f94648c0b3aee8ba))
+
 ## [0.7.4](https://github.com/inference-gateway/.github/compare/v0.7.3...v0.7.4) (2026-06-06)
 
 ### 🔧 Miscellaneous
