@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.3](https://github.com/inference-gateway/.github/compare/v0.7.2...v0.7.3) (2026-06-06)
+
+### 🐛 Bug Fixes
+
+* attribute infer-agent commits to infer-bot[bot] via github-app-slug ([#51](https://github.com/inference-gateway/.github/issues/51)) ([b55a520](https://github.com/inference-gateway/.github/commit/b55a5206f4cb3f6e53736d5e1dbd0e3a17dbf418))
+
 ## [0.7.2](https://github.com/inference-gateway/.github/compare/v0.7.1...v0.7.2) (2026-06-06)
 
 ### ♻️ Improvements
