@@ -190,10 +190,11 @@ jobs:
           echo "Bash whitelist append: $cmds"
 
       - name: Run Infer Agent
-        uses: inference-gateway/infer-action@v0.11.4
+        uses: inference-gateway/infer-action@v0.11.5
         with:
           version: ${{ inputs.cli-version }}
           github-token: ${{ steps.app_token.outputs.token }}
+          github-app-slug: ${{ steps.app_token.outputs.app-slug }}
           trigger-phrase: ${{ inputs.trigger-phrase }}
           model: ${{ inputs.model }}
           direct-prompt: ${{ inputs.prompt }}
