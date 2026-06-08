@@ -1,3 +1,4 @@
+---
 name: Cleanup workflow runs
 
 # Daily sweep across EVERY repos.yaml target (select(true), all kinds including
@@ -70,7 +71,8 @@ on:
         type: string
         default: ''
 
-permissions: {}
+permissions:
+  contents: read
 
 concurrency:
   group: cleanup-runs

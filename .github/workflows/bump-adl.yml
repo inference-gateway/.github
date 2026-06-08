@@ -1,3 +1,4 @@
+---
 name: Bump ADL CLI across agents
 
 # Manual fan-out across every kind=agent target in repos.yaml.
@@ -26,7 +27,8 @@ on:
         type: boolean
         default: true
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
   matrix:

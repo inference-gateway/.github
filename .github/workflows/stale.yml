@@ -1,3 +1,4 @@
+---
 name: Stale issues sweep
 
 # Daily sweep across every target in repos.yaml except kind: none
@@ -29,13 +30,12 @@ on:
         type: boolean
         default: true
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
   matrix:
     runs-on: ubuntu-24.04
-    permissions:
-      contents: read
     outputs:
       targets: ${{ steps.read.outputs.targets }}
     steps:

@@ -1,3 +1,4 @@
+---
 name: Migrate claude.yml to reusable workflow
 
 # One-shot fan-out: per target repo it (1) writes .github/workflows/claude.yml as a thin caller of
@@ -38,7 +39,8 @@ on:
         type: boolean
         default: true
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
   matrix:

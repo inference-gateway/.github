@@ -1,3 +1,4 @@
+---
 name: Bump codex across repos
 
 # Manual fan-out across every repos.yaml target that pins codex in its Flox env
@@ -37,7 +38,8 @@ on:
         type: boolean
         default: true
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
   matrix:

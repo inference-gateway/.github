@@ -1,3 +1,4 @@
+---
 name: Claude Code (reusable)
 
 # Reusable @claude bot workflow for the inference-gateway org.
@@ -80,7 +81,8 @@ on:
         description: 'OAuth token for anthropics/claude-code-action (callers use `secrets: inherit`)'
         required: true
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
   claude:
