@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.7](https://github.com/inference-gateway/.github/compare/v0.7.6...v0.7.7) (2026-06-08)
+
+### ♻️ Improvements
+
+* update infer workflow pattern allowlist ([cf4c620](https://github.com/inference-gateway/.github/commit/cf4c6201570dada1cc14d25f45097c01404d0b18))
+
+### 👷 CI
+
+* use consistent approach with top level block with read only where possible ([6189e0f](https://github.com/inference-gateway/.github/commit/6189e0f781f0f7f78177b002148b00aa1d571091))
+
+### 🔧 Miscellaneous
+
+* **flox:** update claude-code, codex, infer versions and groups ([#56](https://github.com/inference-gateway/.github/issues/56)) ([eda124d](https://github.com/inference-gateway/.github/commit/eda124da0878c80ef3cb54c1d20e04b2af441da1))
+* **infer:** add speech-to-text configuration and enhance keybindings for diff viewer and explorer ([04854a8](https://github.com/inference-gateway/.github/commit/04854a862276951007049ec3369aa513c5e36bd1))
+
 ## [0.7.6](https://github.com/inference-gateway/.github/compare/v0.7.5...v0.7.6) (2026-06-08)
 
 ### 👷 CI
