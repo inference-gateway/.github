@@ -18,7 +18,9 @@ name: Infer (reusable)
 # gh pr create). The `language` preset + `markdownlint` + `extra-bash-commands` append the toolchain
 # commands this repo needs, and `extra-bash-patterns` appends raw regex entries (e.g. to allow
 # `gh issue create`) per repo. Loading the `maintainer` skill auto-appends the GitHub writes its
-# file+track flow needs (`gh issue create/edit/comment`, `gh project item-add/item-edit`, `gh pr create`).
+# file+track flow needs (`gh issue create/edit/comment`, `gh project item-add/item-edit`, `gh pr create`,
+# plus one tightly scoped `gh api graphql` entry that allows ONLY the `updateIssueIssueType` Type-setting
+# mutation - never arbitrary GraphQL).
 # Every appended entry is matched WHOLE-command by the CLI
 # (\A(?:entry)\z), so it must allow its own arguments: write `^task( .*)?$`, not `^task( |$)` (the
 # latter only matches the bare command, rejecting `task lint`).
@@ -197,6 +199,13 @@ jobs:
           [ "$MARKDOWNLINT" = "true" ] && patterns="$patterns,^node( .*)?$,^npm( .*)?$,^pnpm( .*)?$,^npx( .*)?$,^prettier( .*)?$,^markdownlint( .*)?$"
           if printf '%s\n' "$SKILLS" | grep -qxF 'maintainer'; then
             patterns="$patterns,^gh issue create( .*)?$,^gh issue edit( .*)?$,^gh issue comment( .*)?$,^gh pr create( .*)?$,^gh project (item-add|item-edit)( .*)?$"
+            # Issue Type is set with one GraphQL mutation (updateIssueIssueType); released gh has no
+            # `--type` flag yet. Allow ONLY that exact mutation, never arbitrary `gh api graphql`. Built in
+            # single quotes so regex metachars (\ $ { }) stay literal; commas encoded as \x2c so the
+            # comma-separated allow-list splitter keeps it as one entry; the issue node id and type id are
+            # the only variable args (type id pinned to the `IT_` issue-type prefix).
+            gql='^gh api graphql -f query='\''mutation\(\$id:ID!\x2c\$t:ID!\)\{updateIssueIssueType\(input:\{issueId:\$id\x2cissueTypeId:\$t\}\)\{issue\{number issueType\{name\}\}\}\}'\'' -f id="[^"]+" -f t="IT_[A-Za-z0-9_-]+"$'
+            patterns="$patterns,$gql"
           fi
           if [ -n "$EXTRA" ]; then
             IFS=',' read -ra extra_cmds <<< "$EXTRA"

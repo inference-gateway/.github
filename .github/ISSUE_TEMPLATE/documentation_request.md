@@ -3,7 +3,7 @@ name: Documentation request
 about: Request documentation improvements or additions
 title: '[DOCS] '
 labels: documentation
-type: documentation
+type: Task
 assignees: ''
 ---
 
