@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.6](https://github.com/inference-gateway/.github/compare/v0.7.5...v0.7.6) (2026-06-08)
+
+### 👷 CI
+
+* **security:** declare top-level permissions on reusable workflows and caller templates ([#55](https://github.com/inference-gateway/.github/issues/55)) ([9b4780a](https://github.com/inference-gateway/.github/commit/9b4780a0e84ea5d1b0caa318f95d954662c17bb0))
+
+### 📚 Documentation
+
+* add organization-wide security policy ([#53](https://github.com/inference-gateway/.github/issues/53)) ([a723f4a](https://github.com/inference-gateway/.github/commit/a723f4a6c9312d243d0ab41818b8c4d0106c6d86))
+
 ## [0.7.5](https://github.com/inference-gateway/.github/compare/v0.7.4...v0.7.5) (2026-06-06)
 
 ### 🔧 Miscellaneous
