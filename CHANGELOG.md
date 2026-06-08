@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.9](https://github.com/inference-gateway/.github/compare/v0.7.8...v0.7.9) (2026-06-08)
+
+### ♻️ Improvements
+
+* standardize issue type casing in templates and workflows ([#57](https://github.com/inference-gateway/.github/issues/57)) ([62fe25d](https://github.com/inference-gateway/.github/commit/62fe25dc9d56d12783e84ff1c9c6554f77466a60))
+
 ## [0.7.8](https://github.com/inference-gateway/.github/compare/v0.7.7...v0.7.8) (2026-06-08)
 
 ### ♻️ Improvements
