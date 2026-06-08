@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.8](https://github.com/inference-gateway/.github/compare/v0.7.7...v0.7.8) (2026-06-08)
+
+### ♻️ Improvements
+
+* **reuseable-workflow-infer:** add the permissions for a maintainer ([7d53305](https://github.com/inference-gateway/.github/commit/7d53305c96cf4a1c43ea8be3ad62eac3be7de273))
+
 ## [0.7.7](https://github.com/inference-gateway/.github/compare/v0.7.6...v0.7.7) (2026-06-08)
 
 ### ♻️ Improvements
