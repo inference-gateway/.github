@@ -80,6 +80,8 @@ on:
         description: 'OAuth token for anthropics/claude-code-action (callers use `secrets: inherit`)'
         required: true
 
+permissions: {}
+
 jobs:
   claude:
     runs-on: ${{ inputs.runner }}
