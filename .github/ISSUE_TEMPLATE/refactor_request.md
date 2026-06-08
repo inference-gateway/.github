@@ -3,7 +3,7 @@ name: Refactor request
 about: Request a refactor of existing code
 title: '[TASK] Refactor '
 labels: refactor
-type: task
+type: Task
 assignees: ''
 ---
 
