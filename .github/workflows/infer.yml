@@ -13,9 +13,13 @@ name: Infer (reusable)
 # a reusable workflow, and keeping the gate on the caller job avoids spinning up this runner for
 # every non-@infer comment).
 #
-# Tools model: infer-action ships a default bash whitelist (gh, git, coreutils); the `language`
-# preset + `markdownlint` + `extra-bash-commands` append the toolchain commands this repo needs,
-# and `extra-bash-patterns` appends regex patterns (e.g. to allow `gh issue create`) per repo.
+# Tools model: infer-action v0.12.0+ owns the read-only bash allow baseline (file reads, read-only
+# git/gh, gh project reads) plus, when git ops are on, the PR-workflow writes (git add/commit/push,
+# gh pr create). The `language` preset + `markdownlint` + `extra-bash-commands` append the toolchain
+# commands this repo needs, and `extra-bash-patterns` appends raw regex entries (e.g. to allow
+# `gh issue create`) per repo. Every appended entry is matched WHOLE-command by the CLI
+# (\A(?:entry)\z), so it must allow its own arguments: write `^task( .*)?$`, not `^task( |$)` (the
+# latter only matches the bare command, rejecting `task lint`).
 
 on:
   workflow_call:
@@ -43,7 +47,7 @@ on:
       cli-version:
         description: 'infer CLI version installed by infer-action (must be a release with published binaries)'
         type: string
-        default: v0.120.1
+        default: v0.121.0
       trigger-phrase:
         description: 'Mention that activates the bot'
         type: string
@@ -73,11 +77,11 @@ on:
         type: boolean
         default: false
       extra-bash-commands:
-        description: 'Comma-separated bare commands appended to the language-derived bash whitelist, e.g. "helm"'
+        description: 'Comma-separated bare commands appended to the language-derived bash allow list. Each is wrapped as a Go regex anchored to the whole command, e.g. "helm" becomes "^helm( .*)?$".'
         type: string
         default: ''
       extra-bash-patterns:
-        description: 'Comma-separated regex patterns appended to the base bash whitelist (infer-action bash-whitelist-patterns-append). Prefix-anchored against the full command, e.g. "^gh issue create( |$)".'
+        description: 'Comma-separated Go regex patterns appended to the bash allow list (maps to infer-action bash-allow-append). Prefix-anchored against the full command, e.g. "^gh issue create( .*)?$".'
         type: string
         default: ''
     secrets:
@@ -169,32 +173,39 @@ jobs:
           pip install pre-commit
           task precommit:install
 
-      - name: Compose bash whitelist
+      - name: Compose bash allow append
         id: whitelist
         env:
           LANGUAGE: ${{ inputs.language }}
           MARKDOWNLINT: ${{ inputs.markdownlint }}
           NODE: ${{ inputs.node }}
           EXTRA: ${{ inputs.extra-bash-commands }}
+          EXTRA_PATTERNS: ${{ inputs.extra-bash-patterns }}
         run: |
           set -euo pipefail
-          # infer-action ships a default whitelist (gh, git, coreutils); append only the toolchain
-          # + project-runner commands this repo needs. Bare command names, comma-separated.
-          cmds='task'
+          patterns='^task( .*)?$'
           case "$LANGUAGE" in
-            go)               cmds="$cmds,go" ;;
-            rust)             cmds="$cmds,cargo,rustup,rustc" ;;
-            python)           cmds="$cmds,python,python3" ;;
-            typescript|node)  cmds="$cmds,node,npm,pnpm,npx,prettier" ;;
+            go)               patterns="$patterns,^go( .*)?$" ;;
+            rust)             patterns="$patterns,^cargo( .*)?$,^rustup( .*)?$,^rustc( .*)?$" ;;
+            python)           patterns="$patterns,^python( .*)?$,^python3( .*)?$" ;;
+            typescript|node)  patterns="$patterns,^node( .*)?$,^npm( .*)?$,^pnpm( .*)?$,^npx( .*)?$,^prettier( .*)?$" ;;
           esac
-          [ "$NODE" = "true" ]         && cmds="$cmds,node,npm,pnpm,npx,prettier"
-          [ "$MARKDOWNLINT" = "true" ] && cmds="$cmds,node,npm,pnpm,npx,prettier,markdownlint"
-          [ -n "$EXTRA" ]              && cmds="$cmds,$EXTRA"
-          echo "commands=$cmds" >> "$GITHUB_OUTPUT"
-          echo "Bash whitelist append: $cmds"
+          [ "$NODE" = "true" ]         && patterns="$patterns,^node( .*)?$,^npm( .*)?$,^pnpm( .*)?$,^npx( .*)?$,^prettier( .*)?$"
+          [ "$MARKDOWNLINT" = "true" ] && patterns="$patterns,^node( .*)?$,^npm( .*)?$,^pnpm( .*)?$,^npx( .*)?$,^prettier( .*)?$,^markdownlint( .*)?$"
+          if [ -n "$EXTRA" ]; then
+            IFS=',' read -ra extra_cmds <<< "$EXTRA"
+            for cmd in "${extra_cmds[@]}"; do
+              cmd="${cmd## }"
+              cmd="${cmd%% }"
+              [ -n "$cmd" ] && patterns="$patterns,^${cmd}( .*)?$"
+            done
+          fi
+          [ -n "$EXTRA_PATTERNS" ] && patterns="$patterns,$EXTRA_PATTERNS"
+          echo "patterns=$patterns" >> "$GITHUB_OUTPUT"
+          echo "Bash allow append: $patterns"
 
       - name: Run Infer Agent
-        uses: inference-gateway/infer-action@v0.11.7
+        uses: inference-gateway/infer-action@v0.12.0
         with:
           version: ${{ inputs.cli-version }}
           github-token: ${{ steps.app_token.outputs.token }}
@@ -206,8 +217,7 @@ jobs:
           compact-auto-at: ${{ inputs.compact-auto-at }}
           debug: ${{ inputs.debug }}
           skills: ${{ inputs.skills }}
-          bash-whitelist-commands-append: ${{ steps.whitelist.outputs.commands }}
-          bash-whitelist-patterns-append: ${{ inputs.extra-bash-patterns }}
+          bash-allow-append: ${{ steps.whitelist.outputs.patterns }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           google-api-key: ${{ secrets.GOOGLE_API_KEY }}
