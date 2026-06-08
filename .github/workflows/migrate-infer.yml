@@ -223,6 +223,8 @@ jobs:
               types:
                 - created
 
+          permissions: {}
+
           jobs:
             infer:
               if: |

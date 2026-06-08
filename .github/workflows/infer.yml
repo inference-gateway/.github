@@ -92,6 +92,8 @@ on:
       # the caller's `secrets: inherit`; they are referenced directly below without being declared
       # here so a repo that lacks a given provider key does not fail at call time.
 
+permissions: {}
+
 jobs:
   infer:
     runs-on: ${{ inputs.runner }}

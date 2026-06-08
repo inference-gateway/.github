@@ -251,6 +251,8 @@ jobs:
               types:
                 - submitted
 
+          permissions: {}
+
           jobs:
             claude:
               if: |
