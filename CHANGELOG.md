@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.11](https://github.com/inference-gateway/.github/compare/v0.7.10...v0.7.11) (2026-06-09)
+
+### ♻️ Improvements
+
+* **infer:** track Roadmap 2026 board and escalate missing perms ([#59](https://github.com/inference-gateway/.github/issues/59)) ([30b564a](https://github.com/inference-gateway/.github/commit/30b564aad087977749af54f15aea93ff868efaae)), closes [#7](https://github.com/inference-gateway/.github/issues/7)
+
+### 🔧 Miscellaneous
+
+* clean up workflow comments ([f48d7d4](https://github.com/inference-gateway/.github/commit/f48d7d40b301d62a90d4af237c870df20d755f67))
+
 ## [0.7.10](https://github.com/inference-gateway/.github/compare/v0.7.9...v0.7.10) (2026-06-09)
 
 ### ♻️ Improvements
