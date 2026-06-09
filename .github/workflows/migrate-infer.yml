@@ -380,13 +380,14 @@ jobs:
               needed) - mirroring the `@claude` workflow.
             - Tools = infer-action's default bash whitelist + the language preset (+ markdownlint where
               set), configured in `repos.yaml` (the entry's `orchestrators.infer` block).
-            - Requires the `@infer` GitHub App (`INFER_APP_ID` / `INFER_APP_PRIVATE_KEY`) installed on
-              this repo plus the provider API-key secrets; both reach the reusable workflow via
-              `secrets: inherit`.
+            - Requires the maintainer GitHub App (`INFERENCE_GATEWAY_MAINTAINER_APP_ID` /
+              `INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY`) installed on this repo plus the provider
+              API-key secrets; both reach the reusable workflow via `secrets: inherit`.
 
             Filed by [migrate-infer.yml](https://github.com/inference-gateway/.github/blob/main/.github/workflows/migrate-infer.yml).
           labels: |
             ci
+            bot
 
       - name: Report PR outcome
         if: ${{ steps.skip.outputs.skip != 'true' && !inputs.dry_run && steps.pr.outputs.pull-request-number != '' }}
