@@ -100,11 +100,19 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          app-id: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_ID }}
+          private-key: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
       - name: Install task
         uses: arduino/setup-task@v2.0.0
         with:
           version: 3.48.0
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token: ${{ steps.app-token.outputs.token }}
 
       - name: Set up Go
         if: inputs.language == 'go'
@@ -311,6 +319,7 @@ jobs:
         id: claude
         uses: anthropics/claude-code-action@v1.0.135
         with:
+          github_token: ${{ steps.app-token.outputs.token }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           display_report: true
           additional_permissions: |
