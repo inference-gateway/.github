@@ -89,17 +89,12 @@ on:
         type: string
         default: ''
     secrets:
-      INFER_APP_ID:
+      INFERENCE_GATEWAY_MAINTAINER_APP_ID:
         description: 'Client ID of the @infer bot GitHub App (callers use `secrets: inherit`)'
         required: true
-      INFER_APP_PRIVATE_KEY:
+      INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY:
         description: 'Private key of the @infer bot GitHub App (callers use `secrets: inherit`)'
         required: true
-      # Provider API keys (ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY, DEEPSEEK_API_KEY,
-      # GROQ_API_KEY, MISTRAL_API_KEY, CLOUDFLARE_API_KEY, COHERE_API_KEY, OLLAMA_API_KEY,
-      # OLLAMA_CLOUD_API_KEY, MOONSHOT_API_KEY) are per-model optional and reach this workflow via
-      # the caller's `secrets: inherit`; they are referenced directly below without being declared
-      # here so a repo that lacks a given provider key does not fail at call time.
 
 permissions:
   contents: read
@@ -117,8 +112,8 @@ jobs:
         id: app_token
         uses: actions/create-github-app-token@v3.2.0
         with:
-          client-id: ${{ secrets.INFER_APP_ID }}
-          private-key: ${{ secrets.INFER_APP_PRIVATE_KEY }}
+          client-id: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_ID }}
+          private-key: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: |
             ${{ github.event.repository.name }}
@@ -132,7 +127,7 @@ jobs:
         uses: arduino/setup-task@v2.0.0
         with:
           version: 3.48.0
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token: ${{ steps.app_token.outputs.token }}
 
       - name: Set up Go
         if: inputs.language == 'go'
