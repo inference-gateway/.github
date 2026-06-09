@@ -254,6 +254,7 @@ jobs:
           EVENT: ${{ github.event_name }}
           USER_PROMPT: ${{ inputs.prompt }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
           IS_PR_COMMENT: ${{ github.event.issue.pull_request != null }}
         run: |
           set -euo pipefail
@@ -275,13 +276,57 @@ jobs:
 
           ## Commit Message Requirements (max 72 chars)
           - Use conventional commit format with lowercase type (e.g., "fix:", "feat:", "refactor:")
+
+          **IF A GITHUB PERMISSION IS MISSING:**
+          If - and only if - a `gh`/`git` command fails because the bot LACKS a GitHub permission
+          (HTTP 403 "Resource not accessible by integration", "does not have permission", "must
+          have write/admin access", or a project/issue mutation rejected for authorization), file
+          a tracking issue in `inference-gateway/.github` so a human can grant the scope. Do NOT do
+          this for ordinary errors - a 404 (wrong URL), a 422 validation error, or a rate-limit 403
+          (transient) are not permission gaps; skip them.
+
+          This is best-effort and must NEVER abort or block the real task. File the escalation, then
+          continue (or, if the escalation itself fails, note it in your output and continue).
+
+          Keep it to ONE issue org-wide per missing capability, not one per repo:
+          - Title MUST be exactly `[bot] Missing GitHub permission: <capability>`, where <capability>
+            is the short stable scope name, e.g. `organization projects (read & write)` or
+            `issues: write on .github`.
+          - Search first:
+            `gh issue list --repo inference-gateway/.github --state open --search 'in:title "[bot] Missing GitHub permission: <capability>"'`
+            - If one exists: add a COMMENT recording this occurrence (repo, issue/PR, run URL, error)
+              and STOP - do not open a duplicate.
+            - If none: `gh issue create --repo inference-gateway/.github --title "[bot] Missing GitHub permission: <capability>" --label bot --body ...`
+              (if `--label bot` is rejected because the label is missing, retry without --label).
+
+          The body MUST state: what you were doing, the originating repo and issue/PR, the Actions run
+          URL ($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID), the exact permission
+          needed and where to grant it (the maintainer GitHub App's installation -> Organization
+          permissions -> Projects: Read and write, or the specific repo permission), and the verbatim
+          error line.
+
+          NEVER write `@claude` or `@infer` anywhere in the title, body, or comment, and do not add the
+          escalation issue to the Roadmap board.
           RULES
           )"
 
           if [ "$context" = "issue" ]; then
           body="$(cat <<'ISSUE'
           **WHEN WORKING ON THIS ISSUE:**
-          After you finish implementing the code changes and committing them, open a pull request:
+
+          Track this work on the org Roadmap 2026 board (GitHub org project #7) as you go. The
+          maintainer skill's "Roadmap 2026 board + Status lifecycle" reference has the exact
+          `gh project` commands and the org-stable project / field / option ids - use them, do
+          not improvise ids.
+
+          1. Before you change any code, add this issue to project #7 and set Status = "In progress":
+             - issue URL: __URL__
+             - `gh project item-add 7 --owner inference-gateway --url __URL__` (idempotent: if it
+               is already on the board this just reports it exists - carry on).
+             - resolve that issue's project-item id and set Status = In progress. If it is already
+               on the board at another Status, just move it to In progress.
+          2. Implement the code changes and commit them.
+          3. Open the pull request:
           ```
           gh pr create --title "Your descriptive title" --body "## Summary
           Your summary of what was implemented.
@@ -289,9 +334,16 @@ jobs:
           Closes #__N__"
           ```
           Always include a summary of changes AND "Closes #__N__" in the body.
+          4. Right after the PR is open, move this issue's Status to "QA". Do NOT set Done - that
+             happens when the PR merges, which is outside this run.
+
+          Board tracking is best-effort: if a `gh project` call fails for lack of a GitHub
+          permission, follow "IF A GITHUB PERMISSION IS MISSING" below, then carry on with the
+          implementation and the PR - never abort the task over a board update.
           ISSUE
           )"
           body="${body//__N__/$ISSUE_NUMBER}"
+          body="${body//__URL__/$ISSUE_URL}"
           elif [ "$context" = "pr" ]; then
           body="$(cat <<'PR'
           **WHEN WORKING ON PR FEEDBACK:**
