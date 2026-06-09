@@ -213,9 +213,6 @@ jobs:
           set -euo pipefail
           mkdir -p .github/workflows
 
-          # Build the `with:` block: `language` comes from the entry's top-level `language`
-          # (prepended so it renders first), the remaining keys from its `orchestrators.claude`
-          # block. Strings quoted, booleans/numbers bare; keys map 1:1 to reusable inputs.
           with_block=$(echo "$CLAUDE_JSON" | jq -r --arg lang "$LANG" '
             {language: $lang} + .
             | to_entries
@@ -361,9 +358,6 @@ jobs:
 
             Ran in CI:
             - sed the `claude-code.version` floor in `.flox/env/manifest.toml` to the latest catalog version
-            - moved `claude-code` into its own `pkg-group = "claude-code"` so its bumped floor resolves
-              independently of co-resident packages (sharing the default `ai` group with `codex` made
-              the constraints unsatisfiable)
             - `flox upgrade claude-code` + `flox activate` to refresh `.flox/env/manifest.lock` in canonical form
 
             > **Note:** `claude-code` is a flox catalog package (nixpkgs mirror), not a GitHub release,
@@ -371,8 +365,6 @@ jobs:
             > regenerated (claude-code has no `init` step).
 
             ### Notes
-            - `--effort` is `max` — the prior `ultracode` value was invalid and failed the claude CLI at
-              argument-parse time (valid: `low|medium|high|xhigh|max`).
             - Tools = a shared default (`Bash(task:*),Bash(gh:*),Bash(git:*)`) + the language preset +
               this repo's extras, configured in `repos.yaml` (the entry's `orchestrators.claude` block).
             - If this repo previously narrowed `gh` scope or used a quirky tool list, that is preserved
@@ -382,6 +374,7 @@ jobs:
             Filed by [migrate-claude.yml](https://github.com/inference-gateway/.github/blob/main/.github/workflows/migrate-claude.yml).
           labels: |
             ci
+            bot
 
       - name: Report PR outcome
         if: ${{ steps.skip.outputs.skip != 'true' && !inputs.dry_run && steps.pr.outputs.pull-request-number != '' }}

@@ -300,9 +300,9 @@ jobs:
             - Never open a PR.
             - Never mention `@claude` in issue titles, bodies, or comments.
             - File at most one issue per drift class per run.
-            - For the `docs` target (`kind=docs`), never use em dashes (`—`,
+            - For the `docs` target (`kind=docs`), never use em dashes (`-`,
               U+2014) or en dashes (`–`, U+2013) in issue titles, bodies, or
-              comments — use a plain ASCII hyphen-minus (`-`, U+002D) instead.
+              comments - use a plain ASCII hyphen-minus (`-`, U+002D) instead.
               This applies to every character you emit for that target,
               including the `<sub>` footer and the "Spec has changed" comment.
             - If the target is fully in sync, file nothing and just print
