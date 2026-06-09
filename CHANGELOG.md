@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.10](https://github.com/inference-gateway/.github/compare/v0.7.9...v0.7.10) (2026-06-09)
+
+### ♻️ Improvements
+
+* **claude:** add GitHub App token generation to workflow ([0e1e428](https://github.com/inference-gateway/.github/commit/0e1e428cc1b66ee2910689e7200505fe1ad9e043))
+* **claude:** track Roadmap 2026 board and escalate missing perms ([#58](https://github.com/inference-gateway/.github/issues/58)) ([948aff6](https://github.com/inference-gateway/.github/commit/948aff682ed3ee3c189ee7030859af3cf9df54f3)), closes [#7](https://github.com/inference-gateway/.github/issues/7)
+
+### 👷 CI
+
+* **infer:** rotate app secrets ([bfc625f](https://github.com/inference-gateway/.github/commit/bfc625f693ee6d0aca05508478b4aad0a91a9bf3))
+
 ## [0.7.9](https://github.com/inference-gateway/.github/compare/v0.7.8...v0.7.9) (2026-06-08)
 
 ### ♻️ Improvements
