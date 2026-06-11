@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.12](https://github.com/inference-gateway/.github/compare/v0.7.11...v0.7.12) (2026-06-11)
+
+### 🔧 Miscellaneous
+
+* **deps:** bump anthropics/claude-code-action ([#61](https://github.com/inference-gateway/.github/issues/61)) ([acbf965](https://github.com/inference-gateway/.github/commit/acbf96557fb8972d5dd3fabde1fc5a5adf8363e2))
+* remove Star History section from README ([0308476](https://github.com/inference-gateway/.github/commit/0308476620355ea8d8b200ec0b89b874d84ee528))
+
 ## [0.7.11](https://github.com/inference-gateway/.github/compare/v0.7.10...v0.7.11) (2026-06-09)
 
 ### ♻️ Improvements
