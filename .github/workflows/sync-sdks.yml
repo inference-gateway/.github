@@ -105,7 +105,7 @@ jobs:
             tar -xz --strip-components=2 -C ~/.claude/skills skills-main/skills/maintainer
 
       - name: Audit target against spec and file drift issues
-        uses: anthropics/claude-code-action@v1.0.135
+        uses: anthropics/claude-code-action@v1.0.142
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
