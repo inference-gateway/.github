@@ -1,0 +1,215 @@
+---
+name: Backfill Roadmap 2026
+
+# Daily sweep across EVERY repos.yaml target (select(true), all kinds incl.
+# kind: none and kind: agent). For each repo, finds OPEN issues on NO GitHub
+# Project board and adds them to the org Roadmap 2026 board (project #7), then
+# sets their Status to Todo. Backfills issues filed/edited outside the normal
+# @claude/@infer flow (or before board tracking existed) so planned work is
+# never lost off the roadmap.
+#
+# "On no board" = the issue's ProjectsV2 membership (projectItems) is empty.
+# Projects classic (projectCards) was shut down across 2024-2025 and always
+# returns empty now, so ProjectsV2 membership is the whole story; we do NOT
+# check projectCards.
+#
+# Semantics: "not on ANY project", not "not on #7". An issue already tracked on
+# some OTHER org board is left alone. The primary filter is projectItems (which
+# the maintainer App's org-level Projects: read grant lets it see across ALL org
+# boards), NOT a prefetch of project #7's items.
+#
+# Auth: per-target scoped App token via inference-gateway-maintainer-bot. The
+# App holds ORG-LEVEL Projects: read & write; org permissions are NOT narrowed
+# by the `repositories:` scope, so a repo-scoped token still reaches org project
+# #7 - exactly how claude.yml / infer.yml write to #7 from repo-scoped tokens.
+# Listing issues uses the App's installation-wide issues: read (the sync/stale
+# workflows already rely on it). The default GITHUB_TOKEN is scoped to .github
+# only and cannot read issues or write the board on other repos.
+#
+# Idempotent: `gh project item-add 7` on an issue already on #7 just reports it
+# exists and returns the existing item id (exit 0), so re-runs are no-ops on
+# already-tracked issues. A MAX_ADDS cap bounds a single run and logs a warning
+# with the leftover count; the next run (or cron) resumes - safe because adds
+# are idempotent and the projectItems filter shrinks the candidate set each run.
+#
+# Fail-loud: the issue listing is rate-limit aware. All matrix jobs share ONE
+# App installation token (a single 5,000-req/hr bucket). Rather than a 403 on
+# the listing yielding a false "found 0" and a green check, the job exits
+# non-zero with an ::error:: and the leftover count. Narrow with
+# `repository=<name>` to backfill one repo at a time within the shared budget.
+#
+# Board ids below are org-stable (see the maintainer skill's "Roadmap 2026 board
+# + Status lifecycle" reference); hard-coded here per that reference, re-derive
+# only if a command rejects one.
+
+on:
+  # Enable after validating on one repo (see README rollout procedure).
+  # schedule:
+  #   - cron: '30 4 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'List orphan issues without adding them to the board (manual runs preview by default; the cron backfills for real)'
+        required: false
+        type: boolean
+        default: true
+      repository:
+        description: 'Single repos.yaml target to sweep (omit = all targets). Use to test on one repo.'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backfill-roadmap
+  cancel-in-progress: false
+
+jobs:
+  matrix:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      targets: ${{ steps.read.outputs.targets }}
+    steps:
+      - uses: actions/checkout@v6.0.3
+      - id: read
+        uses: ./.github/actions/resolve-targets
+        with:
+          select: 'true'
+          repository: ${{ inputs.repository }}
+
+  sweep:
+    needs: matrix
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        target: ${{ fromJSON(needs.matrix.outputs.targets) }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Mint App token (scoped to ${{ matrix.target.name }})
+        id: token
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          client-id: ${{ secrets.BOT_MAINTAINER_APP_ID }}
+          private-key: ${{ secrets.BOT_MAINTAINER_APP_PRIVATE_KEY }}
+          owner: inference-gateway
+          repositories: |
+            ${{ matrix.target.name }}
+
+      - name: Backfill orphan open issues in inference-gateway/${{ matrix.target.name }}
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          GH_REPO: inference-gateway/${{ matrix.target.name }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          PROJECT_NUMBER: '7'
+          PROJECT_OWNER: inference-gateway
+          PROJECT_ID: PVT_kwDOC6ve6c4BNnSt
+          STATUS_FIELD_ID: PVTSSF_lADOC6ve6c4BNnStzg8jqxU
+          STATUS_TODO_ID: f75ad846
+          SLEEP_BETWEEN_ADDS: '1'
+          MAX_ADDS: '500'
+        run: |
+          set -euo pipefail
+
+          {
+            echo "### ${GH_REPO}"
+            echo
+            echo "- dry run: \`${DRY_RUN}\`"
+            echo "- board: project #${PROJECT_NUMBER} (Roadmap 2026), Status -> Todo"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if ! orphans_json=$(
+            gh issue list \
+              --repo "${GH_REPO}" \
+              --state open \
+              --limit 1000 \
+              --json number,title,url,projectItems \
+              --jq '[.[] | select((.projectItems | length) == 0) | {number, title, url}]'
+          ); then
+            echo "::error::failed to list issues in ${GH_REPO} (rate limit or transient); aborting without backfilling"
+            gh api rate_limit --jq '.resources.core' >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+            exit 1
+          fi
+
+          mapfile -t urls < <(printf '%s' "${orphans_json}" | jq -r '.[].url')
+          found=${#urls[@]}
+          echo "Found ${found} orphan open issue(s) in ${GH_REPO}"
+          echo "- orphan open issues found: ${found}" >> "$GITHUB_STEP_SUMMARY"
+
+          added=0
+          capped=0
+          for url in "${urls[@]}"; do
+            num="${url##*/}"
+
+            if [ "${DRY_RUN}" = "true" ]; then
+              echo "  [DRY] would add #${num} to project #${PROJECT_NUMBER} and set Status=Todo"
+              echo "  - [DRY] add #${num} -> Todo" >> "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+
+            if [ "${added}" -ge "${MAX_ADDS}" ]; then
+              capped=1
+              break
+            fi
+
+            if ! item_id=$(
+              gh project item-add "${PROJECT_NUMBER}" \
+                --owner "${PROJECT_OWNER}" \
+                --url "${url}" \
+                --format json -q .id
+            ); then
+              remaining=$(gh api rate_limit --jq '.resources.core.remaining' 2>/dev/null || echo unknown)
+              if [ "${remaining}" = "0" ]; then
+                echo "::error::rate limit exhausted in ${GH_REPO}; added ${added}, $((found - added)) issue(s) left. Rerun (or wait for cron) to continue."
+                exit 1
+              fi
+              echo "::warning::failed to add #${num} to project #${PROJECT_NUMBER} in ${GH_REPO} (transient; next run retries)"
+              continue
+            fi
+
+            if [ -z "${item_id}" ]; then
+              echo "::warning::add of #${num} returned no item id in ${GH_REPO} (skipping Status set; next run retries)"
+              continue
+            fi
+
+            if ! gh project item-edit \
+                --id "${item_id}" \
+                --project-id "${PROJECT_ID}" \
+                --field-id "${STATUS_FIELD_ID}" \
+                --single-select-option-id "${STATUS_TODO_ID}" >/dev/null; then
+              remaining=$(gh api rate_limit --jq '.resources.core.remaining' 2>/dev/null || echo unknown)
+              if [ "${remaining}" = "0" ]; then
+                echo "::error::rate limit exhausted in ${GH_REPO}; added ${added}, $((found - added)) issue(s) left. Rerun (or wait for cron) to continue."
+                exit 1
+              fi
+              echo "::warning::added #${num} but failed to set Status=Todo in ${GH_REPO} (transient; next run retries)"
+              continue
+            fi
+
+            added=$((added + 1))
+            echo "  added #${num} -> Todo"
+            echo "  - added #${num} -> Todo" >> "$GITHUB_STEP_SUMMARY"
+            sleep "${SLEEP_BETWEEN_ADDS}"
+          done
+
+          if [ "${capped}" -eq 1 ]; then
+            echo "::warning::hit MAX_ADDS=${MAX_ADDS} cap in ${GH_REPO}; ${found} matched, $((found - added)) left for the next run"
+            echo "- capped at: \`${MAX_ADDS}\` (next run continues)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ "${DRY_RUN}" = "true" ]; then
+            echo "- would add: ${found}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Added ${added} issue(s) to project #${PROJECT_NUMBER}; $((found - added)) orphan(s) not added this run"
+            {
+              echo "- added: ${added}"
+              echo "- remaining (orphan, unadded): $((found - added))"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo >> "$GITHUB_STEP_SUMMARY"
