@@ -111,7 +111,7 @@ On `issues`/`issue_comment` events, `claude.yml` also tracks the worked issue on
 
 The fan-out orchestrators use a single GitHub App, `inference-gateway-maintainer-bot`, to mint per-target scoped tokens via `actions/create-github-app-token` in every job. The reusable `@claude` and `@infer` workflows both mint a maintainer-bot App token (the `INFERENCE_GATEWAY_MAINTAINER_APP_*` secret pair) that the agent's own `gh` then runs as. No PATs anywhere. Required secrets:
 
-- `BOT_MAINTAINER_APP_ID` / `BOT_MAINTAINER_APP_PRIVATE_KEY` — maintainer App client ID + private key (every fan-out + migration workflow)
+- `INFERENCE_GATEWAY_MAINTAINER_APP_ID` / `INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY` — maintainer App client ID + private key (every fan-out + migration workflow)
 - `CLAUDE_CODE_OAUTH_TOKEN` — for `claude-code-action` (reusable `claude.yml` + the sync workflows)
 - `INFERENCE_GATEWAY_MAINTAINER_APP_ID` / `INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY` — the maintainer-bot App token minted inside the reusable `claude.yml` and `infer.yml` (the identity the agent's `gh` uses); needs **org-level Projects: read & write** + `issues: write` on `.github` for board tracking and permission escalation
 - Provider API keys for `infer.yml` (model-dependent; `DEEPSEEK_API_KEY` covers the default model): `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`, `DEEPSEEK_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`, `CLOUDFLARE_API_KEY`, `COHERE_API_KEY`, `OLLAMA_API_KEY`, `OLLAMA_CLOUD_API_KEY`, `MOONSHOT_API_KEY`
