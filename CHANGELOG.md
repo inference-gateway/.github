@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0](https://github.com/inference-gateway/.github/compare/v0.7.12...v0.8.0) (2026-06-14)
+
+### ✨ Features
+
+* **backfill:** add workflow to backfill orphan issues to Roadmap 2026 board ([1ee3130](https://github.com/inference-gateway/.github/commit/1ee3130af9f54ab48ede3df8749c65595740880f))
+
+### 🔧 Miscellaneous
+
+* deprecate bot maintainer app ([8568bc3](https://github.com/inference-gateway/.github/commit/8568bc388a35c0fb4bbb4888917f8bc2a48e79ce))
+* **deps:** update Infer CLI version and action version ([ef54931](https://github.com/inference-gateway/.github/commit/ef54931ec29e35f717299b2e399911249c808efa))
+* update cron schedule for backfill workflow ([c2531ed](https://github.com/inference-gateway/.github/commit/c2531eddaf07e3c4a079d1a6c2974bdf191b5100))
+
 ## [0.7.12](https://github.com/inference-gateway/.github/compare/v0.7.11...v0.7.12) (2026-06-11)
 
 ### 🔧 Miscellaneous
