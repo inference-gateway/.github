@@ -208,3 +208,9 @@ targets:
     orchestrators:
       claude: {}
       infer: {}
+  - name: agents
+    kind: none
+    language: node
+    orchestrators:
+      claude: {}
+      infer: {}
