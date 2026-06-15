@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.1](https://github.com/inference-gateway/.github/compare/v0.9.0...v0.9.1) (2026-06-15)
+
+### 🔧 Miscellaneous
+
+* **deps:** bump infer-action to v0.14.0, drop max-turns override ([#64](https://github.com/inference-gateway/.github/issues/64)) ([55b5304](https://github.com/inference-gateway/.github/commit/55b5304c35a9fa825e5f8fdf9ad5ffed4c6db11d))
+
 ## [0.9.0](https://github.com/inference-gateway/.github/compare/v0.8.0...v0.9.0) (2026-06-15)
 
 ### ✨ Features
