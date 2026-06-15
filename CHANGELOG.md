@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.4](https://github.com/inference-gateway/.github/compare/v0.9.3...v0.9.4) (2026-06-15)
+
+### 🔧 Miscellaneous
+
+* **deps:** bump infer-action 0.14.2 -> 0.14.3 ([7f36290](https://github.com/inference-gateway/.github/commit/7f36290c55aa5d4ca335c6f6c13dd660faf7597c))
+
 ## [0.9.3](https://github.com/inference-gateway/.github/compare/v0.9.2...v0.9.3) (2026-06-15)
 
 ### 🔧 Miscellaneous
