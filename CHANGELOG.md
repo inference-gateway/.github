@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.5](https://github.com/inference-gateway/.github/compare/v0.9.4...v0.9.5) (2026-06-16)
+
+### 🔧 Miscellaneous
+
+* **infer-reuseable-workflow:** bump infer-action default version 0.14.3 -> 0.15.0 ([7f91213](https://github.com/inference-gateway/.github/commit/7f91213149851cae8ffc40bb123c1c1c290f27fe))
+
 ## [0.9.4](https://github.com/inference-gateway/.github/compare/v0.9.3...v0.9.4) (2026-06-15)
 
 ### 🔧 Miscellaneous
