@@ -24,10 +24,6 @@ on:
         description: 'Toolchain preset: go | rust | typescript | node | python | none'
         type: string
         default: none
-      skill:
-        description: 'Org skill to install: maintainer | adl'
-        type: string
-        default: maintainer
       runner:
         description: 'Runner image (low-code passes ubuntu-latest)'
         type: string
@@ -160,23 +156,6 @@ jobs:
       - name: Install Playwright + Chromium
         if: inputs.playwright
         run: npx -y playwright@latest install --with-deps chromium
-
-      - name: Install ${{ inputs.skill }} skill
-        env:
-          SKILL: ${{ inputs.skill }}
-        run: |
-          set -euo pipefail
-          mkdir -p ~/.claude/skills
-          if [ "$SKILL" = "adl" ]; then
-            mkdir -p ~/.claude/skills/adl
-            curl -fsSL \
-              https://raw.githubusercontent.com/inference-gateway/skills/main/skills/adl/SKILL.md \
-              -o ~/.claude/skills/adl/SKILL.md
-          else
-            rm -rf ~/.claude/skills/"$SKILL"
-            curl -fsSL https://codeload.github.com/inference-gateway/skills/tar.gz/main |
-              tar -xz --strip-components=2 -C ~/.claude/skills "skills-main/skills/$SKILL"
-          fi
 
       - name: Determine branch prefix
         id: prefix
@@ -314,17 +293,21 @@ jobs:
           body="$(cat <<'ISSUE'
           **WHEN WORKING ON THIS ISSUE:**
 
-          Track this work on the org Roadmap 2026 board (GitHub org project #7) as you go. The
-          maintainer skill's "Roadmap 2026 board + Status lifecycle" reference has the exact
-          `gh project` commands and the org-stable project / field / option ids - use them, do
-          not improvise ids.
+          Track this work on the org Roadmap 2026 board (GitHub org project #7) as you go. Use these
+          org-stable ids verbatim - do not improvise:
+            - project id `PVT_kwDOC6ve6c4BNnSt`, Status field id `PVTSSF_lADOC6ve6c4BNnStzg8jqxU`
+            - Status option ids: In progress `47fc9ee4`, QA `0a18abd7` (Todo `f75ad846`, Done `98236657`)
+          This CI shell disables command substitution `$(...)` and shell variables: run each command,
+          read the id it prints, and paste that literal id into the next command - never write `ID=$(...)`.
 
           1. Before you change any code, add this issue to project #7 and set Status = "In progress":
-             - issue URL: __URL__
              - `gh project item-add 7 --owner inference-gateway --url __URL__` (idempotent: if it
                is already on the board this just reports it exists - carry on).
-             - resolve that issue's project-item id and set Status = In progress. If it is already
-               on the board at another Status, just move it to In progress.
+             - Resolve its project-item id:
+               `gh project item-list 7 --owner inference-gateway --format json -L 1000 -q '.items[] | select(.content.url=="__URL__") | .id'`
+             - Set Status = In progress (paste the item id):
+               `gh project item-edit --id <item-id> --project-id PVT_kwDOC6ve6c4BNnSt --field-id PVTSSF_lADOC6ve6c4BNnStzg8jqxU --single-select-option-id 47fc9ee4`
+               (if it is already on the board at another Status, just move it to In progress.)
           2. Implement the code changes and commit them.
           3. Open the pull request:
           ```
@@ -334,8 +317,9 @@ jobs:
           Closes #__N__"
           ```
           Always include a summary of changes AND "Closes #__N__" in the body.
-          4. Right after the PR is open, move this issue's Status to "QA". Do NOT set Done - that
-             happens when the PR merges, which is outside this run.
+          4. Right after the PR is open, move this issue's Status to "QA" (same item id):
+             `gh project item-edit --id <item-id> --project-id PVT_kwDOC6ve6c4BNnSt --field-id PVTSSF_lADOC6ve6c4BNnStzg8jqxU --single-select-option-id 0a18abd7`
+             Do NOT set Done - that happens when the PR merges, which is outside this run.
 
           Board tracking is best-effort: if a `gh project` call fails for lack of a GitHub
           permission, follow "IF A GITHUB PERMISSION IS MISSING" below, then carry on with the

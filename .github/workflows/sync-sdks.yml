@@ -97,13 +97,6 @@ jobs:
           fi
           test -s openapi.yaml
 
-      - name: Install maintainer skill
-        run: |
-          mkdir -p ~/.claude/skills
-          rm -rf ~/.claude/skills/maintainer
-          curl -fsSL https://codeload.github.com/inference-gateway/skills/tar.gz/main |
-            tar -xz --strip-components=2 -C ~/.claude/skills skills-main/skills/maintainer
-
       - name: Audit target against spec and file drift issues
         uses: anthropics/claude-code-action@v1.0.142
         env:
@@ -124,9 +117,8 @@ jobs:
             and file structured issues on the target repo so a maintainer can
             review and triage them.
 
-            Use the `maintainer` skill for org conventions and issue filing
-            behavior. The workflow-specific drift class table below is
-            authoritative for exact titles, Issue Types, and labels.
+            The workflow-specific drift class table below is authoritative for
+            exact titles, Issue Types, and labels.
 
             **You are NOT triggering any automation. Do not mention `@claude`
             anywhere in issue titles, bodies, or comments. Issues are
@@ -282,12 +274,25 @@ jobs:
 
             ## Setting the Issue Type
 
-            Follow the maintainer skill's GitHub Issues procedure to set the
-            Issue Type after every create or edit. Resolve the org's Issue
-            Type IDs once, match the class type from the table above
-            case-insensitively, and use `updateIssueIssueType`. If the lookup
-            returns no matching type, log
-            `warn: missing issue type "<name>" on inference-gateway org - leaving issue untyped`
+            `gh issue create/edit` has no `--type` flag, so set the Issue Type
+            with one GraphQL mutation after every create or edit. Match the
+            class's Type (case-insensitively) against this org-stable table to
+            get the type id:
+
+            | Type    | Issue Type id          |
+            | ------- | ---------------------- |
+            | bug     | `IT_kwDOC6ve6c4Bf3qh`  |
+            | feature | `IT_kwDOC6ve6c4Bf3qi`  |
+            | task    | `IT_kwDOC6ve6c4Bf3qg`  |
+
+            Resolve the issue's node id with `gh issue view <url> --json id -q .id`,
+            then send the mutation (paste the node id and the matched type id
+            literally - this shell has `$(...)` disabled):
+
+            `gh api graphql -f query='mutation($id:ID!,$t:ID!){updateIssueIssueType(input:{issueId:$id,issueTypeId:$t}){issue{number issueType{name}}}}' -f id="<node-id>" -f t="<type-id>"`
+
+            If the class's Type is not in the table above (e.g. `documentation`),
+            log `warn: missing issue type "<name>" on inference-gateway org - leaving issue untyped`
             and continue - do not fail the run.
 
             ## Hard rules

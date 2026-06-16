@@ -38,9 +38,8 @@ name: Backfill Roadmap 2026
 # non-zero with an ::error:: and the leftover count. Narrow with
 # `repository=<name>` to backfill one repo at a time within the shared budget.
 #
-# Board ids below are org-stable (see the maintainer skill's "Roadmap 2026 board
-# + Status lifecycle" reference); hard-coded here per that reference, re-derive
-# only if a command rejects one.
+# Board ids below are org-stable and hard-coded here (and inlined the same way in
+# claude.yml / infer.yml); re-derive only if a command rejects one.
 
 on:
   schedule:
