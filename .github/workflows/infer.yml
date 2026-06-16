@@ -17,10 +17,10 @@ name: Infer (reusable)
 # git/gh, gh project reads) plus, when git ops are on, the PR-workflow writes (git add/commit/push,
 # gh pr create). The `language` preset + `markdownlint` + `extra-bash-commands` append the toolchain
 # commands this repo needs, and `extra-bash-patterns` appends raw regex entries (e.g. to allow
-# `gh issue create`) per repo. Loading the `maintainer` skill auto-appends the GitHub writes its
-# file+track flow needs (`gh issue create/edit/comment`, `gh project item-add/item-edit`, `gh pr create`,
-# plus one tightly scoped `gh api graphql` entry that allows ONLY the `updateIssueIssueType` Type-setting
-# mutation - never arbitrary GraphQL).
+# `gh issue create`) per repo. This workflow ALSO appends, unconditionally, the GitHub writes the
+# bot's board-tracking + permission-escalation flow always needs (`gh issue create/edit/comment`,
+# `gh project item-add/item-edit`, `gh pr create`, plus one tightly scoped `gh api graphql` entry that
+# allows ONLY the `updateIssueIssueType` Type-setting mutation - never arbitrary GraphQL).
 # Every appended entry is matched WHOLE-command by the CLI
 # (\A(?:entry)\z), so it must allow its own arguments: write `^task( .*)?$`, not `^task( |$)` (the
 # latter only matches the bare command, rejecting `task lint`).
@@ -37,9 +37,9 @@ on:
         type: string
         default: ubuntu-24.04
       skills:
-        description: 'Newline-separated org skills to install (infer-action `skills`), e.g. "maintainer"'
+        description: 'Newline-separated org skills to install (infer-action `skills`). Default none - the board-tracking + issue procedure is inlined in custom-instructions below, so no skill is required.'
         type: string
-        default: maintainer
+        default: ''
       model:
         description: 'Model id passed to infer-action (provider/model)'
         type: string
@@ -177,7 +177,6 @@ jobs:
           NODE: ${{ inputs.node }}
           EXTRA: ${{ inputs.extra-bash-commands }}
           EXTRA_PATTERNS: ${{ inputs.extra-bash-patterns }}
-          SKILLS: ${{ inputs.skills }}
         run: |
           set -euo pipefail
           patterns='^task( .*)?$'
@@ -189,16 +188,9 @@ jobs:
           esac
           [ "$NODE" = "true" ]         && patterns="$patterns,^node( .*)?$,^npm( .*)?$,^pnpm( .*)?$,^npx( .*)?$,^prettier( .*)?$"
           [ "$MARKDOWNLINT" = "true" ] && patterns="$patterns,^node( .*)?$,^npm( .*)?$,^pnpm( .*)?$,^npx( .*)?$,^prettier( .*)?$,^markdownlint( .*)?$"
-          if printf '%s\n' "$SKILLS" | grep -qxF 'maintainer'; then
-            patterns="$patterns,^gh issue create( .*)?$,^gh issue edit( .*)?$,^gh issue comment( .*)?$,^gh pr create( .*)?$,^gh project (item-add|item-edit)( .*)?$"
-            # Issue Type is set with one GraphQL mutation (updateIssueIssueType); released gh has no
-            # `--type` flag yet. Allow ONLY that exact mutation, never arbitrary `gh api graphql`. Built in
-            # single quotes so regex metachars (\ $ { }) stay literal; commas encoded as \x2c so the
-            # comma-separated allow-list splitter keeps it as one entry; the issue node id and type id are
-            # the only variable args (type id pinned to the `IT_` issue-type prefix).
-            gql='^gh api graphql -f query='\''mutation\(\$id:ID!\x2c\$t:ID!\)\{updateIssueIssueType\(input:\{issueId:\$id\x2cissueTypeId:\$t\}\)\{issue\{number issueType\{name\}\}\}\}'\'' -f id="[^"]+" -f t="IT_[A-Za-z0-9_-]+"$'
-            patterns="$patterns,$gql"
-          fi
+          patterns="$patterns,^gh issue create( .*)?$,^gh issue edit( .*)?$,^gh issue comment( .*)?$,^gh pr create( .*)?$,^gh project (item-add|item-edit)( .*)?$"
+          gql='^gh api graphql -f query='\''mutation\(\$id:ID!\x2c\$t:ID!\)\{updateIssueIssueType\(input:\{issueId:\$id\x2cissueTypeId:\$t\}\)\{issue\{number issueType\{name\}\}\}\}'\'' -f id="[^"]+" -f t="IT_[A-Za-z0-9_-]+"$'
+          patterns="$patterns,$gql"
           if [ -n "$EXTRA" ]; then
             IFS=',' read -ra extra_cmds <<< "$EXTRA"
             for cmd in "${extra_cmds[@]}"; do
@@ -226,22 +218,28 @@ jobs:
           custom-instructions: |
             When you are working on a GitHub issue (an issue trigger - not a PR comment
             or a manual/direct task), track the work on the org Roadmap 2026 board
-            (GitHub org project #7) as you go. The maintainer skill's "Roadmap 2026 board
-            + Status lifecycle" reference has the exact `gh project` commands and the
-            org-stable project / field / option ids - use them, do not improvise ids.
+            (GitHub org project #7) as you go. Use these org-stable ids verbatim - do not
+            improvise:
+            - project id `PVT_kwDOC6ve6c4BNnSt`, Status field id `PVTSSF_lADOC6ve6c4BNnStzg8jqxU`
+            - Status option ids: In progress `47fc9ee4`, QA `0a18abd7` (Todo `f75ad846`, Done `98236657`)
+            This CI shell disables command substitution `$(...)` and shell variables: run each
+            command, read the id it prints, and paste that literal id into the next - never `ID=$(...)`.
 
             1. Before you change any code, add the issue you are working on to project #7
                and set Status = "In progress":
+               - Get the issue URL: `gh issue view <number> --json url -q .url` (read it).
                - `gh project item-add 7 --owner inference-gateway --url <issue-url>`
-                 (resolve <issue-url> with `gh issue view <number> --json url -q .url` if
-                 you do not already have it; idempotent - if it is already on the board this
-                 just reports it exists, carry on).
-               - resolve that issue's project-item id and set Status = In progress. If it is
-                 already on the board at another Status, just move it to In progress.
+                 (idempotent - if it is already on the board this just reports it exists, carry on).
+               - Resolve its project-item id:
+                 `gh project item-list 7 --owner inference-gateway --format json -L 1000 -q '.items[] | select(.content.url=="<issue-url>") | .id'`
+               - Set Status = In progress (paste the item id):
+                 `gh project item-edit --id <item-id> --project-id PVT_kwDOC6ve6c4BNnSt --field-id PVTSSF_lADOC6ve6c4BNnStzg8jqxU --single-select-option-id 47fc9ee4`
+                 (if it is already on the board at another Status, just move it to In progress.)
             2. Implement the change, commit, and open the pull request as usual - include a
                summary of what you did AND "Closes #<number>" in the PR body.
-            3. Right after the PR is open, move the issue's Status to "QA". Do NOT set Done -
-               that happens when the PR merges, which is outside this run.
+            3. Right after the PR is open, move the issue's Status to "QA" (same item id):
+               `gh project item-edit --id <item-id> --project-id PVT_kwDOC6ve6c4BNnSt --field-id PVTSSF_lADOC6ve6c4BNnStzg8jqxU --single-select-option-id 0a18abd7`
+               Do NOT set Done - that happens when the PR merges, which is outside this run.
 
             Board tracking is best-effort: if a `gh project` call fails for lack of a GitHub
             permission, follow "IF A GITHUB PERMISSION IS MISSING" below, then carry on with
