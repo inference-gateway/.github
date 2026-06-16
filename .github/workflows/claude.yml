@@ -255,6 +255,7 @@ jobs:
 
           ## Commit Message Requirements (max 72 chars)
           - Use conventional commit format with lowercase type (e.g., "fix:", "feat:", "refactor:")
+          - Never use '–' char, instead always use '-'
 
           **IF A GITHUB PERMISSION IS MISSING:**
           If - and only if - a `gh`/`git` command fails because the bot LACKS a GitHub permission
