@@ -247,6 +247,7 @@ Mirrors `migrate-claude.yml`'s `claude-code` flox bump - catalog package, latest
 .github/
   actions/
     resolve-targets/          # composite action: repos.yaml + jq select -> matrix
+    bot-instructions/         # composite action: shared @claude/@infer board-tracking + escalation prompt
   ISSUE_TEMPLATE/             # org-default issue templates (feature, refactor, bug, documentation)
   workflows/
     sync-sdks.yml             # SDK + docs audit against OpenAPI (kind: sdk | docs)
