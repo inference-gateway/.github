@@ -34,7 +34,7 @@ on:
   workflow_call:
     inputs:
       language:
-        description: 'Toolchain preset: go | rust | typescript | node | python | none'
+        description: 'Toolchain preset: go | rust | typescript | node | python | bun | none'
         type: string
         default: none
       runner:
@@ -153,6 +153,10 @@ jobs:
         with:
           python-version: '3.x'
 
+      - name: Set up Bun
+        if: inputs.language == 'bun'
+        uses: oven-sh/setup-bun@v2.2.0
+
       - name: Set up pnpm
         if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint
         uses: pnpm/action-setup@v6.0.8
@@ -193,6 +197,7 @@ jobs:
             rust)             patterns="$patterns,^cargo( .*)?$,^rustup( .*)?$,^rustc( .*)?$" ;;
             python)           patterns="$patterns,^python( .*)?$,^python3( .*)?$" ;;
             typescript|node)  patterns="$patterns,^node( .*)?$,^npm( .*)?$,^pnpm( .*)?$,^npx( .*)?$,^prettier( .*)?$" ;;
+            bun)              patterns="$patterns,^bun install( .*)?$,^bun add( .*)?$,^bun remove( .*)?$,^bun update( .*)?$,^bun run( .*)?$,^bun test( .*)?$,^bun build( .*)?$" ;;
           esac
           [ "$NODE" = "true" ]         && patterns="$patterns,^node( .*)?$,^npm( .*)?$,^pnpm( .*)?$,^npx( .*)?$,^prettier( .*)?$"
           [ "$MARKDOWNLINT" = "true" ] && patterns="$patterns,^node( .*)?$,^npm( .*)?$,^pnpm( .*)?$,^npx( .*)?$,^prettier( .*)?$,^markdownlint( .*)?$"

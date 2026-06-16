@@ -18,7 +18,7 @@ There is no build, no test suite, no application. Changes here are YAML/Markdown
 
 Every orchestrator reads `repos.yaml`. Adding or removing a downstream repo = one PR editing this file.
 
-It is **one list** (`targets`); there is no separate `claude_targets`. Each entry has `name`, `kind`, `language`, and an optional nested `orchestrators:` block grouping the per-bot reusable-workflow inputs: `orchestrators.claude` (for repos with a centralized `claude.yml` caller) and `orchestrators.infer` (for repos with a centralized `infer.yml` caller). `language` is the single, lowercase toolchain (`go | rust | typescript | python | node`) — it feeds the sync audit-prompt display, the adl `--language` flag in `refresh-agent-manifest.yml`, and (injected by the migrate workflows) the `language` input of each reusable bot workflow. The bot sub-blocks therefore carry only non-language inputs; a repo needing no extras uses an explicit empty map (`claude: {}` / `infer: {}`) so the `!= null` selection still matches it.
+It is **one list** (`targets`); there is no separate `claude_targets`. Each entry has `name`, `kind`, `language`, and an optional nested `orchestrators:` block grouping the per-bot reusable-workflow inputs: `orchestrators.claude` (for repos with a centralized `claude.yml` caller) and `orchestrators.infer` (for repos with a centralized `infer.yml` caller). `language` is the single, lowercase toolchain (`go | rust | typescript | python | node | bun`) — it feeds the sync audit-prompt display, the adl `--language` flag in `refresh-agent-manifest.yml`, and (injected by the migrate workflows) the `language` input of each reusable bot workflow. The bot sub-blocks therefore carry only non-language inputs; a repo needing no extras uses an explicit empty map (`claude: {}` / `infer: {}`) so the `!= null` selection still matches it.
 
 `kind` values and which workflows pick them up:
 
@@ -159,7 +159,7 @@ gh workflow run backfill-roadmap.yml --repo inference-gateway/.github -f dry_run
 
 # Validate repos.yaml shape after edits:
 yq '.targets[] | .kind' repos.yaml | sort -u       # should only print: adk agent docs none sdk
-yq '.targets[] | .language' repos.yaml | sort -u   # should only print lowercase toolchains: go node python rust typescript
+yq '.targets[] | .language' repos.yaml | sort -u   # should only print lowercase toolchains: bun go node python rust typescript
 yq '.targets[] | select(.orchestrators.claude.language != null or .orchestrators.infer.language != null) | .name' repos.yaml  # must be EMPTY: language is top-level only, never a bot sub-key
 ```
 

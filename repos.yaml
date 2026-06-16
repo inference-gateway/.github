@@ -22,7 +22,7 @@
 #                              adl-generated agent dev envs). Private repos are never
 #                              registered here, so cleanup excludes them by construction; do NOT
 #                              add a private repo to this list or cleanup would sweep it.
-#   language       (required)  LOWERCASE TOOLCHAIN: go | rust | typescript | python | node. Single
+#   language       (required)  LOWERCASE TOOLCHAIN: go | rust | typescript | python | node | bun. Single
 #                              source for both the sync-* audit-prompt display token and the bot
 #                              toolchain: the migrate workflows inject it as the `language` input of
 #                              each reusable bot workflow, and refresh-agent-manifest.yml maps it to
@@ -178,7 +178,7 @@ targets:
       infer: {}
   - name: infer-action
     kind: none
-    language: typescript
+    language: bun
     orchestrators:
       claude: {}
       infer: {}

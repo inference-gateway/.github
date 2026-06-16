@@ -21,7 +21,7 @@ on:
   workflow_call:
     inputs:
       language:
-        description: 'Toolchain preset: go | rust | typescript | node | python | none'
+        description: 'Toolchain preset: go | rust | typescript | node | python | bun | none'
         type: string
         default: none
       runner:
@@ -136,6 +136,10 @@ jobs:
         with:
           python-version: '3.x'
 
+      - name: Set up Bun
+        if: inputs.language == 'bun'
+        uses: oven-sh/setup-bun@v2.2.0
+
       - name: Set up Node.js
         if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint || inputs.playwright
         uses: actions/setup-node@v6.4.0
@@ -209,6 +213,7 @@ jobs:
               rust)             tools="$tools,Bash(cargo:*),Bash(rustup:*),Bash(rustc:*)" ;;
               typescript|node)  tools="$tools,Bash(node:*),Bash(npm:*)" ;;
               python)           tools="$tools,Bash(python:*),Bash(python3:*)" ;;
+              bun)              tools="$tools,Bash(bun install:*),Bash(bun add:*),Bash(bun remove:*),Bash(bun update:*),Bash(bun run:*),Bash(bun test:*),Bash(bun build:*)" ;;
             esac
             [ "$NODE" = "true" ]       && tools="$tools,Bash(node:*),Bash(npm:*)"
             [ "$CONTEXT7" = "true" ]   && tools="$tools,mcp__context7"
