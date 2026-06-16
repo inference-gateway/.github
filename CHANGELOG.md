@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.0](https://github.com/inference-gateway/.github/compare/v0.9.5...v0.10.0) (2026-06-16)
+
+### ✨ Features
+
+* add support for Bun toolchain in workflows and documentation ([38489b8](https://github.com/inference-gateway/.github/commit/38489b8a91e6ecaa3ff6ba41f17d17797d392d27))
+
+### ♻️ Improvements
+
+* cleanup - remove stars graph ([e1881d7](https://github.com/inference-gateway/.github/commit/e1881d7ee0859658fdf2051d3e64b0c0a7dd55d6))
+* consolidate bot instructions into a shared composite action ([#66](https://github.com/inference-gateway/.github/issues/66)) ([deba113](https://github.com/inference-gateway/.github/commit/deba113682ad3b0a52ebbddeba21e0366d2607cb))
+* remove maintainer skill references and inline issue-filing mechanics in workflows and documentation ([#65](https://github.com/inference-gateway/.github/issues/65)) ([1cb30ce](https://github.com/inference-gateway/.github/commit/1cb30ce0706c32553e9df73a66eba72c247f0e10))
+
+### 🔧 Miscellaneous
+
+* update commit message requirements in claude.yml ([4946453](https://github.com/inference-gateway/.github/commit/494645395bb93dc118e5c2f7f4d5f83111e83763))
+
 ## [0.9.5](https://github.com/inference-gateway/.github/compare/v0.9.4...v0.9.5) (2026-06-16)
 
 ### 🔧 Miscellaneous
