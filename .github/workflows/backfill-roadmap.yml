@@ -2,21 +2,29 @@
 name: Backfill Roadmap 2026
 
 # Daily sweep across EVERY repos.yaml target (select(true), all kinds incl.
-# kind: none and kind: agent). For each repo, finds OPEN issues on NO GitHub
-# Project board and adds them to the org Roadmap 2026 board (project #7), then
-# sets their Status to Todo. Backfills issues filed/edited outside the normal
-# @claude/@infer flow (or before board tracking existed) so planned work is
-# never lost off the roadmap.
+# kind: none and kind: agent). For each repo, finds OPEN issues AND OPEN PRs on
+# NO GitHub Project board and adds them to the org Roadmap 2026 board (project
+# #7), then sets their Status to Todo. Backfills work filed/edited outside the
+# normal @claude/@infer flow (or before board tracking existed) so planned work
+# is never lost off the roadmap.
 #
-# "On no board" = the issue's ProjectsV2 membership (projectItems) is empty.
-# Projects classic (projectCards) was shut down across 2024-2025 and always
-# returns empty now, so ProjectsV2 membership is the whole story; we do NOT
-# check projectCards.
+# PRs are filtered before adding: DRAFT PRs and BOT-AUTHORED PRs (author.is_bot
+# == true: dependabot, the maintainer App, etc.) are skipped, so routine
+# dependency-bump PRs and the bots' own PRs - which already ride the @claude /
+# @infer flow - never flood the board. Issues are added unfiltered. The board
+# distinguishes the two natively (Projects v2 `is:issue` / `is:pr` view filter),
+# so no per-item Type field is set here.
 #
-# Semantics: "not on ANY project", not "not on #7". An issue already tracked on
-# some OTHER org board is left alone. The primary filter is projectItems (which
-# the maintainer App's org-level Projects: read grant lets it see across ALL org
-# boards), NOT a prefetch of project #7's items.
+# "On no board" = the item's ProjectsV2 membership (projectItems) is empty - the
+# same filter for issues and PRs (both `gh issue list` and `gh pr list` expose
+# the projectItems JSON field). Projects classic (projectCards) was shut down
+# across 2024-2025 and always returns empty now, so ProjectsV2 membership is the
+# whole story; we do NOT check projectCards.
+#
+# Semantics: "not on ANY project", not "not on #7". An issue/PR already tracked
+# on some OTHER org board is left alone. The primary filter is projectItems
+# (which the maintainer App's org-level Projects: read grant lets it see across
+# ALL org boards), NOT a prefetch of project #7's items.
 #
 # Auth: per-target scoped App token via inference-gateway-maintainer-bot. The
 # App holds ORG-LEVEL Projects: read & write; org permissions are NOT narrowed
@@ -26,16 +34,17 @@ name: Backfill Roadmap 2026
 # workflows already rely on it). The default GITHUB_TOKEN is scoped to .github
 # only and cannot read issues or write the board on other repos.
 #
-# Idempotent: `gh project item-add 7` on an issue already on #7 just reports it
+# Idempotent: `gh project item-add 7` on an item already on #7 just reports it
 # exists and returns the existing item id (exit 0), so re-runs are no-ops on
-# already-tracked issues. A MAX_ADDS cap bounds a single run and logs a warning
-# with the leftover count; the next run (or cron) resumes - safe because adds
-# are idempotent and the projectItems filter shrinks the candidate set each run.
+# already-tracked issues/PRs. A MAX_ADDS cap bounds a single run and logs a
+# warning with the leftover count; the next run (or cron) resumes - safe because
+# adds are idempotent and the projectItems filter shrinks the candidate set each
+# run.
 #
-# Fail-loud: the issue listing is rate-limit aware. All matrix jobs share ONE
-# App installation token (a single 5,000-req/hr bucket). Rather than a 403 on
-# the listing yielding a false "found 0" and a green check, the job exits
-# non-zero with an ::error:: and the leftover count. Narrow with
+# Fail-loud: the issue AND PR listings are rate-limit aware. All matrix jobs
+# share ONE App installation token (a single 5,000-req/hr bucket). Rather than a
+# 403 on either listing yielding a false "found 0" and a green check, the job
+# exits non-zero with an ::error:: and the leftover count. Narrow with
 # `repository=<name>` to backfill one repo at a time within the shared budget.
 #
 # Board ids below are org-stable and hard-coded here (and inlined the same way in
@@ -47,7 +56,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'List orphan issues without adding them to the board (manual runs preview by default; the cron backfills for real)'
+        description: 'List orphan issues and PRs without adding them to the board (manual runs preview by default; the cron backfills for real)'
         required: false
         type: boolean
         default: true
@@ -99,7 +108,7 @@ jobs:
           repositories: |
             ${{ matrix.target.name }}
 
-      - name: Backfill orphan open issues in inference-gateway/${{ matrix.target.name }}
+      - name: Backfill orphan open issues and PRs in inference-gateway/${{ matrix.target.name }}
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           GH_REPO: inference-gateway/${{ matrix.target.name }}
@@ -122,7 +131,7 @@ jobs:
             echo
           } >> "$GITHUB_STEP_SUMMARY"
 
-          if ! orphans_json=$(
+          if ! orphan_issues_json=$(
             gh issue list \
               --repo "${GH_REPO}" \
               --state open \
@@ -135,10 +144,34 @@ jobs:
             exit 1
           fi
 
-          mapfile -t urls < <(printf '%s' "${orphans_json}" | jq -r '.[].url')
+          # Orphan open PRs too, but SKIP drafts and bot-authored PRs (author.is_bot
+          # == true covers dependabot, the maintainer App, etc.) so routine
+          # dependency-bump PRs and the bots' own PRs do not flood the board. Same
+          # "on no board" filter as issues: projectItems empty.
+          if ! orphan_prs_json=$(
+            gh pr list \
+              --repo "${GH_REPO}" \
+              --state open \
+              --limit 1000 \
+              --json number,title,url,projectItems,isDraft,author \
+              --jq '[.[] | select((.projectItems | length) == 0) | select(.isDraft == false) | select(.author.is_bot == false) | {number, title, url}]'
+          ); then
+            echo "::error::failed to list PRs in ${GH_REPO} (rate limit or transient); aborting without backfilling"
+            gh api rate_limit --jq '.resources.core' >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+            exit 1
+          fi
+
+          mapfile -t issue_urls < <(printf '%s' "${orphan_issues_json}" | jq -r '.[].url')
+          mapfile -t pr_urls < <(printf '%s' "${orphan_prs_json}" | jq -r '.[].url')
+          urls=("${issue_urls[@]}" "${pr_urls[@]}")
+          n_issues=${#issue_urls[@]}
+          n_prs=${#pr_urls[@]}
           found=${#urls[@]}
-          echo "Found ${found} orphan open issue(s) in ${GH_REPO}"
-          echo "- orphan open issues found: ${found}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Found ${found} orphan open item(s) in ${GH_REPO} (${n_issues} issue(s), ${n_prs} PR(s) after skipping drafts/bots)"
+          {
+            echo "- orphan open issues found: ${n_issues}"
+            echo "- orphan open PRs found (excl. drafts & bots): ${n_prs}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
           added=0
           capped=0
@@ -164,7 +197,7 @@ jobs:
             ); then
               remaining=$(gh api rate_limit --jq '.resources.core.remaining' 2>/dev/null || echo unknown)
               if [ "${remaining}" = "0" ]; then
-                echo "::error::rate limit exhausted in ${GH_REPO}; added ${added}, $((found - added)) issue(s) left. Rerun (or wait for cron) to continue."
+                echo "::error::rate limit exhausted in ${GH_REPO}; added ${added}, $((found - added)) item(s) left. Rerun (or wait for cron) to continue."
                 exit 1
               fi
               echo "::warning::failed to add #${num} to project #${PROJECT_NUMBER} in ${GH_REPO} (transient; next run retries)"
@@ -183,7 +216,7 @@ jobs:
                 --single-select-option-id "${STATUS_TODO_ID}" >/dev/null; then
               remaining=$(gh api rate_limit --jq '.resources.core.remaining' 2>/dev/null || echo unknown)
               if [ "${remaining}" = "0" ]; then
-                echo "::error::rate limit exhausted in ${GH_REPO}; added ${added}, $((found - added)) issue(s) left. Rerun (or wait for cron) to continue."
+                echo "::error::rate limit exhausted in ${GH_REPO}; added ${added}, $((found - added)) item(s) left. Rerun (or wait for cron) to continue."
                 exit 1
               fi
               echo "::warning::added #${num} but failed to set Status=Todo in ${GH_REPO} (transient; next run retries)"
@@ -204,7 +237,7 @@ jobs:
           if [ "${DRY_RUN}" = "true" ]; then
             echo "- would add: ${found}" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "Added ${added} issue(s) to project #${PROJECT_NUMBER}; $((found - added)) orphan(s) not added this run"
+            echo "Added ${added} item(s) to project #${PROJECT_NUMBER}; $((found - added)) orphan(s) not added this run"
             {
               echo "- added: ${added}"
               echo "- remaining (orphan, unadded): $((found - added))"
