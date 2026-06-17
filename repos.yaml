@@ -214,3 +214,11 @@ targets:
     orchestrators:
       claude: {}
       infer: {}
+
+  # --- Operating System (A new way to monitor and process tickets as they flow into the system).  ---
+  - name: os
+    kind: tooling
+    language: bun
+    orchestrators:
+      claude: {}
+      infer: {}
