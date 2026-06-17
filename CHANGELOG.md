@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.3](https://github.com/inference-gateway/.github/compare/v0.10.2...v0.10.3) (2026-06-17)
+
+### 👷 CI
+
+* install flox in the maintainer bot workflows (claude.yml, infer.yml) ([#69](https://github.com/inference-gateway/.github/issues/69)) ([6297c5d](https://github.com/inference-gateway/.github/commit/6297c5d606d9b042c700f94ae3a5bf611204d3f7))
+
 ## [0.10.2](https://github.com/inference-gateway/.github/compare/v0.10.1...v0.10.2) (2026-06-17)
 
 ### 🔧 Miscellaneous
