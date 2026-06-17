@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.2](https://github.com/inference-gateway/.github/compare/v0.10.1...v0.10.2) (2026-06-17)
+
+### 🔧 Miscellaneous
+
+* **deps:** bump the github-actions group with 2 updates ([#68](https://github.com/inference-gateway/.github/issues/68)) ([b78f467](https://github.com/inference-gateway/.github/commit/b78f467ec8eb50fc33c4b6be13c6500559b5727e))
+
 ## [0.10.1](https://github.com/inference-gateway/.github/compare/v0.10.0...v0.10.1) (2026-06-16)
 
 ### 🔧 Miscellaneous
