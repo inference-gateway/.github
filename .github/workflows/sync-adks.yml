@@ -93,7 +93,7 @@ jobs:
           test -s schema.yaml
 
       - name: Audit target against A2A schema and file drift issues
-        uses: anthropics/claude-code-action@v1.0.142
+        uses: anthropics/claude-code-action@v1.0.150
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
