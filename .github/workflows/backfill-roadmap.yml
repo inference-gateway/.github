@@ -8,12 +8,10 @@ name: Backfill Roadmap 2026
 # normal @claude/@infer flow (or before board tracking existed) so planned work
 # is never lost off the roadmap.
 #
-# PRs are filtered before adding: DRAFT PRs and BOT-AUTHORED PRs (author.is_bot
-# == true: dependabot, the maintainer App, etc.) are skipped, so routine
-# dependency-bump PRs and the bots' own PRs - which already ride the @claude /
-# @infer flow - never flood the board. Issues are added unfiltered. The board
-# distinguishes the two natively (Projects v2 `is:issue` / `is:pr` view filter),
-# so no per-item Type field is set here.
+# PRs are added from ANY author (humans AND bots: dependabot, the maintainer
+# App, etc.); the ONLY PR filter is skipping DRAFTS. Issues are added
+# unfiltered. The board distinguishes the two natively (Projects v2 `is:issue` /
+# `is:pr` view filter), so no per-item Type field is set here.
 #
 # "On no board" = the item's ProjectsV2 membership (projectItems) is empty - the
 # same filter for issues and PRs (both `gh issue list` and `gh pr list` expose
@@ -144,17 +142,16 @@ jobs:
             exit 1
           fi
 
-          # Orphan open PRs too, but SKIP drafts and bot-authored PRs (author.is_bot
-          # == true covers dependabot, the maintainer App, etc.) so routine
-          # dependency-bump PRs and the bots' own PRs do not flood the board. Same
-          # "on no board" filter as issues: projectItems empty.
+          # Orphan open PRs too. We add PRs from ANY author (humans AND bots -
+          # dependabot, the maintainer App, etc.), only SKIPPING drafts. Same "on
+          # no board" filter as issues: projectItems empty.
           if ! orphan_prs_json=$(
             gh pr list \
               --repo "${GH_REPO}" \
               --state open \
               --limit 1000 \
-              --json number,title,url,projectItems,isDraft,author \
-              --jq '[.[] | select((.projectItems | length) == 0) | select(.isDraft == false) | select(.author.is_bot == false) | {number, title, url}]'
+              --json number,title,url,projectItems,isDraft \
+              --jq '[.[] | select((.projectItems | length) == 0) | select(.isDraft == false) | {number, title, url}]'
           ); then
             echo "::error::failed to list PRs in ${GH_REPO} (rate limit or transient); aborting without backfilling"
             gh api rate_limit --jq '.resources.core' >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
@@ -167,10 +164,10 @@ jobs:
           n_issues=${#issue_urls[@]}
           n_prs=${#pr_urls[@]}
           found=${#urls[@]}
-          echo "Found ${found} orphan open item(s) in ${GH_REPO} (${n_issues} issue(s), ${n_prs} PR(s) after skipping drafts/bots)"
+          echo "Found ${found} orphan open item(s) in ${GH_REPO} (${n_issues} issue(s), ${n_prs} non-draft PR(s))"
           {
             echo "- orphan open issues found: ${n_issues}"
-            echo "- orphan open PRs found (excl. drafts & bots): ${n_prs}"
+            echo "- orphan open PRs found (excl. drafts): ${n_prs}"
           } >> "$GITHUB_STEP_SUMMARY"
 
           added=0
