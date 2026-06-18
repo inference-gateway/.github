@@ -86,7 +86,7 @@ jobs:
     outputs:
       targets: ${{ steps.read.outputs.targets }}
     steps:
-      - uses: actions/checkout@v6.0.3
+      - uses: actions/checkout@v7.0.0
       - id: read
         uses: ./.github/actions/resolve-targets
         with:

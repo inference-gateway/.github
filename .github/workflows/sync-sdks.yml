@@ -35,7 +35,7 @@ jobs:
     outputs:
       targets: ${{ steps.read.outputs.targets }}
     steps:
-      - uses: actions/checkout@v6.0.3
+      - uses: actions/checkout@v7.0.0
       - id: read
         uses: ./.github/actions/resolve-targets
         with:
@@ -51,7 +51,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout orchestrator (.github)
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
 
       - name: Mint GitHub App token
         id: token
@@ -64,7 +64,7 @@ jobs:
             ${{ matrix.target.name }}
 
       - name: Checkout target
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
         with:
           repository: inference-gateway/${{ matrix.target.name }}
           path: target

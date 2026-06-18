@@ -54,7 +54,7 @@ jobs:
       infer_version: ${{ steps.resolve.outputs.version }}
       infer_action_version: ${{ steps.actionver.outputs.version }}
     steps:
-      - uses: actions/checkout@v6.0.3
+      - uses: actions/checkout@v7.0.0
 
       - name: Resolve latest infer CLI version
         id: resolve
@@ -128,7 +128,7 @@ jobs:
             ${{ matrix.target.name }}
 
       - name: Checkout target
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
         with:
           repository: inference-gateway/${{ matrix.target.name }}
           path: target
