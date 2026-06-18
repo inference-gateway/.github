@@ -82,7 +82,7 @@ targets:
   # --- Docs site (sync-sdks.yml drift class E; centralized claude + infer callers) ---
   - name: docs
     kind: docs
-    language: node
+    language: bun
     orchestrators:
       claude:
         markdownlint: true
