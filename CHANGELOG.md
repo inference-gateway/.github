@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.0](https://github.com/inference-gateway/.github/compare/v0.10.3...v0.11.0) (2026-06-18)
+
+### ✨ Features
+
+* **backfill-roadmap:** add support for open PRs alongside issues to the Roadmap 2026 board ([a192be6](https://github.com/inference-gateway/.github/commit/a192be6aaa64528cd78f3beae23c257fba9c4e72))
+* **backfill-roadmap:** update PR filtering to include all authors, skipping only drafts ([485c270](https://github.com/inference-gateway/.github/commit/485c27076f349adaf2c8dae37f50a6801ae5ebf8))
+* **repos:** add new OS tooling entry for ticket monitoring and processing ([cb91cd5](https://github.com/inference-gateway/.github/commit/cb91cd52a06e5f0451d2ffdf447466403097cd28))
+
+### 🐛 Bug Fixes
+
+* GitHub App token generation client-id reference ([6b0e244](https://github.com/inference-gateway/.github/commit/6b0e2446356195ba4918a0e2e55298b84c444dd6))
+
+### 🔧 Miscellaneous
+
+* **deps:** change language from node to bun in repos.yaml ([3a14852](https://github.com/inference-gateway/.github/commit/3a14852bc47d6143899edb4c6a63b75028ec6df6))
+
 ## [0.10.3](https://github.com/inference-gateway/.github/compare/v0.10.2...v0.10.3) (2026-06-17)
 
 ### 👷 CI
