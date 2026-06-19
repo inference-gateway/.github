@@ -198,7 +198,7 @@ targets:
         markdownlint: true
   - name: schemas
     kind: none
-    language: node
+    language: bun
     orchestrators:
       claude: {}
       infer: {}
