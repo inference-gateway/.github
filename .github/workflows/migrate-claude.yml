@@ -161,11 +161,22 @@ jobs:
         working-directory: target
         env:
           NEW: ${{ env.CLAUDE_CODE_VERSION }}
+          NIX_CONFIG: "access-tokens = github.com=${{ steps.token.outputs.token }}"
         run: |
           set -euo pipefail
           if [ ! -f .flox/env/manifest.toml ]; then
-            echo "::error::${{ matrix.target.name }} has no .flox/env/manifest.toml"
-            exit 1
+            # No Flox env in this target: bootstrap one pinning claude-code so the migration still
+            # succeeds (instead of aborting) and the repo ends up with a usable Flox env.
+            echo "::notice::${{ matrix.target.name }} has no Flox env; bootstrapping one pinning claude-code ${NEW}"
+            flox init
+            rm -f .flox/env/manifest.lock
+            SCHEMA=$(grep -oE '^schema-version = "[^"]+"' .flox/env/manifest.toml | head -1 | cut -d'"' -f2 || true)
+            [ -n "$SCHEMA" ] || SCHEMA="1.13.0"   # fallback tracks the install-flox-action pin
+            printf 'schema-version = "%s"\n\n[install]\nclaude-code.pkg-path = "claude-code"\nclaude-code.version = "^%s"\nclaude-code.pkg-group = "claude-code"\n' "$SCHEMA" "$NEW" > .flox/env/manifest.toml
+            flox activate -- true
+            echo "old=$NEW" >> "$GITHUB_OUTPUT"
+            echo "::notice::${{ matrix.target.name }}: bootstrapped Flox env pinning claude-code ${NEW}"
+            exit 0
           fi
           LINE=$(grep -E '^claude-code\.version' .flox/env/manifest.toml | head -1 || true)
           OLD_PIN=$(printf '%s' "$LINE" | cut -d'"' -f2)
@@ -284,8 +295,8 @@ jobs:
         working-directory: target
         run: |
           set -euo pipefail
-          git add -- .github/workflows/claude.yml .flox/env/manifest.toml .flox/env/manifest.lock
-          if git diff --cached --quiet -- .github/workflows/claude.yml .flox/env/manifest.toml .flox/env/manifest.lock; then
+          git add -- .github/workflows/claude.yml .flox
+          if git diff --cached --quiet -- .github/workflows/claude.yml .flox; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "::notice::${{ matrix.target.name }}: claude.yml + Flox pin already current; skipping"
           else
@@ -296,7 +307,7 @@ jobs:
       - name: Show diff
         if: steps.skip.outputs.skip != 'true'
         working-directory: target
-        run: git -c color.ui=always diff --cached -- .github/workflows/claude.yml .flox/env/manifest.toml .flox/env/manifest.lock || true
+        run: git -c color.ui=always diff --cached -- .github/workflows/claude.yml .flox || true
 
       - name: Compose PR title
         id: meta
@@ -338,8 +349,7 @@ jobs:
           delete-branch: true
           add-paths: |
             .github/workflows/claude.yml
-            .flox/env/manifest.toml
-            .flox/env/manifest.lock
+            .flox
           commit-message: ${{ steps.meta.outputs.title }}
           title: ${{ steps.meta.outputs.title }}
           body: |
@@ -402,6 +412,6 @@ jobs:
             echo "Would open PR titled: \`${{ steps.meta.outputs.title }}\`"
             echo
             echo '```diff'
-            git diff --cached -- .github/workflows/claude.yml .flox/env/manifest.toml .flox/env/manifest.lock || true
+            git diff --cached -- .github/workflows/claude.yml .flox || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"

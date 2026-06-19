@@ -161,11 +161,22 @@ jobs:
         working-directory: target
         env:
           NEW: ${{ env.INFER_VERSION }}
+          NIX_CONFIG: "access-tokens = github.com=${{ steps.token.outputs.token }}"
         run: |
           set -euo pipefail
           if [ ! -f .flox/env/manifest.toml ]; then
-            echo "::error::${{ matrix.target.name }} has no .flox/env/manifest.toml"
-            exit 1
+            # No Flox env in this target: bootstrap one pinning infer so the migration still
+            # succeeds (instead of aborting) and the repo ends up with a usable Flox env.
+            echo "::notice::${{ matrix.target.name }} has no Flox env; bootstrapping one pinning infer ${NEW}"
+            flox init
+            rm -f .flox/env/manifest.lock
+            SCHEMA=$(grep -oE '^schema-version = "[^"]+"' .flox/env/manifest.toml | head -1 | cut -d'"' -f2 || true)
+            [ -n "$SCHEMA" ] || SCHEMA="1.13.0"   # fallback tracks the install-flox-action pin
+            printf 'schema-version = "%s"\n\n[install]\ninfer.flake = "github:inference-gateway/cli/%s"\n' "$SCHEMA" "$NEW" > .flox/env/manifest.toml
+            flox activate -- true
+            echo "old=$NEW" >> "$GITHUB_OUTPUT"
+            echo "::notice::${{ matrix.target.name }}: bootstrapped Flox env pinning infer ${NEW}"
+            exit 0
           fi
           OLD=$(grep -oE 'inference-gateway/cli/v[0-9]+\.[0-9]+\.[0-9]+' .flox/env/manifest.toml | head -1 | sed 's|inference-gateway/cli/||')
           if [ -z "$OLD" ]; then
@@ -287,8 +298,8 @@ jobs:
         working-directory: target
         run: |
           set -euo pipefail
-          git add -- .github/workflows/infer.yml .flox/env/manifest.toml .flox/env/manifest.lock .infer
-          if git diff --cached --quiet -- .github/workflows/infer.yml .flox/env/manifest.toml .flox/env/manifest.lock .infer; then
+          git add -- .github/workflows/infer.yml .flox .infer
+          if git diff --cached --quiet -- .github/workflows/infer.yml .flox .infer; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "::notice::${{ matrix.target.name }}: infer.yml + Flox pin + .infer already current; skipping"
           else
@@ -299,7 +310,7 @@ jobs:
       - name: Show diff
         if: steps.skip.outputs.skip != 'true'
         working-directory: target
-        run: git -c color.ui=always diff --cached -- .github/workflows/infer.yml .flox/env/manifest.toml .flox/env/manifest.lock .infer || true
+        run: git -c color.ui=always diff --cached -- .github/workflows/infer.yml .flox .infer || true
 
       - name: Compose PR title
         id: meta
@@ -341,8 +352,7 @@ jobs:
           delete-branch: true
           add-paths: |
             .github/workflows/infer.yml
-            .flox/env/manifest.toml
-            .flox/env/manifest.lock
+            .flox
             .infer
           commit-message: ${{ steps.meta.outputs.title }}
           title: ${{ steps.meta.outputs.title }}
@@ -417,6 +427,6 @@ jobs:
             echo "Would open PR titled: \`${{ steps.meta.outputs.title }}\`"
             echo
             echo '```diff'
-            git diff --cached -- .github/workflows/infer.yml .flox/env/manifest.toml .flox/env/manifest.lock .infer || true
+            git diff --cached -- .github/workflows/infer.yml .flox .infer || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
