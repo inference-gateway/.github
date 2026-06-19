@@ -100,6 +100,8 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: |
             ${{ github.event.repository.name }}
+            .github
+            docs
     
       - name: Get GitHub App User ID
         id: get-user-id
