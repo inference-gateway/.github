@@ -172,10 +172,6 @@ jobs:
           fi
           echo "old=$OLD" >> "$GITHUB_OUTPUT"
 
-          # Isolate claude-code in its OWN flox pkg-group. Flox resolves every package in a group
-          # against a single catalog page; sharing the default "ai" group with codex made the bumped
-          # constraints unsatisfiable ("resolution failed: constraints for group 'ai' are too tight").
-          # A dedicated group lets claude-code float to its latest independently of codex.
           CUR_GROUP=$(grep -E '^claude-code\.pkg-group' .flox/env/manifest.toml | head -1 | cut -d'"' -f2 || true)
           if [ "$CUR_GROUP" = "claude-code" ]; then
             echo "::notice::${{ matrix.target.name }}: claude-code already isolated in its own pkg-group"
@@ -320,7 +316,7 @@ jobs:
             for p in "${parts[@]:1}"; do joined="${joined}, ${p}"; done
             title="chore(deps): bump ${joined}"
           else
-            title="ci: centralize claude.yml via reusable workflow"
+            title="ci(claude): centralize claude.yml via reusable workflow"
           fi
           echo "title=$title" >> "$GITHUB_OUTPUT"
           echo "::notice::PR title -> $title"
