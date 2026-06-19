@@ -57,6 +57,8 @@ jobs:
 
       - name: Install Flox
         uses: flox/install-flox-action@v2.5.1
+        with:
+          version: "1.13.0"
 
       - name: Resolve latest claude-code catalog version
         id: resolve
@@ -151,6 +153,8 @@ jobs:
 
       - name: Install Flox
         uses: flox/install-flox-action@v2.5.1
+        with:
+          version: "1.13.0"
 
       - name: Bump claude-code pin in the target's Flox manifest
         id: bump

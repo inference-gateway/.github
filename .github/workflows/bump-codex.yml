@@ -54,6 +54,8 @@ jobs:
 
       - name: Install Flox
         uses: flox/install-flox-action@v2.5.1
+        with:
+          version: "1.13.0"
 
       - name: Resolve codex catalog version
         id: resolve
@@ -110,6 +112,8 @@ jobs:
 
       - name: Install Flox
         uses: flox/install-flox-action@v2.5.1
+        with:
+          version: "1.13.0"
 
       - name: Bump codex pin in the target's Flox manifest
         id: bump
