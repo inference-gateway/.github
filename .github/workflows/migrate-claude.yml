@@ -165,13 +165,11 @@ jobs:
         run: |
           set -euo pipefail
           if [ ! -f .flox/env/manifest.toml ]; then
-            # No Flox env in this target: bootstrap one pinning claude-code so the migration still
-            # succeeds (instead of aborting) and the repo ends up with a usable Flox env.
             echo "::notice::${{ matrix.target.name }} has no Flox env; bootstrapping one pinning claude-code ${NEW}"
             flox init
             rm -f .flox/env/manifest.lock
             SCHEMA=$(grep -oE '^schema-version = "[^"]+"' .flox/env/manifest.toml | head -1 | cut -d'"' -f2 || true)
-            [ -n "$SCHEMA" ] || SCHEMA="1.13.0"   # fallback tracks the install-flox-action pin
+            [ -n "$SCHEMA" ] || SCHEMA="1.13.0"
             printf 'schema-version = "%s"\n\n[install]\nclaude-code.pkg-path = "claude-code"\nclaude-code.version = "^%s"\nclaude-code.pkg-group = "claude-code"\n' "$SCHEMA" "$NEW" > .flox/env/manifest.toml
             flox activate -- true
             echo "old=$NEW" >> "$GITHUB_OUTPUT"
