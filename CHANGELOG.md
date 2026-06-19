@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.1](https://github.com/inference-gateway/.github/compare/v0.11.0...v0.11.1) (2026-06-19)
+
+### 👷 CI
+
+* **deps:** upgrade actions/checkout from v6.0.3 to v7.0.0 across workflows ([f952ac8](https://github.com/inference-gateway/.github/commit/f952ac86b4995eca41a3a3715d31e843d7ffb1f9))
+
+### 🔧 Miscellaneous
+
+* **deps:** update schema version and package versions in manifest files ([3eca173](https://github.com/inference-gateway/.github/commit/3eca1733bac4c1fb4b2738970a9dfc151a34391f))
+* **schemas:** change language from 'node' to 'bun' for schemas repo ([4a4da02](https://github.com/inference-gateway/.github/commit/4a4da02843fff08f743ccb9a6c9ccd69184302f0))
+
 ## [0.11.0](https://github.com/inference-gateway/.github/compare/v0.10.3...v0.11.0) (2026-06-18)
 
 ### ✨ Features
