@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.2](https://github.com/inference-gateway/.github/compare/v0.11.1...v0.11.2) (2026-06-19)
+
+### 👷 CI
+
+* enhance workflow with GitHub App token generation ([e72a370](https://github.com/inference-gateway/.github/commit/e72a370063a6e9230e815c0d5a10b07a3bb09ff4))
+* update claude-code-action version to v1.0.152 ([2cab160](https://github.com/inference-gateway/.github/commit/2cab160e34590f3230b7d051330f6f5e90d79cbd))
+* update workflows to include .github and docs repositories in permissions ([8a2f589](https://github.com/inference-gateway/.github/commit/8a2f589416273c03104b3f95b01a2e21247b5361))
+
 ## [0.11.1](https://github.com/inference-gateway/.github/compare/v0.11.0...v0.11.1) (2026-06-19)
 
 ### 👷 CI
