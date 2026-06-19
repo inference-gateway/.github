@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.3](https://github.com/inference-gateway/.github/compare/v0.11.2...v0.11.3) (2026-06-19)
+
+### 👷 CI
+
+* **claude:** centralize claude.yml via reusable workflow ([42fe448](https://github.com/inference-gateway/.github/commit/42fe448cdaffc6f64cce6eef7e0ef2659871db76))
+* update Flox installation version to 1.13.0 across workflows ([8ab6cae](https://github.com/inference-gateway/.github/commit/8ab6caebd068c6b718b885f6fae9ed0f3eb776b5))
+
 ## [0.11.2](https://github.com/inference-gateway/.github/compare/v0.11.1...v0.11.2) (2026-06-19)
 
 ### 👷 CI
