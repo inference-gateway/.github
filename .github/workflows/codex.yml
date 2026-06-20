@@ -178,10 +178,6 @@ jobs:
           pip install pre-commit
           task precommit:install
 
-      # Board tracking is done in deterministic gh steps (not by codex): codex-action
-      # gives the model no GH_TOKEN, so the workflow owns the board transitions.
-      # Best-effort: a board hiccup must never fail the task (board.md rule). Ids are
-      # inlined verbatim from .github/actions/bot-instructions/board.md (org-stable).
       - name: Board - mark In progress
         id: board
         if: github.event_name == 'issues' || github.event_name == 'issue_comment'

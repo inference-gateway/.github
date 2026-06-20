@@ -111,7 +111,6 @@ targets:
       infer:
         markdownlint: true
       codex:
-        node: true
         markdownlint: true
   - name: rust-adk
     kind: adk

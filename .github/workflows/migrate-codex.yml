@@ -200,8 +200,6 @@ jobs:
           fi
           echo "old=$OLD" >> "$GITHUB_OUTPUT"
 
-          # Isolate codex in its OWN flox pkg-group. Flox resolves every package in a group against a
-          # single catalog page; sharing the default "ai" group makes a raised floor unsatisfiable.
           CUR_GROUP=$(grep -E '^codex\.pkg-group' .flox/env/manifest.toml | head -1 | cut -d'"' -f2 || true)
           if [ "$CUR_GROUP" = "codex" ]; then
             echo "::notice::${{ matrix.target.name }}: codex already isolated in its own pkg-group"
@@ -213,7 +211,6 @@ jobs:
             echo "::notice::${{ matrix.target.name }}: added codex.pkg-group = codex"
           fi
 
-          # Normalize the floor to a caret pin (^X.Y.Z) regardless of the prior operator.
           if [ "$OLD_PIN" = "^${NEW}" ]; then
             echo "::notice::${{ matrix.target.name }} already pins codex ^${NEW}"
           else
