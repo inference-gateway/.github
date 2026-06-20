@@ -1,0 +1,426 @@
+---
+name: Migrate codex.yml to reusable workflow
+
+# One-shot fan-out: per target repo it (1) writes .github/workflows/codex.yml as a thin caller of
+# the org reusable workflow (.github/.github/workflows/codex.yml), wiring the @codex bot
+# (openai/codex-action) into the repo, and (2) bumps the target's OWN Flox codex pin
+# (.flox/env/manifest.toml) to the latest flox-catalog version (normalized to a caret pin), isolates
+# codex in its own pkg-group ("codex"), and refreshes the lock - then opens ONE PR carrying both.
+#
+# Converted from the old bump-codex.yml: codex used to be a local-authoring CLI only (the bump
+# touched .flox/env/* alone). It is now also a mention-driven bot, so this folds the Flox bump into
+# the caller migration exactly as migrate-claude.yml folds the claude-code pin bump. codex is a flox
+# CATALOG package (codex.version = "^X.Y.Z"), so the latest comes from `flox show codex` (NOT a
+# GitHub release API); with no `init` analog, `flox activate -- true` runs after `flox upgrade codex`
+# purely to write manifest.lock in canonical form. Sharing the default "ai" group with claude-code
+# makes a bumped pin unsatisfiable, so codex gets its own pkg-group.
+#
+# Operates on every repos.yaml entry that has an `orchestrators.codex` block
+# (select(.orchestrators.codex != null)), reading the reusable-workflow inputs from that block. The
+# 6 kind=agent repos have no `orchestrators:` block and are intentionally excluded.
+#
+# App scope required on each target: contents:write, pull-requests:write,
+# workflows:write (this writes a file under .github/workflows/). The Flox-pin change is under
+# contents:write, already covered.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Reusable workflow ref to pin callers to. Blank = the latest .github release tag.'
+        required: false
+        type: string
+        default: ''
+      codex_version:
+        description: 'codex catalog version to pin (e.g. 0.139.0). Blank = latest from `flox show codex`.'
+        required: false
+        type: string
+        default: ''
+      repository:
+        description: 'Optional single repos.yaml target (with an orchestrators.codex block) to migrate; blank = all'
+        required: false
+        type: string
+        default: ''
+      dry_run:
+        description: 'Render + print the diff but skip PR creation (manual runs preview by default)'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  matrix:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      targets: ${{ steps.read.outputs.targets }}
+      ref: ${{ steps.ref.outputs.ref }}
+      codex_version: ${{ steps.resolve.outputs.version }}
+      codex_action_version: ${{ steps.actionver.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7.0.0
+
+      - name: Install Flox
+        uses: flox/install-flox-action@v2.5.1
+        with:
+          version: "1.13.0"
+
+      - name: Resolve codex catalog version
+        id: resolve
+        env:
+          INPUT_VERSION: ${{ inputs.codex_version }}
+        run: |
+          set -euo pipefail
+          V="$INPUT_VERSION"
+          if [ -z "$V" ]; then
+            V=$(flox show codex 2>/dev/null | grep -oE 'codex@[0-9]+\.[0-9]+\.[0-9]+' | head -1 | sed 's|codex@||' || true)
+          fi
+          if ! echo "$V" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Unexpected codex version (input or from flox show): '$V'"
+            exit 1
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "::notice::Targets' Flox codex pin will be bumped to ^${V}"
+
+      - name: Resolve reusable-workflow ref
+        id: ref
+        env:
+          REF_IN: ${{ inputs.ref }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -n "$REF_IN" ]; then
+            ref="$REF_IN"
+          else
+            ref=$(gh release view --repo inference-gateway/.github --json tagName --jq .tagName)
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "::notice::Callers will pin inference-gateway/.github/.github/workflows/codex.yml@${ref}"
+
+      - name: Resolve codex-action pinned at the reusable-workflow ref
+        id: actionver
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REF: ${{ steps.ref.outputs.ref }}
+        run: |
+          set -euo pipefail
+          CA=$(gh api "repos/inference-gateway/.github/contents/.github/workflows/codex.yml?ref=${REF}" -H "Accept: application/vnd.github.raw" 2>/dev/null | grep -oE 'openai/codex-action@v[0-9.]+' | head -1 | sed 's|.*@||' || true)
+          echo "version=$CA" >> "$GITHUB_OUTPUT"
+          echo "::notice::codex-action pinned at ${REF}: ${CA:-<unresolved>}"
+
+      - id: read
+        uses: ./.github/actions/resolve-targets
+        with:
+          select: '.orchestrators.codex != null'
+          repository: ${{ inputs.repository }}
+
+  migrate:
+    needs: matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.matrix.outputs.targets) }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    concurrency:
+      group: migrate-codex-${{ matrix.target.name }}
+      cancel-in-progress: false
+    env:
+      CODEX_VERSION: ${{ needs.matrix.outputs.codex_version }}
+    steps:
+      - name: Mint GitHub App token (scoped to ${{ matrix.target.name }})
+        id: token
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          client-id: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_ID }}
+          private-key: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY }}
+          owner: inference-gateway
+          repositories: |
+            ${{ matrix.target.name }}
+
+      - name: Checkout target
+        uses: actions/checkout@v7.0.0
+        with:
+          repository: inference-gateway/${{ matrix.target.name }}
+          path: target
+          token: ${{ steps.token.outputs.token }}
+
+      - name: Resolve target's current codex-action (via its existing caller ref)
+        id: oldca
+        working-directory: target
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          OLD_REF=$(grep -oE 'inference-gateway/\.github/\.github/workflows/codex\.yml@[^[:space:]"'"'"']+' .github/workflows/codex.yml 2>/dev/null | head -1 | sed 's|.*@||' || true)
+          if [ -z "$OLD_REF" ]; then
+            echo "codex_action_old=" >> "$GITHUB_OUTPUT"
+            echo "::notice::${{ matrix.target.name }}: no existing codex.yml caller ref; codex-action transition omitted"
+          else
+            CA_OLD=$(gh api "repos/inference-gateway/.github/contents/.github/workflows/codex.yml?ref=${OLD_REF}" -H "Accept: application/vnd.github.raw" 2>/dev/null | grep -oE 'openai/codex-action@v[0-9.]+' | head -1 | sed 's|.*@||' || true)
+            echo "codex_action_old=$CA_OLD" >> "$GITHUB_OUTPUT"
+            echo "::notice::${{ matrix.target.name }}: current caller @${OLD_REF} -> codex-action ${CA_OLD:-<unresolved>}"
+          fi
+
+      - name: Install Flox
+        uses: flox/install-flox-action@v2.5.1
+        with:
+          version: "1.13.0"
+
+      - name: Bump codex pin in the target's Flox manifest
+        id: bump
+        working-directory: target
+        env:
+          NEW: ${{ env.CODEX_VERSION }}
+          NIX_CONFIG: "access-tokens = github.com=${{ steps.token.outputs.token }}"
+        run: |
+          set -euo pipefail
+          if [ ! -f .flox/env/manifest.toml ]; then
+            echo "::notice::${{ matrix.target.name }} has no Flox env; bootstrapping one pinning codex ${NEW}"
+            flox init
+            rm -f .flox/env/manifest.lock
+            SCHEMA=$(grep -oE '^schema-version = "[^"]+"' .flox/env/manifest.toml | head -1 | cut -d'"' -f2 || true)
+            [ -n "$SCHEMA" ] || SCHEMA="1.13.0"
+            printf 'schema-version = "%s"\n\n[install]\ncodex.pkg-path = "codex"\ncodex.version = "^%s"\ncodex.pkg-group = "codex"\n' "$SCHEMA" "$NEW" > .flox/env/manifest.toml
+            flox activate -- true
+            echo "old=$NEW" >> "$GITHUB_OUTPUT"
+            echo "::notice::${{ matrix.target.name }}: bootstrapped Flox env pinning codex ${NEW}"
+            exit 0
+          fi
+          LINE=$(grep -E '^codex\.version' .flox/env/manifest.toml | head -1 || true)
+          OLD_PIN=$(printf '%s' "$LINE" | cut -d'"' -f2)
+          OLD=$(printf '%s' "$OLD_PIN" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
+          if [ -z "$OLD" ]; then
+            echo "::error::${{ matrix.target.name }} .flox/env/manifest.toml has no codex.version pin"
+            exit 1
+          fi
+          echo "old=$OLD" >> "$GITHUB_OUTPUT"
+
+          CUR_GROUP=$(grep -E '^codex\.pkg-group' .flox/env/manifest.toml | head -1 | cut -d'"' -f2 || true)
+          if [ "$CUR_GROUP" = "codex" ]; then
+            echo "::notice::${{ matrix.target.name }}: codex already isolated in its own pkg-group"
+          elif [ -n "$CUR_GROUP" ]; then
+            sed -i "s|codex.pkg-group = \"${CUR_GROUP}\"|codex.pkg-group = \"codex\"|" .flox/env/manifest.toml
+            echo "::notice::${{ matrix.target.name }}: codex pkg-group ${CUR_GROUP} -> codex"
+          else
+            sed -i "s|^\(codex\.pkg-path = .*\)$|\1\ncodex.pkg-group = \"codex\"|" .flox/env/manifest.toml
+            echo "::notice::${{ matrix.target.name }}: added codex.pkg-group = codex"
+          fi
+
+          if [ "$OLD_PIN" = "^${NEW}" ]; then
+            echo "::notice::${{ matrix.target.name }} already pins codex ^${NEW}"
+          else
+            sed -i "s|codex.version = \"${OLD_PIN}\"|codex.version = \"^${NEW}\"|" .flox/env/manifest.toml
+            echo "::notice::${{ matrix.target.name }}: codex ${OLD_PIN} -> ^${NEW}"
+          fi
+
+      - name: Refresh Flox lock (scoped to codex)
+        working-directory: target
+        env:
+          NIX_CONFIG: "access-tokens = github.com=${{ steps.token.outputs.token }}"
+        run: |
+          flox upgrade codex
+          flox activate -- true
+
+      - name: Render thin caller
+        working-directory: target
+        env:
+          CODEX_JSON: ${{ toJSON(matrix.target.orchestrators.codex) }}
+          LANG: ${{ matrix.target.language }}
+          REF: ${{ needs.matrix.outputs.ref }}
+        run: |
+          set -euo pipefail
+          mkdir -p .github/workflows
+
+          with_block=$(echo "$CODEX_JSON" | jq -r --arg lang "$LANG" '
+            {language: $lang} + .
+            | to_entries
+            | map("      \(.key): \(.value | if type == "string" then "\"\(.)\"" else tostring end)")
+            | .[]')
+
+          {
+            cat <<'HEADER'
+          ---
+          name: Codex
+
+          # Thin caller for the org-wide reusable @codex workflow.
+          # Source of truth: inference-gateway/.github/.github/workflows/codex.yml
+          # Inputs are managed centrally in inference-gateway/.github/repos.yaml (the entry's orchestrators.codex block).
+          # Do not hand-edit setup here; change the reusable workflow or repos.yaml instead.
+
+          on:
+            workflow_dispatch:
+              inputs:
+                prompt:
+                  description: 'Free-text task for Codex to work on in this repo'
+                  required: true
+                  type: string
+            issues:
+              types:
+                - opened
+                - assigned
+            issue_comment:
+              types:
+                - created
+
+          permissions: {}
+
+          jobs:
+            codex:
+              if: |
+                github.event_name == 'workflow_dispatch' ||
+                (
+                  github.event.sender.type != 'Bot' &&
+                  !endsWith(github.actor, '[bot]') &&
+                  (
+                    (github.event_name == 'issue_comment' && github.event.issue.pull_request == null && contains(github.event.comment.body, '@codex')) ||
+                    (github.event_name == 'issues' && (contains(github.event.issue.body, '@codex') || contains(github.event.issue.title, '@codex')))
+                  )
+                )
+              permissions:
+                contents: write
+                pull-requests: write
+                issues: write
+                id-token: write
+                actions: read
+          HEADER
+            echo "    uses: inference-gateway/.github/.github/workflows/codex.yml@${REF}"
+            echo "    with:"
+            echo "$with_block"
+            d='$'
+            echo "      prompt: ${d}{{ inputs.prompt }}"
+            echo "    secrets: inherit"
+          } > .github/workflows/codex.yml
+
+          echo "::group::Rendered .github/workflows/codex.yml"
+          cat .github/workflows/codex.yml
+          echo "::endgroup::"
+
+      - name: Skip check
+        id: skip
+        working-directory: target
+        run: |
+          set -euo pipefail
+          git add -- .github/workflows/codex.yml .flox
+          if git diff --cached --quiet -- .github/workflows/codex.yml .flox; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::${{ matrix.target.name }}: codex.yml + Flox pin already current; skipping"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::${{ matrix.target.name }}: codex.yml / Flox pin will be created or updated"
+          fi
+
+      - name: Show diff
+        if: steps.skip.outputs.skip != 'true'
+        working-directory: target
+        run: git -c color.ui=always diff --cached -- .github/workflows/codex.yml .flox || true
+
+      - name: Compose PR title
+        id: meta
+        if: steps.skip.outputs.skip != 'true'
+        env:
+          CLI_OLD: ${{ steps.bump.outputs.old }}
+          CLI_NEW: ${{ env.CODEX_VERSION }}
+          CA_OLD: ${{ steps.oldca.outputs.codex_action_old }}
+          CA_NEW: ${{ needs.matrix.outputs.codex_action_version }}
+        run: |
+          set -euo pipefail
+          parts=()
+          if [ "$CLI_OLD" != "$CLI_NEW" ]; then
+            parts+=("codex ${CLI_OLD} -> ${CLI_NEW}")
+          fi
+          if [ -n "$CA_OLD" ] && [ -n "$CA_NEW" ] && [ "$CA_OLD" != "$CA_NEW" ]; then
+            parts+=("codex-action ${CA_OLD} -> ${CA_NEW}")
+          fi
+          if [ "${#parts[@]}" -gt 0 ]; then
+            joined="${parts[0]}"
+            for p in "${parts[@]:1}"; do joined="${joined}, ${p}"; done
+            title="chore(deps): bump ${joined}"
+          else
+            title="ci(codex): centralize codex.yml via reusable workflow"
+          fi
+          echo "title=$title" >> "$GITHUB_OUTPUT"
+          echo "::notice::PR title -> $title"
+
+      - name: Create or update pull request
+        if: ${{ steps.skip.outputs.skip != 'true' && !inputs.dry_run }}
+        id: pr
+        uses: peter-evans/create-pull-request@v8.1.1
+        with:
+          token: ${{ steps.token.outputs.token }}
+          path: target
+          branch: bot/centralize-codex-workflow
+          base: main
+          sign-commits: true
+          delete-branch: true
+          add-paths: |
+            .github/workflows/codex.yml
+            .flox
+          commit-message: ${{ steps.meta.outputs.title }}
+          title: ${{ steps.meta.outputs.title }}
+          body: |
+            ## Summary
+            Centralized-config changes in one PR:
+
+            1. Adds/updates `.github/workflows/codex.yml` as a thin caller of the org reusable workflow
+               `inference-gateway/.github/.github/workflows/codex.yml@${{ needs.matrix.outputs.ref }}`,
+               wiring the `@codex` bot (openai/codex-action) into this repo.
+            2. Bumps this repo's Flox `codex` pin (`.flox/env/manifest.toml`) to
+               `^${{ needs.matrix.outputs.codex_version }}` (the latest flox catalog version), isolates
+               `codex` in its own `pkg-group = "codex"`, and refreshes `.flox/env/manifest.lock`.
+
+            Setup lives centrally, so future moves (action bump, model, CLI version) are a
+            **re-run of `migrate-codex.yml`** instead of a hand-edit per repo.
+
+            Ran in CI:
+            - sed the `codex.version` floor in `.flox/env/manifest.toml` to a caret pin at the latest catalog version
+            - moved `codex` into its own `pkg-group = "codex"` so its raised floor resolves independently
+            - `flox upgrade codex` + `flox activate` to refresh `.flox/env/manifest.lock` in canonical form
+
+            > **How `@codex` works:** it is a mention-driven task bot. Mention `@codex` on an issue (or
+            > use the manual **Codex** workflow_dispatch form) and it implements the change, opens a PR,
+            > comments, and tracks the issue on the Roadmap board. `openai/codex-action` is a bare
+            > `codex exec` runner, so the PR / comment / board steps live in the reusable `codex.yml`.
+            > Requires the `OPENAI_API_KEY` secret plus the maintainer GitHub App, both reaching the
+            > reusable workflow via `secrets: inherit`.
+
+            Filed by [migrate-codex.yml](https://github.com/inference-gateway/.github/blob/main/.github/workflows/migrate-codex.yml).
+          labels: |
+            dependencies
+            codex
+            ci
+            bot
+
+      - name: Report PR outcome
+        if: ${{ steps.skip.outputs.skip != 'true' && !inputs.dry_run && steps.pr.outputs.pull-request-number != '' }}
+        env:
+          CA_OLD: ${{ steps.oldca.outputs.codex_action_old }}
+          CA_NEW: ${{ needs.matrix.outputs.codex_action_version }}
+        run: |
+          {
+            echo "### ${{ matrix.target.name }}"
+            echo "- Operation: \`${{ steps.pr.outputs.pull-request-operation }}\`"
+            echo "- Title: \`${{ steps.meta.outputs.title }}\`"
+            echo "- codex: \`${{ steps.bump.outputs.old }}\` -> \`${{ needs.matrix.outputs.codex_version }}\`"
+            if [ -n "$CA_OLD" ] && [ -n "$CA_NEW" ] && [ "$CA_OLD" != "$CA_NEW" ]; then
+              echo "- codex-action: \`${CA_OLD}\` -> \`${CA_NEW}\` (via reusable ref)"
+            fi
+            echo "- PR: ${{ steps.pr.outputs.pull-request-url }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dry-run summary
+        if: ${{ steps.skip.outputs.skip != 'true' && inputs.dry_run }}
+        working-directory: target
+        run: |
+          {
+            echo "## Dry-run: ${{ matrix.target.name }}"
+            echo "Would open PR titled: \`${{ steps.meta.outputs.title }}\`"
+            echo
+            echo '```diff'
+            git diff --cached -- .github/workflows/codex.yml .flox || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
