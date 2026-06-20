@@ -72,6 +72,10 @@ on:
         description: 'JSON object of additional mcpServers merged into --mcp-config'
         type: string
         default: '{}'
+      debug:
+        description: 'Enable Claude CLI debug logging (--debug -> stderr) and full JSON output (show_full_output) in the run log. Defaults false; turn on per-repo via repos.yaml for verbose agent logs (private repos only - debug output can include sensitive values).'
+        type: boolean
+        default: false
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN:
         description: 'OAuth token for anthropics/claude-code-action (callers use `secrets: inherit`)'
@@ -339,6 +343,7 @@ jobs:
           github_token: ${{ steps.app-token.outputs.token }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           display_report: true
+          show_full_output: ${{ inputs.debug }}
           additional_permissions: |
             actions: read
           use_commit_signing: ${{ github.event_name != 'workflow_dispatch' }}
@@ -349,5 +354,6 @@ jobs:
             --model ${{ inputs.model }}
             --allowedTools "${{ steps.args.outputs.tools }}"
             ${{ steps.args.outputs.mcp_arg }}
+            ${{ inputs.debug && '--debug' || '' }}
           prompt: ${{ steps.prompt.outputs.text }}
           track_progress: ${{ github.event_name != 'workflow_dispatch' }}

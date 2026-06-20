@@ -66,7 +66,7 @@ on:
         type: string
         default: '50'
       debug:
-        description: 'Enable infer-action debug logging'
+        description: 'Enable infer-action debug logging AND mirror the agent stdout transcript to the run log (mirror-agent-logs). Defaults false; turn on per-repo via repos.yaml for verbose agent logs (private repos only - the mirrored transcript can include sensitive values).'
         type: boolean
         default: false
       markdownlint:
@@ -110,7 +110,7 @@ jobs:
       issues: write
     steps:
       - name: Generate GitHub App token
-        id: app_token
+        id: app-token
         uses: actions/create-github-app-token@v3.2.0
         with:
           client-id: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_ID }}
@@ -137,13 +137,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7.0.0
         with:
-          token: ${{ steps.app_token.outputs.token }}
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Install task
         uses: arduino/setup-task@v2.0.0
         with:
           version: 3.48.0
-          repo-token: ${{ steps.app_token.outputs.token }}
+          repo-token: ${{ steps.app-token.outputs.token }}
 
       - name: Install Flox
         uses: flox/install-flox-action@v2.5.1
@@ -240,13 +240,14 @@ jobs:
         uses: inference-gateway/infer-action@v0.15.1
         with:
           version: ${{ inputs.cli-version }}
-          github-token: ${{ steps.app_token.outputs.token }}
-          github-app-slug: ${{ steps.app_token.outputs.app-slug }}
+          github-token: ${{ steps.app-token.outputs.token }}
+          github-app-slug: ${{ steps.app-token.outputs.app-slug }}
           trigger-phrase: ${{ inputs.trigger-phrase }}
           model: ${{ inputs.model }}
           direct-prompt: ${{ inputs.prompt }}
           compact-auto-at: ${{ inputs.compact-auto-at }}
           debug: ${{ inputs.debug }}
+          mirror-agent-logs: ${{ inputs.debug }}
           skills: ${{ inputs.skills }}
           custom-instructions: ${{ steps.instr.outputs.combined }}
           bash-allow-append: ${{ steps.whitelist.outputs.patterns }}
