@@ -1,0 +1,383 @@
+---
+name: Codex (reusable)
+
+# Reusable @codex bot workflow for the inference-gateway org.
+#
+# Wraps openai/codex-action, which is a BARE `codex exec` runner: it edits the
+# working tree (sandbox: workspace-write) and returns a `final-message`, but does
+# NOT commit, push, open PRs, post comments, or hand the model a GH_TOKEN. So
+# every GitHub side-effect (App token, board tracking, PR, comment) is an explicit
+# step here - the same outcomes claude.yml/infer.yml delegate to their actions,
+# done in workflow steps with the maintainer App token instead.
+#
+# Caller contract:
+#   jobs.codex.uses: inference-gateway/.github/.github/workflows/codex.yml@vX.Y.Z
+# The `on:` triggers and the `@codex` gate `if:` (incl. the bot-author loop filter)
+# stay in the thin caller - event triggers cannot live in a reusable workflow, and
+# the gate keeps this runner from spinning up for every non-@codex comment.
+#
+# Scope: issue + manual (workflow_dispatch) task mode. PR-review feedback is out of
+# scope for now (codex-action has no native PR-branch iteration); the caller `if:`
+# restricts issue_comment to non-PR issues.
+
+on:
+  workflow_call:
+    inputs:
+      language:
+        description: 'Toolchain preset: go | rust | typescript | node | python | bun | none'
+        type: string
+        default: none
+      runner:
+        description: 'Runner image'
+        type: string
+        default: ubuntu-24.04
+      model:
+        description: 'Codex model id (blank = codex-action default)'
+        type: string
+        default: ''
+      effort:
+        description: 'Codex reasoning effort: low | medium | high (blank = codex default)'
+        type: string
+        default: ''
+      sandbox:
+        description: 'codex-action sandbox: workspace-write (default, edits tree + reaches the API) | read-only | danger-full-access'
+        type: string
+        default: workspace-write
+      prompt:
+        description: 'Free-text task for manual (workflow_dispatch) runs. Empty = issue mode (task comes from the @codex issue/comment).'
+        type: string
+        default: ''
+      codex-version:
+        description: 'Version of @openai/codex codex-action installs (blank = action default)'
+        type: string
+        default: ''
+      node:
+        description: 'Force Node setup even when language is not typescript/node'
+        type: boolean
+        default: false
+      markdownlint:
+        description: 'Set up Node and install markdownlint-cli'
+        type: boolean
+        default: false
+      precommit:
+        description: 'Install pre-commit and run `task precommit:install`'
+        type: boolean
+        default: false
+    secrets:
+      OPENAI_API_KEY:
+        description: 'OpenAI API key for openai/codex-action (callers use `secrets: inherit`)'
+        required: true
+      INFERENCE_GATEWAY_MAINTAINER_APP_ID:
+        description: 'Client ID of the maintainer GitHub App (callers use `secrets: inherit`)'
+        required: true
+      INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY:
+        description: 'Private key of the maintainer GitHub App (callers use `secrets: inherit`)'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  codex:
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 25
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          client-id: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_ID }}
+          private-key: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            ${{ github.event.repository.name }}
+            .github
+            docs
+
+      - name: Get GitHub App User ID
+        id: get-user-id
+        run: echo "user-id=$(gh api "/users/${{ steps.app-token.outputs.app-slug }}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+      - name: Set up Git
+        run: |
+          git config --global user.name '${{ steps.app-token.outputs.app-slug }}[bot]'
+          git config --global user.email '${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com'
+          git config --global commit.gpgsign false
+          git config --global commit.signoff true
+
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.0
+        with:
+          fetch-depth: 1
+          persist-credentials: true
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Install task
+        uses: arduino/setup-task@v2.0.0
+        with:
+          version: 3.48.0
+          repo-token: ${{ steps.app-token.outputs.token }}
+
+      - name: Install Flox
+        uses: flox/install-flox-action@v2.5.1
+        with:
+          version: "1.13.0"
+
+      - name: Set up Go
+        if: inputs.language == 'go'
+        uses: actions/setup-go@v6.4.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Install golangci-lint
+        if: inputs.language == 'go'
+        uses: golangci/golangci-lint-action@v9.2.1
+        with:
+          version: v2.12.2
+          args: --help
+
+      - name: Set up Rust
+        if: inputs.language == 'rust'
+        uses: actions-rust-lang/setup-rust-toolchain@v1.16.1
+        with:
+          components: clippy, rustfmt
+
+      - name: Set up Python
+        if: inputs.language == 'python'
+        uses: actions/setup-python@v6.2.0
+        with:
+          python-version: '3.x'
+
+      - name: Set up Bun
+        if: inputs.language == 'bun'
+        uses: oven-sh/setup-bun@v2.2.0
+
+      - name: Set up Node.js
+        if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint
+        uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 'lts/*'
+
+      - name: Install markdownlint
+        if: inputs.markdownlint
+        run: npm install -g markdownlint-cli
+
+      - name: Install pre-commit
+        if: inputs.precommit
+        run: |
+          set -euo pipefail
+          pip install pre-commit
+          task precommit:install
+
+      # Board tracking is done in deterministic gh steps (not by codex): codex-action
+      # gives the model no GH_TOKEN, so the workflow owns the board transitions.
+      # Best-effort: a board hiccup must never fail the task (board.md rule). Ids are
+      # inlined verbatim from .github/actions/bot-instructions/board.md (org-stable).
+      - name: Board - mark In progress
+        id: board
+        if: github.event_name == 'issues' || github.event_name == 'issue_comment'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -uo pipefail
+          url=$(gh issue view "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --json url -q .url) || exit 0
+          gh project item-add 7 --owner inference-gateway --url "$url" || true
+          item=$(gh project item-list 7 --owner inference-gateway --format json -L 1000 -q ".items[] | select(.content.url==\"$url\") | .id" || true)
+          if [ -n "$item" ]; then
+            gh project item-edit --id "$item" \
+              --project-id PVT_kwDOC6ve6c4BNnSt \
+              --field-id PVTSSF_lADOC6ve6c4BNnStzg8jqxU \
+              --single-select-option-id 47fc9ee4 || true
+          fi
+          echo "item-id=$item" >> "$GITHUB_OUTPUT"
+
+      - name: Load shared bot instructions
+        id: instr
+        uses: inference-gateway/.github/.github/actions/bot-instructions@main
+
+      - name: Compose prompt
+        id: prompt
+        env:
+          EVENT: ${{ github.event_name }}
+          USER_PROMPT: ${{ inputs.prompt }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          STYLE: ${{ steps.instr.outputs.style }}
+          PROMPT_FILE: ${{ runner.temp }}/codex-prompt.md
+        run: |
+          set -euo pipefail
+
+          case "$EVENT" in
+            workflow_dispatch)
+              task="$USER_PROMPT"
+              ctx="a maintainer started this run manually"
+              ;;
+            issue_comment)
+              task="$(printf 'Issue #%s: %s\n\n%s\n\n--- Maintainer comment that mentioned @codex ---\n%s' "$ISSUE_NUMBER" "$ISSUE_TITLE" "$ISSUE_BODY" "$COMMENT_BODY")"
+              ctx="a maintainer mentioned @codex in a comment on issue #${ISSUE_NUMBER}"
+              ;;
+            *)
+              task="$(printf 'Issue #%s: %s\n\n%s' "$ISSUE_NUMBER" "$ISSUE_TITLE" "$ISSUE_BODY")"
+              ctx="a maintainer mentioned @codex on issue #${ISSUE_NUMBER}"
+              ;;
+          esac
+
+          {
+            printf 'You are Codex, working autonomously in the %s repository on GitHub.\n\n' "$GITHUB_REPOSITORY"
+            printf 'Context: %s.\n\n' "$ctx"
+            printf 'Task:\n%s\n\n' "$task"
+            cat <<'GUIDE'
+          How to work:
+          - Implement the requested change by editing files in the working tree.
+          - You do NOT need to run git, commit, push, open a pull request, or post a comment.
+            The surrounding GitHub Actions workflow automatically commits your edits, opens a
+            pull request, posts your final message as a comment, and updates the project board.
+          - Build and verify with the repo's own tooling before finishing (e.g. `task build`,
+            `task test`, `task lint` when present).
+          - If the request is a question, or needs no code change, make NO edits and answer it
+            in your final message instead.
+          - Your final message is posted verbatim as a GitHub comment - make it a clear summary
+            of what you changed (or your answer), not a transcript.
+          GUIDE
+            printf '\n%s\n' "$STYLE"
+          } > "$PROMPT_FILE"
+
+          echo "file=$PROMPT_FILE" >> "$GITHUB_OUTPUT"
+          echo "::group::Composed prompt"
+          cat "$PROMPT_FILE"
+          echo "::endgroup::"
+
+      - name: Run Codex
+        id: codex
+        uses: openai/codex-action@v1.8
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: ${{ steps.prompt.outputs.file }}
+          output-file: ${{ runner.temp }}/codex-final.md
+          working-directory: ${{ github.workspace }}
+          sandbox: ${{ inputs.sandbox }}
+          model: ${{ inputs.model }}
+          effort: ${{ inputs.effort }}
+          codex-version: ${{ inputs.codex-version }}
+          allow-bots: 'false'
+
+      - name: Detect working-tree changes
+        id: changes
+        run: |
+          set -euo pipefail
+          git add -A
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Codex made no file changes"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Codex modified the working tree"
+          fi
+
+      - name: Compose PR metadata
+        id: meta
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          EVENT: ${{ github.event_name }}
+          USER_PROMPT: ${{ inputs.prompt }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            first="${USER_PROMPT%%$'\n'*}"
+            first="${first:0:60}"
+            branch="codex/dispatch-${GITHUB_RUN_ID}"
+            title="codex: ${first:-automated change}"
+            closes=""
+          else
+            branch="codex/issue-${ISSUE_NUMBER}"
+            title="${ISSUE_TITLE:-codex: automated change}"
+            closes="Closes #${ISSUE_NUMBER}"
+          fi
+          {
+            echo "branch=$branch"
+            echo "title=$title"
+            echo "body<<__PR_BODY_EOF__"
+            echo "## Summary"
+            echo ""
+            echo "Automated change by the Codex bot (openai/codex-action)."
+            echo ""
+            if [ -n "$closes" ]; then
+              echo "$closes"
+              echo ""
+            fi
+            echo "Codex edited the working tree; this PR was opened by the reusable codex.yml workflow. Review the diff before merging."
+            echo "__PR_BODY_EOF__"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open pull request
+        id: pr
+        if: steps.changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v8.1.1
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          branch: ${{ steps.meta.outputs.branch }}
+          base: main
+          sign-commits: true
+          delete-branch: true
+          commit-message: ${{ steps.meta.outputs.title }}
+          title: ${{ steps.meta.outputs.title }}
+          body: ${{ steps.meta.outputs.body }}
+          labels: |
+            codex
+            bot
+
+      - name: Post Codex result
+        if: always() && (steps.changes.outputs.changed == 'true' || github.event_name != 'workflow_dispatch')
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CHANGED: ${{ steps.changes.outputs.changed }}
+          PR_NUMBER: ${{ steps.pr.outputs.pull-request-number }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          FINAL: ${{ runner.temp }}/codex-final.md
+          COMMENT: ${{ runner.temp }}/codex-comment.md
+        run: |
+          set -uo pipefail
+          {
+            echo '### Codex'
+            echo
+            if [ -s "$FINAL" ]; then cat "$FINAL"; else echo '_Codex produced no final message._'; fi
+          } > "$COMMENT"
+
+          if [ "$CHANGED" = "true" ] && [ -n "$PR_NUMBER" ]; then
+            gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$COMMENT" || true
+          elif [ -n "$ISSUE_NUMBER" ]; then
+            gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$COMMENT" || true
+          else
+            { echo '## Codex result'; cat "$COMMENT"; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Board - mark QA
+        if: steps.pr.outputs.pull-request-number != '' && (github.event_name == 'issues' || github.event_name == 'issue_comment')
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          ITEM_ID: ${{ steps.board.outputs.item-id }}
+        run: |
+          set -uo pipefail
+          [ -n "$ITEM_ID" ] || exit 0
+          gh project item-edit --id "$ITEM_ID" \
+            --project-id PVT_kwDOC6ve6c4BNnSt \
+            --field-id PVTSSF_lADOC6ve6c4BNnStzg8jqxU \
+            --single-select-option-id 0a18abd7 || true
