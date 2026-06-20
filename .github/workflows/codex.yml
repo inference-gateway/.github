@@ -63,6 +63,10 @@ on:
         description: 'Install pre-commit and run `task precommit:install`'
         type: boolean
         default: false
+      debug:
+        description: 'Enable verbose Codex logging: codex exec --json (full agent event transcript -> stdout) + RUST_LOG=debug (internal tracing -> stderr), both surfaced in the run log. Defaults false; turn on per-repo via repos.yaml (private repos only - debug output can include sensitive values).'
+        type: boolean
+        default: false
     secrets:
       OPENAI_API_KEY:
         description: 'OpenAI API key for openai/codex-action (callers use `secrets: inherit`)'
@@ -261,6 +265,8 @@ jobs:
         uses: openai/codex-action@v1.8
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          # debug=true -> codex's internal tracing to stderr -> run log (inherited stdio).
+          RUST_LOG: ${{ inputs.debug && 'debug' || '' }}
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           prompt-file: ${{ steps.prompt.outputs.file }}
@@ -270,6 +276,9 @@ jobs:
           model: ${{ inputs.model }}
           effort: ${{ inputs.effort }}
           codex-version: ${{ inputs.codex-version }}
+          # debug=true streams the full agent event transcript (--json) to stdout -> run log.
+          # Safe: the action reads the final message from --output-last-message, not stdout.
+          codex-args: ${{ inputs.debug && '--json' || '' }}
           allow-bots: 'false'
 
       - name: Detect working-tree changes

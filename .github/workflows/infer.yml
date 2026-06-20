@@ -66,7 +66,7 @@ on:
         type: string
         default: '50'
       debug:
-        description: 'Enable infer-action debug logging'
+        description: 'Enable infer-action debug logging AND mirror the agent stdout transcript to the run log (mirror-agent-logs). Defaults false; turn on per-repo via repos.yaml for verbose agent logs (private repos only - the mirrored transcript can include sensitive values).'
         type: boolean
         default: false
       markdownlint:
@@ -247,6 +247,7 @@ jobs:
           direct-prompt: ${{ inputs.prompt }}
           compact-auto-at: ${{ inputs.compact-auto-at }}
           debug: ${{ inputs.debug }}
+          mirror-agent-logs: ${{ inputs.debug }}
           skills: ${{ inputs.skills }}
           custom-instructions: ${{ steps.instr.outputs.combined }}
           bash-allow-append: ${{ steps.whitelist.outputs.patterns }}

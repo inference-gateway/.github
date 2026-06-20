@@ -40,7 +40,10 @@
 #                                          extra-tools / playwright / context7 analog - codex-action has none).
 #                              The migrate workflows prepend the top-level `language` to each bot's
 #                              `with:` block, so the sub-blocks carry ONLY non-language inputs
-#                              (markdownlint, node, precommit, playwright, allowed-tools, extra-tools, ...).
+#                              (markdownlint, node, precommit, playwright, allowed-tools, extra-tools,
+#                              debug, ...). `debug: true` is supported by all three bots (claude / infer /
+#                              codex) and surfaces verbose agent logs in the Actions run log - keep it to
+#                              PRIVATE repos, since debug/transcript output can include sensitive values.
 #                              A repo that needs no extra inputs uses an explicit empty map
 #                              (`claude: {}` / `infer: {}` / `codex: {}`) so the `!= null` selection still
 #                              matches it; a bare `claude:` would be YAML null and silently drop the repo.
@@ -248,10 +251,15 @@ targets:
       codex: {}
 
   # --- Operating System (A new way to monitor and process tickets as they flow into the system).  ---
+  # debug: true on all three bots -> verbose agent logs in the Actions run log. Safe here because
+  # `os` is a PRIVATE repo (debug/transcript output can include sensitive values).
   - name: os
     kind: tooling
     language: bun
     orchestrators:
-      claude: {}
-      infer: {}
-      codex: {}
+      claude:
+        debug: true
+      infer:
+        debug: true
+      codex:
+        debug: true
