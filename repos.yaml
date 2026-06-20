@@ -251,8 +251,6 @@ targets:
       codex: {}
 
   # --- Operating System (A new way to monitor and process tickets as they flow into the system).  ---
-  # debug: true on all three bots -> verbose agent logs in the Actions run log. Safe here because
-  # `os` is a PRIVATE repo (debug/transcript output can include sensitive values).
   - name: os
     kind: tooling
     language: bun

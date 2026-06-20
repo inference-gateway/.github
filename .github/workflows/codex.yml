@@ -265,7 +265,6 @@ jobs:
         uses: openai/codex-action@v1.8
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          # debug=true -> codex's internal tracing to stderr -> run log (inherited stdio).
           RUST_LOG: ${{ inputs.debug && 'debug' || '' }}
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -276,8 +275,6 @@ jobs:
           model: ${{ inputs.model }}
           effort: ${{ inputs.effort }}
           codex-version: ${{ inputs.codex-version }}
-          # debug=true streams the full agent event transcript (--json) to stdout -> run log.
-          # Safe: the action reads the final message from --output-last-message, not stdout.
           codex-args: ${{ inputs.debug && '--json' || '' }}
           allow-bots: 'false'
 

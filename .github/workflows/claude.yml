@@ -349,8 +349,6 @@ jobs:
           use_commit_signing: ${{ github.event_name != 'workflow_dispatch' }}
           base_branch: main
           branch_prefix: ${{ steps.prefix.outputs.value }}
-          # debug=true appends --debug (writes to stderr -> run log; leaves the stdout
-          # stream-json the action parses untouched). An empty line when debug=false is ignored.
           claude_args: |
             --effort ${{ inputs.effort }}
             --model ${{ inputs.model }}
