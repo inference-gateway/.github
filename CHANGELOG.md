@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.12.0](https://github.com/inference-gateway/.github/compare/v0.11.3...v0.12.0) (2026-06-20)
+
+### ✨ Features
+
+* **bots:** per-repo debug toggle for claude/infer/codex orchestrators ([#75](https://github.com/inference-gateway/.github/issues/75)) ([3ad163e](https://github.com/inference-gateway/.github/commit/3ad163ee3242feee363bbc55721ee004399b9500))
+* **codex:** add [@codex](https://github.com/codex) bot + convert bump-codex to migrate-codex ([#74](https://github.com/inference-gateway/.github/issues/74)) ([0adc3d0](https://github.com/inference-gateway/.github/commit/0adc3d09b03360e2a7fb811cc816bf8f50cbc425)), closes [#7](https://github.com/inference-gateway/.github/issues/7)
+
+### 👷 CI
+
+* **migrate:** bootstrap a Flox env when a target has none ([#73](https://github.com/inference-gateway/.github/issues/73)) ([0ee1e1a](https://github.com/inference-gateway/.github/commit/0ee1e1a39c601093bad8c738bed0c3e117927642))
+
 ## [0.11.3](https://github.com/inference-gateway/.github/compare/v0.11.2...v0.11.3) (2026-06-19)
 
 ### 👷 CI
