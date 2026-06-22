@@ -56,8 +56,8 @@ on:
         description: 'Include the context7 MCP server (+ mcp__context7 tool)'
         type: boolean
         default: true
-      playwright:
-        description: 'Install Chromium and add the playwright MCP server (+ mcp__playwright tool)'
+      browser:
+        description: 'Enable the browser MCP server for this run (installs Chromium + adds the @playwright/mcp server and the mcp__playwright tool). Sources, ORed: the static per-repo value from repos.yaml, the dispatch checkbox (forwarded by the caller), and a case-insensitive [browser] marker in the issue/comment/review body or issue title.'
         type: boolean
         default: false
       markdownlint:
@@ -168,8 +168,29 @@ jobs:
         if: inputs.language == 'bun'
         uses: oven-sh/setup-bun@v2.2.0
 
+      - name: Resolve browser mode
+        id: browser
+        env:
+          BROWSER_INPUT: ${{ inputs.browser }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          REVIEW_BODY: ${{ github.event.review.body }}
+        run: |
+          set -euo pipefail
+          enabled=false
+          if [ "$BROWSER_INPUT" = "true" ]; then
+            enabled=true
+          elif printf '%s\n%s\n%s\n%s\n' \
+                 "$ISSUE_TITLE" "$ISSUE_BODY" "$COMMENT_BODY" "$REVIEW_BODY" \
+               | grep -qiF '[browser]'; then
+            enabled=true
+          fi
+          echo "Browser MCP enabled: $enabled"
+          echo "enabled=$enabled" >> "$GITHUB_OUTPUT"
+
       - name: Set up Node.js
-        if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint || inputs.playwright
+        if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint || steps.browser.outputs.enabled == 'true'
         uses: actions/setup-node@v6.4.0
         with:
           node-version: 'lts/*'
@@ -186,7 +207,7 @@ jobs:
           task precommit:install
 
       - name: Install Playwright + Chromium
-        if: inputs.playwright
+        if: steps.browser.outputs.enabled == 'true'
         run: npx -y playwright@latest install --with-deps chromium
 
       - name: Determine branch prefix
@@ -213,7 +234,7 @@ jobs:
           ALLOWED: ${{ inputs.allowed-tools }}
           EXTRA_TOOLS: ${{ inputs.extra-tools }}
           CONTEXT7: ${{ inputs.context7 }}
-          PLAYWRIGHT: ${{ inputs.playwright }}
+          BROWSER: ${{ steps.browser.outputs.enabled }}
           EXTRA_MCP: ${{ inputs.extra-mcp-servers }}
           NODE: ${{ inputs.node }}
           EVENT: ${{ github.event_name }}
@@ -224,7 +245,7 @@ jobs:
           if [ "$CONTEXT7" = "true" ]; then
             servers="$(echo "$servers" | jq -c '. + {context7:{command:"npx",args:["-y","@upstash/context7-mcp@latest"]}}')"
           fi
-          if [ "$PLAYWRIGHT" = "true" ]; then
+          if [ "$BROWSER" = "true" ]; then
             servers="$(echo "$servers" | jq -c '. + {playwright:{command:"npx",args:["-y","@playwright/mcp@latest","--headless","--browser","chromium","--isolated"]}}')"
           fi
           servers="$(echo "$servers" | jq -c --argjson extra "$EXTRA_MCP" '. + $extra')"
@@ -245,7 +266,7 @@ jobs:
             esac
             [ "$NODE" = "true" ]       && tools="$tools,Bash(node:*),Bash(npm:*)"
             [ "$CONTEXT7" = "true" ]   && tools="$tools,mcp__context7"
-            [ "$PLAYWRIGHT" = "true" ] && tools="$tools,mcp__playwright"
+            [ "$BROWSER" = "true" ] && tools="$tools,mcp__playwright"
             [ -n "$EXTRA_TOOLS" ]      && tools="$tools,$EXTRA_TOOLS"
           fi
 
@@ -275,6 +296,7 @@ jobs:
           FOLLOWUPS: ${{ steps.instr.outputs.followups }}
           STYLE: ${{ steps.instr.outputs.style }}
           ESCALATION: ${{ steps.instr.outputs.escalation }}
+          BROWSER: ${{ steps.browser.outputs.enabled }}
         run: |
           set -euo pipefail
 
@@ -298,6 +320,9 @@ jobs:
           RULES
           )"
           common="$(printf '%s\n\n%s\n\n%s' "$common" "$STYLE" "$ESCALATION")"
+          if [ "$BROWSER" = "true" ]; then
+            common="$(printf '%s\n\n%s' "$common" "**BROWSER:** A headless-Chromium browser MCP server (mcp__playwright) is available this run - use it to navigate, inspect, screenshot, or verify live web pages when the task calls for a real browser.")"
+          fi
 
           if [ "$context" = "issue" ]; then
           pr_block="$(cat <<'ISSUE'
