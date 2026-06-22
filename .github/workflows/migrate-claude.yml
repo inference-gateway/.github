@@ -222,8 +222,12 @@ jobs:
           set -euo pipefail
           mkdir -p .github/workflows
 
+          # browser is forwarded below as a merged dispatch+static expression, so drop it
+          # from the static jq block to avoid a duplicate `browser:` key.
+          static_browser=$(echo "$CLAUDE_JSON" | jq -r 'if .browser == true then "true" else "false" end')
+
           with_block=$(echo "$CLAUDE_JSON" | jq -r --arg lang "$LANG" '
-            {language: $lang} + .
+            {language: $lang} + . | del(.browser)
             | to_entries
             | map("      \(.key): \(.value | if type == "string" then "\"\(.)\"" else tostring end)")
             | .[]')
@@ -245,6 +249,11 @@ jobs:
                   description: 'Free-text task for Claude to work on in this repo'
                   required: true
                   type: string
+                browser:
+                  description: 'Install Chromium + enable the browser MCP (mcp__playwright) for this run'
+                  required: false
+                  type: boolean
+                  default: false
             issue_comment:
               types:
                 - created
@@ -280,6 +289,7 @@ jobs:
             echo "    with:"
             echo "$with_block"
             d='$'
+            echo "      browser: ${d}{{ inputs.browser || ${static_browser} }}"
             echo "      prompt: ${d}{{ inputs.prompt }}"
             echo "    secrets: inherit"
           } > .github/workflows/claude.yml

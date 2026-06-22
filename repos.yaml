@@ -37,10 +37,10 @@
 #                                          entry; sub-keys map 1:1 to infer.yml inputs.
 #                                codex  -> migrate-codex.yml operates on every `orchestrators.codex != null`
 #                                          entry; sub-keys map 1:1 to codex.yml inputs (no allowed-tools /
-#                                          extra-tools / playwright / context7 analog - codex-action has none).
+#                                          extra-tools / browser / context7 analog - codex-action has none).
 #                              The migrate workflows prepend the top-level `language` to each bot's
 #                              `with:` block, so the sub-blocks carry ONLY non-language inputs
-#                              (markdownlint, node, precommit, playwright, allowed-tools, extra-tools,
+#                              (markdownlint, node, precommit, browser, allowed-tools, extra-tools,
 #                              debug, ...). `debug: true` is supported by all three bots (claude / infer /
 #                              codex) and surfaces verbose agent logs in the Actions run log - keep it to
 #                              PRIVATE repos, since debug/transcript output can include sensitive values.
@@ -191,7 +191,7 @@ targets:
     language: node
     orchestrators:
       claude:
-        playwright: true
+        browser: true
       infer: {}
       codex: {}
   - name: inference-gateway
