@@ -222,8 +222,6 @@ jobs:
           set -euo pipefail
           mkdir -p .github/workflows
 
-          # browser is forwarded below as a merged dispatch+static expression, so drop it
-          # from the static jq block to avoid a duplicate `browser:` key.
           static_browser=$(echo "$CLAUDE_JSON" | jq -r 'if .browser == true then "true" else "false" end')
 
           with_block=$(echo "$CLAUDE_JSON" | jq -r --arg lang "$LANG" '

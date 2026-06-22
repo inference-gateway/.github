@@ -256,7 +256,9 @@ targets:
     language: bun
     orchestrators:
       claude:
-        debug: true
+claude:
+  browser: true
+  debug: true
       infer:
         debug: true
       codex:
