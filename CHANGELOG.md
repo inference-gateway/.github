@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.0](https://github.com/inference-gateway/.github/compare/v0.12.1...v0.13.0) (2026-06-22)
+
+### ✨ Features
+
+* **claude:** dynamic browser MCP toggle for reusable workflow ([#77](https://github.com/inference-gateway/.github/issues/77)) ([e0bd338](https://github.com/inference-gateway/.github/commit/e0bd338c6bb4db58b9fa3062c401686efa2dd333))
+
+### 🔧 Miscellaneous
+
+* **infer:** remove default configurations ([d450745](https://github.com/inference-gateway/.github/commit/d4507453ef58c0c8bd624bacf47a521e6ec40c68))
+* **workflows:** update migrate-infer.yml to centralize infer.yml and bump Flox pin ([01bf033](https://github.com/inference-gateway/.github/commit/01bf0335dff042351806c7390da784815e73c53f))
+
 ## [0.12.1](https://github.com/inference-gateway/.github/compare/v0.12.0...v0.12.1) (2026-06-20)
 
 ### 🔧 Miscellaneous
