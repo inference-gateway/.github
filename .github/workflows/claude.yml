@@ -402,7 +402,6 @@ jobs:
           git switch -c "$wip"
           git add -A
           git commit -m "wip: partial work from an unfinished @claude run [skip ci]"
-          git format-patch -1 --stdout > "${RUNNER_TEMP}/claude-wip.patch" || true
           if git push -u origin "$wip"; then
             echo "Preserved working tree on branch: $wip"
             if [ -n "$ISSUE" ]; then
@@ -412,14 +411,5 @@ jobs:
                 || echo "Draft PR not created (one may already exist)."
             fi
           else
-            echo "Push failed; the uploaded patch artifact is the fallback."
+            echo "Push rejected (e.g. branch protection); the work also remains in this run's --debug log for manual recovery."
           fi
-
-      - name: Upload work-in-progress patch
-        if: cancelled() || failure()
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: claude-wip-${{ github.run_id }}
-          path: ${{ runner.temp }}/claude-wip.patch
-          if-no-files-found: ignore
-          retention-days: 30
