@@ -383,10 +383,6 @@ jobs:
           prompt: ${{ steps.prompt.outputs.text }}
           track_progress: ${{ github.event_name != 'workflow_dispatch' }}
 
-      # The action commits/pushes (via the API under commit signing) only at the end, so a
-      # cancel or timeout before that leaves the work only in the runner's working tree.
-      # Capture it to a WIP branch + draft PR so the next @claude run can continue from it,
-      # and upload a patch as a fallback. Runs in the post-cancellation grace window.
       - name: Preserve work-in-progress on cancel or failure
         if: cancelled() || failure()
         env:
