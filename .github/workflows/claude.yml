@@ -382,3 +382,34 @@ jobs:
             ${{ inputs.debug && '--debug' || '' }}
           prompt: ${{ steps.prompt.outputs.text }}
           track_progress: ${{ github.event_name != 'workflow_dispatch' }}
+
+      - name: Preserve work-in-progress on cancel or failure
+        if: cancelled() || failure()
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PREFIX: ${{ steps.prefix.outputs.value }}
+          ISSUE: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          RUN_ID: ${{ github.run_id }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -uo pipefail
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No uncommitted changes to preserve."
+            exit 0
+          fi
+          wip="${PREFIX}wip-${ISSUE:-$RUN_ID}"
+          git switch -c "$wip"
+          git add -A
+          git commit -m "wip: partial work from an unfinished agent run [skip ci]"
+          if ! git push -u origin "$wip"; then
+            echo "Push rejected; the work remains in this run's --debug log for manual recovery."
+            exit 0
+          fi
+          echo "Preserved working tree on branch: $wip"
+          [ -n "$ISSUE" ] || exit 0
+          body="$(printf 'Auto-saved partial work from a run that was cancelled before it finished (timed out or failed). For #%s - a maintainer can review this branch and continue it; there is no automatic resume.\n\nRun: %s' "$ISSUE" "$RUN_URL")"
+          gh pr create --draft --base "$DEFAULT_BRANCH" --head "$wip" \
+            --title "wip: ${ISSUE_TITLE:-partial work} (run did not finish)" --body "$body" \
+            || echo "Draft PR not created (one may already exist)."
