@@ -266,6 +266,38 @@ maintainer reviews each PR and merges
 
 Converted from the former standalone `bump-codex.yml`: codex used to be a local-authoring CLI only, so its bump touched `.flox/env/*` alone. Now that it is also a bot, `migrate-codex.yml` folds the Flox catalog-pin bump into the caller migration, exactly as `migrate-claude.yml` folds in the `claude-code` bump - catalog package, latest from `flox show codex`, `pkg-group` isolation so the raised floor resolves independently of co-resident packages, bare `flox activate -- true` to canonicalize `manifest.lock`. It needs `workflows: write` (it now writes `.github/workflows/codex.yml`), the same scope `migrate-claude` / `migrate-infer` already hold. codex-action ships no semver release (only tags `v1`..`v1.8`), so the codex-action half of the PR title is best-effort. Like the other migrations it opens PRs (mechanical, reviewable) and defaults `dry_run: true`.
 
+## How the reusable release workflow works
+
+`release.yml` is the org's single semantic-release implementation, shared the same way as the `@claude`/`@infer`/`@codex` workflows. It is **dual-trigger**: `workflow_dispatch` cuts `.github`'s own release, and `workflow_call` lets any repo run the identical pipeline from a thin caller. The boilerplate - maintainer-App token, bot git identity, full-history checkout, Node, the global semantic-release install, and the `dry_run`-gated `--dry-run` version detection + real release - lives here once; each caller keeps only its own `.releaserc.yaml`.
+
+```
+caller .github/workflows/release.yml (workflow_dispatch, ~12 lines)
+   │  with: { dry_run }, secrets: inherit
+   ▼
+reusable inference-gateway/.github/.github/workflows/release.yml@<ref>
+   │  checks out the caller, installs the base plugins (+ extra-plugins),
+   │  runs semantic-release against the caller's own .releaserc.yaml
+   ▼
+GitHub Release + CHANGELOG.md commit + vX.Y.Z tag (as the maintainer bot)
+```
+
+Thin caller (defaults to a safe `dry_run: true` preview):
+
+```yaml
+jobs:
+  release:
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    uses: inference-gateway/.github/.github/workflows/release.yml@vX.Y.Z
+    with:
+      dry_run: ${{ inputs.dry_run }}
+    secrets: inherit
+```
+
+Inputs (all optional): `dry_run` (default `true`), `node-version` (default `24.15.0`), `semantic-release-version` (default `25.0.2`), and `extra-plugins` - whitespace-separated extras appended to the base set (`conventional-changelog-conventionalcommits @semantic-release/changelog @semantic-release/git @semantic-release/github`), e.g. `@semantic-release/npm` for an npm-published SDK or `@semantic-release/exec` for a repo that bumps an in-tree version file. The maintainer-App secrets (`BOT_GH_APP_ID`, `BOT_GH_APP_PRIVATE_KEY`, both org-wide) reach it via `secrets: inherit`; it exposes `new_release_version` and `new_release_published` outputs for downstream jobs. Build-heavy repos (the `cli`, agent `cd.yml`) keep their bespoke pipelines.
+
 ## Layout
 
 ```
@@ -289,6 +321,7 @@ Converted from the former standalone `bump-codex.yml`: codex used to be a local-
     claude.yml                # reusable @claude workflow (workflow_call)
     infer.yml                 # reusable @infer workflow (workflow_call)
     codex.yml                 # reusable @codex workflow (workflow_call)
+    release.yml               # reusable semantic-release (workflow_call + workflow_dispatch)
 repos.yaml                    # single downstream registry - drives every matrix
 profile/                      # GitHub-rendered org profile
 ```

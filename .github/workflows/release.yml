@@ -2,6 +2,35 @@
 name: Release
 
 on:
+  workflow_call:
+    inputs:
+      dry_run:
+        description: 'Compute and report the next version via semantic-release --dry-run only; skip the real release. Set false to actually cut a release.'
+        required: false
+        type: boolean
+        default: true
+      node-version:
+        description: 'Node.js version used to run semantic-release.'
+        required: false
+        type: string
+        default: "24.15.0"
+      semantic-release-version:
+        description: 'semantic-release version installed globally.'
+        required: false
+        type: string
+        default: "25.0.2"
+      extra-plugins:
+        description: 'Extra npm packages (whitespace-separated) installed alongside the base plugins, e.g. "@semantic-release/npm @semantic-release/exec".'
+        required: false
+        type: string
+        default: ""
+    outputs:
+      new_release_version:
+        description: 'Next/published version computed by semantic-release.'
+        value: ${{ jobs.github_release.outputs.new_release_version }}
+      new_release_published:
+        description: 'Whether a real release was published.'
+        value: ${{ jobs.github_release.outputs.new_release_published }}
   workflow_dispatch:
     inputs:
       dry_run:
@@ -9,6 +38,21 @@ on:
         required: false
         type: boolean
         default: true
+      node-version:
+        description: 'Node.js version used to run semantic-release.'
+        required: false
+        type: string
+        default: "24.15.0"
+      semantic-release-version:
+        description: 'semantic-release version installed globally.'
+        required: false
+        type: string
+        default: "25.0.2"
+      extra-plugins:
+        description: 'Extra npm packages (whitespace-separated) installed alongside the base plugins, e.g. "@semantic-release/npm @semantic-release/exec".'
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -56,15 +100,16 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6.4.0
         with:
-          node-version: "24.15.0"
+          node-version: ${{ inputs.node-version }}
 
       - name: Install semantic release and plugins
         run: |
-          npm install -g semantic-release@v25.0.2 \
+          npm install -g semantic-release@${{ inputs.semantic-release-version }} \
             conventional-changelog-conventionalcommits \
             @semantic-release/changelog \
             @semantic-release/git \
-            @semantic-release/github
+            @semantic-release/github \
+            ${{ inputs.extra-plugins }}
 
       - name: Create a release if needed
         id: semantic
