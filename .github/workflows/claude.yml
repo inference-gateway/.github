@@ -382,3 +382,48 @@ jobs:
             ${{ inputs.debug && '--debug' || '' }}
           prompt: ${{ steps.prompt.outputs.text }}
           track_progress: ${{ github.event_name != 'workflow_dispatch' }}
+
+      # The action commits/pushes (via the API under commit signing) only at the end, so a
+      # cancel or timeout before that leaves the work only in the runner's working tree.
+      # Capture it to a WIP branch + draft PR so the next @claude run can continue from it,
+      # and upload a patch as a fallback. Runs in the post-cancellation grace window.
+      - name: Preserve work-in-progress on cancel or failure
+        if: cancelled() || failure()
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PREFIX: ${{ steps.prefix.outputs.value }}
+          ISSUE: ${{ github.event.issue.number }}
+          RUN_ID: ${{ github.run_id }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -uo pipefail
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No uncommitted changes to preserve."
+            exit 0
+          fi
+          wip="${PREFIX}wip-${ISSUE:-$RUN_ID}"
+          git switch -c "$wip"
+          git add -A
+          git commit -m "wip: partial work from an unfinished @claude run [skip ci]"
+          git format-patch -1 --stdout > "${RUNNER_TEMP}/claude-wip.patch" || true
+          if git push -u origin "$wip"; then
+            echo "Preserved working tree on branch: $wip"
+            if [ -n "$ISSUE" ]; then
+              body="$(printf 'The @claude run was cancelled (timed out or failed) before it finished and opened its own PR, so its in-progress working tree was auto-committed here.\n\n- Run: %s\n- Resume: comment @claude continue on this PR and the action checks out this branch and continues from these commits.\n\nAuto-saved by the preserve-on-cancel step; review before merging.' "$RUN_URL")"
+              gh pr create --draft --base "$DEFAULT_BRANCH" --head "$wip" \
+                --title "wip: unfinished @claude run for #$ISSUE" --body "$body" \
+                || echo "Draft PR not created (one may already exist)."
+            fi
+          else
+            echo "Push failed; the uploaded patch artifact is the fallback."
+          fi
+
+      - name: Upload work-in-progress patch
+        if: cancelled() || failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-wip-${{ github.run_id }}
+          path: ${{ runner.temp }}/claude-wip.patch
+          if-no-files-found: ignore
+          retention-days: 30
