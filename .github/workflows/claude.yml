@@ -421,7 +421,7 @@ jobs:
 
       - name: Upload work-in-progress patch
         if: cancelled() || failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: claude-wip-${{ github.run_id }}
           path: ${{ runner.temp }}/claude-wip.patch
