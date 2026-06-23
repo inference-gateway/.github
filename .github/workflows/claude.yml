@@ -409,8 +409,7 @@ jobs:
           fi
           echo "Preserved working tree on branch: $wip"
           [ -n "$ISSUE" ] || exit 0
-          files="$(git diff --stat HEAD~1 HEAD)"
-          body="$(printf 'Auto-saved partial work from a run that was cancelled (it timed out or failed before finishing and opening its own PR).\n\nA maintainer should review and decide how to continue - there is no automatic resume.\n\nRun: %s\n\n<pre>%s</pre>' "$RUN_URL" "$files")"
+          body="$(printf 'Auto-saved partial work from a run that was cancelled before it finished (timed out or failed). For #%s - a maintainer can review this branch and continue it; there is no automatic resume.\n\nRun: %s' "$ISSUE" "$RUN_URL")"
           gh pr create --draft --base "$DEFAULT_BRANCH" --head "$wip" \
             --title "wip: ${ISSUE_TITLE:-partial work} (run did not finish)" --body "$body" \
             || echo "Draft PR not created (one may already exist)."
