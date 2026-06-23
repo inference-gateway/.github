@@ -389,6 +389,7 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PREFIX: ${{ steps.prefix.outputs.value }}
           ISSUE: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
           RUN_ID: ${{ github.run_id }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -401,15 +402,15 @@ jobs:
           wip="${PREFIX}wip-${ISSUE:-$RUN_ID}"
           git switch -c "$wip"
           git add -A
-          git commit -m "wip: partial work from an unfinished @claude run [skip ci]"
-          if git push -u origin "$wip"; then
-            echo "Preserved working tree on branch: $wip"
-            if [ -n "$ISSUE" ]; then
-              body="$(printf 'The @claude run was cancelled (timed out or failed) before it finished and opened its own PR, so its in-progress working tree was auto-committed here.\n\n- Run: %s\n- Resume: comment @claude continue on this PR and the action checks out this branch and continues from these commits.\n\nAuto-saved by the preserve-on-cancel step; review before merging.' "$RUN_URL")"
-              gh pr create --draft --base "$DEFAULT_BRANCH" --head "$wip" \
-                --title "wip: unfinished @claude run for #$ISSUE" --body "$body" \
-                || echo "Draft PR not created (one may already exist)."
-            fi
-          else
-            echo "Push rejected (e.g. branch protection); the work also remains in this run's --debug log for manual recovery."
+          git commit -m "wip: partial work from an unfinished agent run [skip ci]"
+          if ! git push -u origin "$wip"; then
+            echo "Push rejected; the work remains in this run's --debug log for manual recovery."
+            exit 0
           fi
+          echo "Preserved working tree on branch: $wip"
+          [ -n "$ISSUE" ] || exit 0
+          files="$(git diff --stat HEAD~1 HEAD)"
+          body="$(printf 'Auto-saved partial work from a run that was cancelled (it timed out or failed before finishing and opening its own PR).\n\nA maintainer should review and decide how to continue - there is no automatic resume.\n\nRun: %s\n\n<pre>%s</pre>' "$RUN_URL" "$files")"
+          gh pr create --draft --base "$DEFAULT_BRANCH" --head "$wip" \
+            --title "wip: ${ISSUE_TITLE:-partial work} (run did not finish)" --body "$body" \
+            || echo "Draft PR not created (one may already exist)."
