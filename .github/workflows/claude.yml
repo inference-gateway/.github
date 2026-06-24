@@ -134,7 +134,7 @@ jobs:
           repo-token: ${{ steps.app-token.outputs.token }}
 
       - name: Install Flox
-        uses: flox/install-flox-action@v2.5.1
+        uses: flox/install-flox-action@v2.5.2
         with:
           version: "1.13.0"
 
@@ -363,7 +363,7 @@ jobs:
 
       - name: Run Claude Code
         id: claude
-        uses: anthropics/claude-code-action@v1.0.152
+        uses: anthropics/claude-code-action@v1.0.155
         with:
           github_token: ${{ steps.app-token.outputs.token }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

@@ -131,7 +131,7 @@ jobs:
           repo-token: ${{ steps.app-token.outputs.token }}
 
       - name: Install Flox
-        uses: flox/install-flox-action@v2.5.1
+        uses: flox/install-flox-action@v2.5.2
         with:
           version: "1.13.0"
 
@@ -262,7 +262,7 @@ jobs:
 
       - name: Run Codex
         id: codex
-        uses: openai/codex-action@v1.8
+        uses: openai/codex-action@v1.9
         env:
           GITHUB_TOKEN: ${{ github.token }}
           RUST_LOG: ${{ inputs.debug && 'debug' || '' }}
