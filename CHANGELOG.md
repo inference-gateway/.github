@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.14.0](https://github.com/inference-gateway/.github/compare/v0.13.0...v0.14.0) (2026-06-24)
+
+### ✨ Features
+
+* **claude:** preserve work-in-progress when a run is cancelled or times out ([#83](https://github.com/inference-gateway/.github/issues/83)) ([16f3fcc](https://github.com/inference-gateway/.github/commit/16f3fcc093c32a19bf3e96d6ba48a721aa4bdd6b))
+
+### 👷 CI
+
+* **release:** use dynamic GitHub App user details for author and committer ([bd9f1a4](https://github.com/inference-gateway/.github/commit/bd9f1a43b228a3403bcbb88366c156d4d1d8c00b))
+
+### 🔧 Miscellaneous
+
+* **deps:** bump the github-actions group with 4 updates ([#84](https://github.com/inference-gateway/.github/issues/84)) ([b0fbc09](https://github.com/inference-gateway/.github/commit/b0fbc096a83ee9a1dd0255dd68fd185a9561a70f))
+
 ## [0.13.0](https://github.com/inference-gateway/.github/compare/v0.12.1...v0.13.0) (2026-06-22)
 
 ### ✨ Features
