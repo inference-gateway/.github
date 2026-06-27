@@ -249,16 +249,3 @@ targets:
       claude: {}
       infer: {}
       codex: {}
-
-  # --- Operating System (A new way to monitor and process tickets as they flow into the system).  ---
-  - name: os
-    kind: tooling
-    language: bun
-    orchestrators:
-      claude:
-        browser: true
-        debug: true
-      infer:
-        debug: true
-      codex:
-        debug: true
