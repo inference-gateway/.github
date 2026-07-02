@@ -140,32 +140,32 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Install task
-        uses: arduino/setup-task@v2.0.0
+        uses: arduino/setup-task@v3.0.0
         with:
           version: 3.48.0
           repo-token: ${{ steps.app-token.outputs.token }}
 
       - name: Install Flox
-        uses: flox/install-flox-action@v2.5.2
+        uses: flox/install-flox-action@v2.5.3
         with:
           version: "1.13.0"
 
       - name: Set up Go
         if: inputs.language == 'go'
-        uses: actions/setup-go@v6.4.0
+        uses: actions/setup-go@v6.5.0
         with:
           go-version-file: 'go.mod'
           cache: true
 
       - name: Set up Rust
         if: inputs.language == 'rust'
-        uses: actions-rust-lang/setup-rust-toolchain@v1.16.1
+        uses: actions-rust-lang/setup-rust-toolchain@v1.17.0
         with:
           components: clippy, rustfmt
 
       - name: Set up Python
         if: inputs.language == 'python'
-        uses: actions/setup-python@v6.2.0
+        uses: actions/setup-python@v6.3.0
         with:
           python-version: '3.x'
 
@@ -237,7 +237,7 @@ jobs:
         uses: inference-gateway/.github/.github/actions/bot-instructions@main
 
       - name: Run Infer Agent
-        uses: inference-gateway/infer-action@v0.19.1
+        uses: inference-gateway/infer-action@v0.20.0
         with:
           version: ${{ inputs.cli-version }}
           github-token: ${{ steps.app-token.outputs.token }}

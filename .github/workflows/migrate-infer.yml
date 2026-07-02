@@ -149,7 +149,7 @@ jobs:
           fi
 
       - name: Install Flox
-        uses: flox/install-flox-action@v2.5.2
+        uses: flox/install-flox-action@v2.5.3
         with:
           version: "1.13.0"
 
