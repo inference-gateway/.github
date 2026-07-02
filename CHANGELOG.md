@@ -2,6 +2,8 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.14.7](https://github.com/inference-gateway/.github/compare/v0.14.6...v0.14.7) (2026-07-02)
+
 ## [0.14.6](https://github.com/inference-gateway/.github/compare/v0.14.5...v0.14.6) (2026-07-02)
 
 ## [0.14.5](https://github.com/inference-gateway/.github/compare/v0.14.4...v0.14.5) (2026-06-30)
