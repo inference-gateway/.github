@@ -119,6 +119,7 @@ jobs:
           repositories: |
             ${{ github.event.repository.name }}
             .github
+            .memory
             docs
 
       - name: Get GitHub App User ID
@@ -237,9 +238,10 @@ jobs:
         uses: inference-gateway/.github/.github/actions/bot-instructions@main
 
       - name: Run Infer Agent
-        uses: inference-gateway/infer-action@v0.20.2
+        uses: inference-gateway/infer-action@v0.21.0
         with:
           version: ${{ inputs.cli-version }}
+          memory-repo: https://github.com/inference-gateway/.memory
           github-token: ${{ steps.app-token.outputs.token }}
           github-app-slug: ${{ steps.app-token.outputs.app-slug }}
           trigger-phrase: ${{ inputs.trigger-phrase }}
