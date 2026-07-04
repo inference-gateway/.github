@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.14.15](https://github.com/inference-gateway/.github/compare/v0.14.14...v0.14.15) (2026-07-04)
+
+### 👷 CI
+
+* **deps:** update infer-action version to v0.23.4 ([33bdb23](https://github.com/inference-gateway/.github/commit/33bdb23413dee935d67918be78ed35d63dcfcee0))
+
 ## [0.14.14](https://github.com/inference-gateway/.github/compare/v0.14.13...v0.14.14) (2026-07-04)
 
 ### 👷 CI
