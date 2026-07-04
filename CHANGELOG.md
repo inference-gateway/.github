@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.15.0](https://github.com/inference-gateway/.github/compare/v0.14.16...v0.15.0) (2026-07-04)
+
+### ✨ Features
+
+* add Claude Code subscription support to infer workflow ([d2a358d](https://github.com/inference-gateway/.github/commit/d2a358d661034a022880cb50807f9e72d8353faf))
+
+### 🔧 Miscellaneous
+
+* **deps:** update default infer CLI version to v0.132.0 ([29fad0a](https://github.com/inference-gateway/.github/commit/29fad0a09991a4de3b6bba70ad9dadb857574458))
+* update flox dependencies ([426dd30](https://github.com/inference-gateway/.github/commit/426dd3002af45cd019251945f852b69c289e07fc))
+
 ## [0.14.16](https://github.com/inference-gateway/.github/compare/v0.14.15...v0.14.16) (2026-07-04)
 
 ### 👷 CI
