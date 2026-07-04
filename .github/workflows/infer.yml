@@ -238,7 +238,7 @@ jobs:
         uses: inference-gateway/.github/.github/actions/bot-instructions@main
 
       - name: Run Infer Agent
-        uses: inference-gateway/infer-action@v0.23.4
+        uses: inference-gateway/infer-action@v0.23.6
         with:
           version: ${{ inputs.cli-version }}
           memory-repo: https://github.com/inference-gateway/.memory
