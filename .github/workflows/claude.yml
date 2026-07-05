@@ -262,7 +262,7 @@ jobs:
               rust)             tools="$tools,Bash(cargo:*),Bash(rustup:*),Bash(rustc:*)" ;;
               typescript|node)  tools="$tools,Bash(node:*),Bash(npm:*)" ;;
               python)           tools="$tools,Bash(python:*),Bash(python3:*)" ;;
-              bun)              tools="$tools,Bash(bun install:*),Bash(bun add:*),Bash(bun remove:*),Bash(bun update:*),Bash(bun run:*),Bash(bun test:*),Bash(bun build:*)" ;;
+              bun)              tools="$tools,Bash(bun:*),Bash(bunx:*)" ;;
             esac
             [ "$NODE" = "true" ]       && tools="$tools,Bash(node:*),Bash(npm:*)"
             [ "$CONTEXT7" = "true" ]   && tools="$tools,mcp__context7"
