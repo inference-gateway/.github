@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.15.2](https://github.com/inference-gateway/.github/compare/v0.15.1...v0.15.2) (2026-07-05)
+
+### 👷 CI
+
+* **deps:** update Claude Code Action to version 1.0.165 ([99dbace](https://github.com/inference-gateway/.github/commit/99dbace67855013ca028e8935215ad8224685e21))
+
 ## [0.15.1](https://github.com/inference-gateway/.github/compare/v0.15.0...v0.15.1) (2026-07-04)
 
 ### 👷 CI
