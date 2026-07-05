@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.15.3](https://github.com/inference-gateway/.github/compare/v0.15.2...v0.15.3) (2026-07-05)
+
+### 👷 CI
+
+* broaden bun tool allowlist to match other languages ([#86](https://github.com/inference-gateway/.github/issues/86)) ([299a5ce](https://github.com/inference-gateway/.github/commit/299a5ce48d7123519ba9da62ceda56ed1cf22c02))
+
 ## [0.15.2](https://github.com/inference-gateway/.github/compare/v0.15.1...v0.15.2) (2026-07-05)
 
 ### 👷 CI
