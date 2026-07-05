@@ -1,7 +1,7 @@
 name: Resolve targets
 description: >
-  Read repos.yaml, filter entries by a jq per-entry boolean expression, optionally narrow to a
-  single target by name, and emit a compact JSON array for use as a fan-out matrix. Must run after
+  Read repos.yaml, filter entries by a jq per-entry boolean expression, optionally narrow to one or
+  more targets by name, and emit a compact JSON array for use as a fan-out matrix. Must run after
   actions/checkout of the .github repo (repos.yaml is read from the repo root). Replaces the
   copy-pasted "read repos.yaml + build matrix + narrow to one target" step in every orchestrator.
 
@@ -16,8 +16,10 @@ inputs:
     default: "true"
   repository:
     description: >
-      Optional single target name to narrow to (for dry / one-repo testing). Empty = all entries
-      matching `select`. Fails if the name matches no entry in the filtered set.
+      Optional target name(s) to narrow to (for dry / one-repo or few-repo testing). Accepts a
+      single name or a comma-separated list (surrounding whitespace tolerated), e.g. "docs" or
+      "docs, infer-action,schemas". Empty = all entries matching `select`. Fails listing any
+      requested name that matches no entry in the filtered set.
     required: false
     default: ""
 
@@ -41,9 +43,18 @@ runs:
         # 2. Per-entry filter via jq. SELECT is passed as an env var and expanded inside a
         #    double-quoted jq program so the double quotes it contains are jq string literals.
         targets=$(printf '%s' "$all" | jq -c "[.[] | select(${SELECT})]")
-        # 3. Optional single-target narrow (kept in jq so the yq shape stays constant).
+        # 3. Optional narrow to one or more named targets (single name or comma-separated list;
+        #    surrounding whitespace tolerated). Kept in jq so the yq shape stays constant.
         if [ -n "${ONLY_REPO}" ]; then
-          targets=$(printf '%s' "$targets" | jq -c --arg n "${ONLY_REPO}" '[.[] | select(.name == $n)]')
+          wanted=$(jq -cn --arg s "${ONLY_REPO}" '$s | split(",") | map(gsub("^\\s+|\\s+$";"")) | map(select(length > 0))')
+          # Fail loudly listing every requested name that is absent from the select-filtered set,
+          # so a typo in a multi-repo dispatch does not silently run a subset.
+          missing=$(printf '%s' "$targets" | jq -c --argjson want "$wanted" '$want - [.[].name]')
+          if [ "$(printf '%s' "$missing" | jq 'length')" -ne 0 ]; then
+            echo "::error::repository $(printf '%s' "$missing" | jq -r 'join(", ")') not a matching target in repos.yaml (select=${SELECT})"
+            exit 1
+          fi
+          targets=$(printf '%s' "$targets" | jq -c --argjson want "$wanted" '[.[] | select(.name as $n | $want | index($n))]')
         fi
         # 4. Not-found / empty guard.
         if [ "$(printf '%s' "$targets" | jq 'length')" -eq 0 ]; then

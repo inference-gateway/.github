@@ -297,7 +297,7 @@ profile/                      # GitHub-rendered org profile
 
 Once the GitHub App secrets (`INFERENCE_GATEWAY_MAINTAINER_APP_ID`, `INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY`), the org-standard `CLAUDE_CODE_OAUTH_TOKEN`, and `OPENAI_API_KEY` (for `@codex`) are provisioned:
 
-Every fan-out workflow below defaults to `dry_run: true` on manual dispatch (safe preview). Add `-f dry_run=false` to act for real and `-f repository=<name>` to run on a single target first.
+Every fan-out workflow below defaults to `dry_run: true` on manual dispatch (safe preview). Add `-f dry_run=false` to act for real and `-f repository=<name>` to run on a single target first (or `-f repository=<name1>,<name2>` for a comma-separated subset).
 
 ```sh
 # Sync orchestrators (audit against current schemas main HEAD; spec-updated events file for real):
