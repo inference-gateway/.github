@@ -45,6 +45,10 @@ on:
         description: 'Newline-separated org skills to install (infer-action `skills`). Default none - the board-tracking + issue procedure is inlined in custom-instructions below, so no skill is required.'
         type: string
         default: ''
+      plugins:
+        description: 'Newline-separated org plugins to install (infer-action `plugins`). Default none.'
+        type: string
+        default: ''
       model:
         description: 'Model id passed to infer-action (provider/model)'
         type: string
@@ -266,7 +270,7 @@ jobs:
           echo "model=$model" >> "$GITHUB_OUTPUT"
 
       - name: Run Infer Agent
-        uses: inference-gateway/infer-action@v0.27.2
+        uses: inference-gateway/infer-action@v0.28.0
         with:
           version: ${{ inputs.cli-version }}
           memory-repo: https://github.com/inference-gateway/.memory
@@ -279,6 +283,7 @@ jobs:
           debug: ${{ inputs.debug }}
           mirror-agent-logs: ${{ inputs.debug }}
           skills: ${{ inputs.skills }}
+          plugins: ${{ inputs.plugins }}
           custom-instructions: ${{ steps.instr.outputs.combined }}
           bash-allow-append: ${{ steps.whitelist.outputs.patterns }}
           use-claude-code-subscription: ${{ steps.subscription.outputs.enabled }}
