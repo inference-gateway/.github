@@ -76,6 +76,10 @@ on:
         description: 'Enable Claude CLI debug logging (--debug -> stderr) and full JSON output (show_full_output) in the run log. Defaults false; turn on per-repo via repos.yaml for verbose agent logs (private repos only - debug output can include sensitive values).'
         type: boolean
         default: false
+      memory:
+        description: 'Persist Claude Code auto-memory across runs by syncing ~/.claude/memory to/from the private inference-gateway/.memory repo (claude branch). When false, memory stays ephemeral (per-run, machine-local).'
+        type: boolean
+        default: true
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN:
         description: 'OAuth token for anthropics/claude-code-action (callers use `secrets: inherit`)'
@@ -105,6 +109,7 @@ jobs:
           repositories: |
             ${{ github.event.repository.name }}
             .github
+            .memory
             docs
     
       - name: Get GitHub App User ID
@@ -361,11 +366,33 @@ jobs:
           printf '%s\n\n%s\n' "$body" "$common"
           echo "::endgroup::"
 
+      - name: Sync memory in (restore .memory@claude)
+        id: memory-sync-in
+        if: inputs.memory
+        env:
+          TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -uo pipefail
+          MEM_DIR="$HOME/.claude/memory"
+          remote="https://x-access-token:${TOKEN}@github.com/inference-gateway/.memory.git"
+          if git clone --depth 1 --single-branch --branch claude "$remote" "$MEM_DIR" 2>/dev/null; then
+            echo "Restored existing memory from .memory@claude."
+          else
+            echo "No .memory@claude branch yet; starting a fresh memory store."
+            rm -rf "$MEM_DIR"; mkdir -p "$MEM_DIR"
+            git -C "$MEM_DIR" init -q -b claude
+            git -C "$MEM_DIR" remote add origin "$remote"
+          fi
+          settings="$(jq -cn --arg d "$MEM_DIR" '{autoMemoryDirectory: $d}')"
+          { echo "settings=$settings"; echo "dir=$MEM_DIR"; } >> "$GITHUB_OUTPUT"
+          echo "Auto-memory relocated to: $MEM_DIR"
+
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1.0.165
         with:
           github_token: ${{ steps.app-token.outputs.token }}
+          settings: ${{ steps.memory-sync-in.outputs.settings }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           display_report: true
           show_full_output: ${{ inputs.debug }}
@@ -382,6 +409,27 @@ jobs:
             ${{ inputs.debug && '--debug' || '' }}
           prompt: ${{ steps.prompt.outputs.text }}
           track_progress: ${{ github.event_name != 'workflow_dispatch' }}
+
+      - name: Sync memory out (persist to .memory@claude)
+        if: ${{ always() && inputs.memory }}
+        run: |
+          set -uo pipefail
+          MEM_DIR="$HOME/.claude/memory"
+          if [ ! -d "$MEM_DIR/.git" ]; then
+            echo "Memory: no store initialized, nothing to sync." >> "$GITHUB_STEP_SUMMARY"; exit 0
+          fi
+          git -C "$MEM_DIR" add -A
+          if git -C "$MEM_DIR" diff --cached --quiet; then
+            echo "Memory: no changes to sync." >> "$GITHUB_STEP_SUMMARY"; exit 0
+          fi
+          git -C "$MEM_DIR" commit -q -m "chore(memory): sync from ${GITHUB_REPOSITORY} (run ${GITHUB_RUN_ID})"
+          if git -C "$MEM_DIR" push origin HEAD:claude 2>/dev/null; then
+            echo "Memory: synced to \`.memory@claude\`." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::Memory push to .memory@claude failed (best-effort); not persisted this run."
+            echo "Memory: push failed (best-effort), not persisted this run." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit 0
 
       - name: Preserve work-in-progress on cancel or failure
         if: cancelled() || failure()
