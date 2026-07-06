@@ -72,8 +72,6 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 
 | Repository | Description |
 |---|---|
-| [**adl**](https://github.com/inference-gateway/adl) | Agent Definition Language for declarative agent definitions |
-| [**adl-cli**](https://github.com/inference-gateway/adl-cli) | Scaffold and manage A2A-powered enterprise agents |
 | [**adk**](https://github.com/inference-gateway/adk) | Agent Development Kit (Go) |
 | [**typescript-adk**](https://github.com/inference-gateway/typescript-adk) | Agent Development Kit (TypeScript) |
 | [**rust-adk**](https://github.com/inference-gateway/rust-adk) | Agent Development Kit (Rust) |
@@ -93,6 +91,8 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 
 | Repository | Description |
 |---|---|
+| [**adl**](https://github.com/inference-gateway/adl) | Agent Definition Language for declarative agent definitions |
+| [**adl-cli**](https://github.com/inference-gateway/adl-cli) | Scaffold and manage A2A-powered enterprise agents |
 | [**a2a-debugger**](https://github.com/inference-gateway/a2a-debugger) | A2A agents troubleshooter |
 | [**registry**](https://github.com/inference-gateway/registry) | Registry for A2A agents and skills |
 | [**agents**](https://github.com/inference-gateway/agents) | Agents repository |
