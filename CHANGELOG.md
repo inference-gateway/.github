@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.16.5](https://github.com/inference-gateway/.github/compare/v0.16.4...v0.16.5) (2026-07-06)
+
+### 👷 CI
+
+* **deps:** update infer CLI version and action version 0.27.1 -> 0.27.2 ([ab2fabc](https://github.com/inference-gateway/.github/commit/ab2fabce88ea9ee7fff66ea5ed25c83c76d5c0fe))
+
 ## [0.16.4](https://github.com/inference-gateway/.github/compare/v0.16.3...v0.16.4) (2026-07-06)
 
 ### 👷 CI
