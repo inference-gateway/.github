@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.16.1](https://github.com/inference-gateway/.github/compare/v0.16.0...v0.16.1) (2026-07-06)
+
+### 🐛 Bug Fixes
+
+* **readme:** reorder repository list for clarity ([a4cd38b](https://github.com/inference-gateway/.github/commit/a4cd38b8ac47545ec28f8592a6ed0bf342be75ed))
+
+### 👷 CI
+
+* **deps:** bump infer-action and cli default versions to latest ([bfad79b](https://github.com/inference-gateway/.github/commit/bfad79bd720e5736a73264153deb07628758bb6b))
+
 ## [0.16.0](https://github.com/inference-gateway/.github/compare/v0.15.3...v0.16.0) (2026-07-06)
 
 ### ✨ Features
