@@ -56,7 +56,7 @@ on:
       cli-version:
         description: 'infer CLI version installed by infer-action (must be a release with published binaries)'
         type: string
-        default: v0.132.1
+        default: v0.133.0
       trigger-phrase:
         description: 'Mention that activates the bot'
         type: string
@@ -266,7 +266,7 @@ jobs:
           echo "model=$model" >> "$GITHUB_OUTPUT"
 
       - name: Run Infer Agent
-        uses: inference-gateway/infer-action@v0.24.0
+        uses: inference-gateway/infer-action@v0.26.0
         with:
           version: ${{ inputs.cli-version }}
           memory-repo: https://github.com/inference-gateway/.memory
@@ -294,3 +294,5 @@ jobs:
           ollama-api-key: ${{ secrets.OLLAMA_API_KEY }}
           ollama-cloud-api-key: ${{ secrets.OLLAMA_CLOUD_API_KEY }}
           moonshot-api-key: ${{ secrets.MOONSHOT_API_KEY }}
+          minimax-api-key: ${{ secrets.MINIMAX_API_KEY }}
+          nvidia-api-key: ${{ secrets.NVIDIA_API_KEY }}
