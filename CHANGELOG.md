@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.16.4](https://github.com/inference-gateway/.github/compare/v0.16.3...v0.16.4) (2026-07-06)
+
+### 👷 CI
+
+* **deps:** update Infer CLI version and action version ([024fa4d](https://github.com/inference-gateway/.github/commit/024fa4d0f33f4c979c9337bb6ac026f7811825a7))
+
 ## [0.16.3](https://github.com/inference-gateway/.github/compare/v0.16.2...v0.16.3) (2026-07-06)
 
 ### 👷 CI
