@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.16.0](https://github.com/inference-gateway/.github/compare/v0.15.3...v0.16.0) (2026-07-06)
+
+### ✨ Features
+
+* **claude:** persist auto-memory to .memory@claude across runs ([#89](https://github.com/inference-gateway/.github/issues/89)) ([2e449b3](https://github.com/inference-gateway/.github/commit/2e449b344a80fbe5eeef7069e64b59e78d734833)), closes [#88](https://github.com/inference-gateway/.github/issues/88)
+
+### 🐛 Bug Fixes
+
+* **resolve-targets:** accept comma-separated repository list ([#87](https://github.com/inference-gateway/.github/issues/87)) ([8b6e19c](https://github.com/inference-gateway/.github/commit/8b6e19c21f3f4a03d0aa55845563ada7782a1eb8))
+
 ## [0.15.3](https://github.com/inference-gateway/.github/compare/v0.15.2...v0.15.3) (2026-07-05)
 
 ### 👷 CI
