@@ -33,11 +33,15 @@
 #                              is a thin caller of the matching org reusable workflow. Three sub-blocks:
 #                                claude -> migrate-claude.yml operates on every `orchestrators.claude != null`
 #                                          entry; sub-keys map 1:1 to claude.yml inputs.
+#                                          `skills`/`plugins` accepted for forward-compat but unused.
 #                                infer  -> migrate-infer.yml operates on every `orchestrators.infer != null`
 #                                          entry; sub-keys map 1:1 to infer.yml inputs.
+#                                          `skills`  (string) Newline-separated org skills for infer-action. Default ''.
+#                                          `plugins` (string) Newline-separated org plugins for infer-action. Default ''.
 #                                codex  -> migrate-codex.yml operates on every `orchestrators.codex != null`
 #                                          entry; sub-keys map 1:1 to codex.yml inputs (no allowed-tools /
 #                                          extra-tools / browser / context7 analog - codex-action has none).
+#                                          `skills`/`plugins` accepted for forward-compat but unused.
 #                              The migrate workflows prepend the top-level `language` to each bot's
 #                              `with:` block, so the sub-blocks carry ONLY non-language inputs
 #                              (markdownlint, node, precommit, browser, allowed-tools, extra-tools,
@@ -62,7 +66,9 @@ targets:
     language: python
     orchestrators:
       claude: {}
-      infer: {}
+      infer:
+        plugins: |
+          DietrichGebert/ponytail
       codex: {}
   - name: typescript-sdk
     kind: sdk
@@ -72,6 +78,8 @@ targets:
         markdownlint: true
       infer:
         markdownlint: true
+        plugins: |
+          DietrichGebert/ponytail
       codex:
         markdownlint: true
   - name: rust-sdk
@@ -79,7 +87,9 @@ targets:
     language: rust
     orchestrators:
       claude: {}
-      infer: {}
+      infer:
+        plugins: |
+          DietrichGebert/ponytail
       codex: {}
   - name: sdk
     kind: sdk
@@ -87,7 +97,9 @@ targets:
     orchestrators:
       claude:
         node: true
-      infer: {}
+      infer:
+        plugins: |
+          DietrichGebert/ponytail
       codex:
         node: true
 
@@ -100,6 +112,8 @@ targets:
         markdownlint: true
       infer:
         markdownlint: true
+        plugins: |
+          DietrichGebert/ponytail
       codex:
         markdownlint: true
 
@@ -113,6 +127,8 @@ targets:
         markdownlint: true
       infer:
         markdownlint: true
+        plugins: |
+          DietrichGebert/ponytail
       codex:
         markdownlint: true
   - name: rust-adk
@@ -120,7 +136,9 @@ targets:
     language: rust
     orchestrators:
       claude: {}
-      infer: {}
+      infer:
+        plugins: |
+          DietrichGebert/ponytail
       codex: {}
   - name: typescript-adk
     kind: adk
@@ -131,6 +149,8 @@ targets:
         allowed-tools: "Bash(task:*),Bash(node:*),Bash(npm:*),Bash(pnpm:*)"
       infer:
         markdownlint: true
+        plugins: |
+          DietrichGebert/ponytail
       codex:
         markdownlint: true
 
@@ -166,6 +186,8 @@ targets:
         precommit: true
       infer:
         markdownlint: true
+        plugins: |
+          DietrichGebert/ponytail
       codex:
         markdownlint: true
         precommit: true
@@ -175,7 +197,9 @@ targets:
     orchestrators:
       claude:
         allowed-tools: "Bash(task:*),Bash(go:*)"
-      infer: {}
+      infer:
+        plugins: |
+          DietrichGebert/ponytail
       codex: {}
   - name: adl-cli
     kind: none
@@ -183,7 +207,9 @@ targets:
     orchestrators:
       claude:
         node: true
-      infer: {}
+      infer:
+        plugins: |
+          DietrichGebert/ponytail
       codex:
         node: true
   - name: adl
@@ -192,7 +218,9 @@ targets:
     orchestrators:
       claude:
         browser: true
-      infer: {}
+      infer:
+        plugins: |
+          DietrichGebert/ponytail
       codex: {}
   - name: inference-gateway
     kind: none
@@ -201,7 +229,9 @@ targets:
       claude:
         node: true
         extra-tools: "Bash(helm:*)"
-      infer: {}
+      infer:
+        plugins: |
+          DietrichGebert/ponytail
       codex:
         node: true
   - name: infer-action
@@ -209,14 +239,18 @@ targets:
     language: bun
     orchestrators:
       claude: {}
-      infer: {}
+      infer:
+        plugins: |
+          DietrichGebert/ponytail
       codex: {}
   - name: operator
     kind: none
     language: go
     orchestrators:
       claude: {}
-      infer: {}
+      infer:
+        plugins: |
+          DietrichGebert/ponytail
       codex: {}
   - name: registry
     kind: none
@@ -226,6 +260,8 @@ targets:
         markdownlint: true
       infer:
         markdownlint: true
+        plugins: |
+          DietrichGebert/ponytail
       codex:
         markdownlint: true
   - name: schemas
@@ -233,19 +269,25 @@ targets:
     language: bun
     orchestrators:
       claude: {}
-      infer: {}
+      infer:
+        plugins: |
+          DietrichGebert/ponytail
       codex: {}
   - name: skills
     kind: none
     language: node
     orchestrators:
       claude: {}
-      infer: {}
+      infer:
+        plugins: |
+          DietrichGebert/ponytail
       codex: {}
   - name: agents
     kind: none
     language: node
     orchestrators:
       claude: {}
-      infer: {}
+      infer:
+        plugins: |
+          DietrichGebert/ponytail
       codex: {}

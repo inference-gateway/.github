@@ -237,7 +237,7 @@ jobs:
           mkdir -p .github/workflows
 
           with_block=$(echo "$CODEX_JSON" | jq -r --arg lang "$LANG" '
-            {language: $lang} + .
+            {language: $lang} + . | del(.skills, .plugins)
             | to_entries
             | map("      \(.key): \(.value | if type == "string" then "\"\(.)\"" else tostring end)")
             | .[]')
