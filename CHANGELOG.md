@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.17.0](https://github.com/inference-gateway/.github/compare/v0.16.5...v0.17.0) (2026-07-06)
+
+### ✨ Features
+
+* plumb skills and plugins through infer orchestrator ([25ce7f2](https://github.com/inference-gateway/.github/commit/25ce7f2120c750fb50f986b29008b31db0d3d1c4))
+
+### 👷 CI
+
+* **deps:** update infer.yml to include plugins input ([1cb5257](https://github.com/inference-gateway/.github/commit/1cb5257a569878505d986ff21189b49b8e74c967))
+
+### 🔧 Miscellaneous
+
+* update flox manifest dependencies ([0d34f7c](https://github.com/inference-gateway/.github/commit/0d34f7c5963170dbf3ce18f6e03655920957e39a))
+
 ## [0.16.5](https://github.com/inference-gateway/.github/compare/v0.16.4...v0.16.5) (2026-07-06)
 
 ### 👷 CI
