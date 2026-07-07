@@ -259,7 +259,6 @@ jobs:
           ESCALATION: ${{ steps.instr.outputs.escalation }}
         run: |
           set -euo pipefail
-          # board.md only applies to issue-triggered work; PR comments and workflow_dispatch drop it.
           if [ "$EVENT" = "issues" ] || { [ "$EVENT" = "issue_comment" ] && [ "$IS_PR_COMMENT" != "true" ]; }; then
             text="$(printf '%s\n\n%s\n\n%s\n\n%s\n\n%s\n\n%s' "$BOARD" "$FOLLOWUPS" "$STYLE" "$RELEASES" "$SANDBOX" "$ESCALATION")"
           else
