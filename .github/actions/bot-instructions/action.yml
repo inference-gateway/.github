@@ -2,12 +2,14 @@
 name: Bot instructions
 description: >
   Canonical @claude / @infer prompt blocks - Roadmap 2026 board-tracking (board.md), docs +
-  downstream follow-up issues (followups.md), writing style (style.md), and permission-escalation
+  downstream follow-up issues (followups.md), writing style (style.md), release-automation policy
+  (releases.md), infer CI bash-sandbox mechanics (sandbox.md), and permission-escalation
   (escalation.md) - shared by the reusable claude.yml and infer.yml so they are maintained in ONE
-  place. Emits the outputs `board`, `followups`, `style`, `escalation`, and `combined` (all four,
-  blank-line separated). The reusable workflows reference this action cross-repo at `@main`, so
-  editing the .md files updates both bots org-wide without re-tagging. The output names are a stable
-  contract (old pinned workflow files reference them) - edit the text, never rename the outputs.
+  place. Emits each file as an output plus `combined` (all six, blank-line separated, escalation
+  LAST - board.md and followups.md point at "the rule below"). The reusable workflows reference
+  this action cross-repo at `@main`, so editing the .md files updates the bots org-wide without
+  re-tagging. The output names are a stable contract (old pinned workflow files reference them) -
+  edit the text, never rename the outputs.
 
 outputs:
   board:
@@ -19,11 +21,17 @@ outputs:
   style:
     description: 'Writing-style rule: no em/en dash, use a hyphen (applies in all contexts).'
     value: ${{ steps.emit.outputs.style }}
+  releases:
+    description: 'Release-automation policy: semantic-release owns versions, changelogs, tags, and publishing (applies in all contexts).'
+    value: ${{ steps.emit.outputs.releases }}
+  sandbox:
+    description: 'Infer CI bash-sandbox mechanics: one bare command per call, --body-file for multi-line text (infer-specific).'
+    value: ${{ steps.emit.outputs.sandbox }}
   escalation:
     description: 'Permission-escalation instructions (applies in all contexts).'
     value: ${{ steps.emit.outputs.escalation }}
   combined:
-    description: 'board + followups + style + escalation, blank-line separated (for infer custom-instructions).'
+    description: 'board + followups + style + releases + sandbox + escalation, blank-line separated (for infer custom-instructions).'
     value: ${{ steps.emit.outputs.combined }}
 
 runs:
@@ -36,11 +44,15 @@ runs:
         board="$(cat "$GITHUB_ACTION_PATH/board.md")"
         followups="$(cat "$GITHUB_ACTION_PATH/followups.md")"
         style="$(cat "$GITHUB_ACTION_PATH/style.md")"
+        releases="$(cat "$GITHUB_ACTION_PATH/releases.md")"
+        sandbox="$(cat "$GITHUB_ACTION_PATH/sandbox.md")"
         escalation="$(cat "$GITHUB_ACTION_PATH/escalation.md")"
         {
           printf 'board<<__BI_EOF__\n%s\n__BI_EOF__\n' "$board"
           printf 'followups<<__BI_EOF__\n%s\n__BI_EOF__\n' "$followups"
           printf 'style<<__BI_EOF__\n%s\n__BI_EOF__\n' "$style"
+          printf 'releases<<__BI_EOF__\n%s\n__BI_EOF__\n' "$releases"
+          printf 'sandbox<<__BI_EOF__\n%s\n__BI_EOF__\n' "$sandbox"
           printf 'escalation<<__BI_EOF__\n%s\n__BI_EOF__\n' "$escalation"
-          printf 'combined<<__BI_EOF__\n%s\n\n%s\n\n%s\n\n%s\n__BI_EOF__\n' "$board" "$followups" "$style" "$escalation"
+          printf 'combined<<__BI_EOF__\n%s\n\n%s\n\n%s\n\n%s\n\n%s\n\n%s\n__BI_EOF__\n' "$board" "$followups" "$style" "$releases" "$sandbox" "$escalation"
         } >> "$GITHUB_OUTPUT"
