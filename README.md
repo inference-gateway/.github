@@ -272,7 +272,7 @@ Converted from the former standalone `bump-codex.yml`: codex used to be a local-
 .github/
   actions/
     resolve-targets/          # composite action: repos.yaml + jq select -> matrix
-    bot-instructions/         # composite action: shared @claude/@infer/@codex board-tracking + escalation prompt
+    bot-instructions/         # composite action: shared @claude/@infer/@codex board-tracking + release-policy + sandbox + escalation prompt
   ISSUE_TEMPLATE/             # org-default issue templates (feature, refactor, bug, documentation)
   workflows/
     sync-sdks.yml             # SDK + docs audit against OpenAPI (kind: sdk | docs)
