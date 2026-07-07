@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.18.0](https://github.com/inference-gateway/.github/compare/v0.17.1...v0.18.0) (2026-07-07)
+
+### ✨ Features
+
+* **bot-instructions:** fold .memory lessons into the shared prompt and tighten it ([#90](https://github.com/inference-gateway/.github/issues/90)) ([8edb92c](https://github.com/inference-gateway/.github/commit/8edb92c0cf2c8c773f834f8f5d6bb9937d374226))
+* **infer:** compose custom-instructions per trigger to cut prompt tokens ([#92](https://github.com/inference-gateway/.github/issues/92)) ([62520d0](https://github.com/inference-gateway/.github/commit/62520d0a60b704726c93765ab56acf9fdb8796e4))
+
 ## [0.17.1](https://github.com/inference-gateway/.github/compare/v0.17.0...v0.17.1) (2026-07-07)
 
 ### 🔧 Miscellaneous
