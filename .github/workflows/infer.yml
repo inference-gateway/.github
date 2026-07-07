@@ -15,8 +15,10 @@ name: Infer (reusable)
 #
 # The `custom-instructions` (board-tracking, follow-up issues, writing style, and permission-
 # escalation) come from the shared `inference-gateway/.github/.github/actions/bot-instructions`
-# composite action (its `combined` output), so that prompt text is maintained ONCE and shared with
-# the reusable claude.yml.
+# composite action, so that prompt text is maintained ONCE and shared with the reusable
+# claude.yml. They are composed PER TRIGGER (mirroring claude.yml's "Compose prompt" context
+# resolution): board.md only applies to issue-triggered work, so PR-comment and
+# workflow_dispatch runs drop it instead of carrying ~350 dead tokens; escalation stays last.
 #
 # Tools model: infer-action v0.12.0+ owns the read-only bash allow baseline (file reads, read-only
 # git/gh, gh project reads) plus, when git ops are on, the PR-workflow writes (git add/commit/push,
@@ -244,6 +246,27 @@ jobs:
         id: instr
         uses: inference-gateway/.github/.github/actions/bot-instructions@main
 
+      - name: Compose custom instructions
+        id: custom
+        env:
+          EVENT: ${{ github.event_name }}
+          IS_PR_COMMENT: ${{ github.event.issue.pull_request != null }}
+          BOARD: ${{ steps.instr.outputs.board }}
+          FOLLOWUPS: ${{ steps.instr.outputs.followups }}
+          STYLE: ${{ steps.instr.outputs.style }}
+          RELEASES: ${{ steps.instr.outputs.releases }}
+          SANDBOX: ${{ steps.instr.outputs.sandbox }}
+          ESCALATION: ${{ steps.instr.outputs.escalation }}
+        run: |
+          set -euo pipefail
+          # board.md only applies to issue-triggered work; PR comments and workflow_dispatch drop it.
+          if [ "$EVENT" = "issues" ] || { [ "$EVENT" = "issue_comment" ] && [ "$IS_PR_COMMENT" != "true" ]; }; then
+            text="$(printf '%s\n\n%s\n\n%s\n\n%s\n\n%s\n\n%s' "$BOARD" "$FOLLOWUPS" "$STYLE" "$RELEASES" "$SANDBOX" "$ESCALATION")"
+          else
+            text="$(printf '%s\n\n%s\n\n%s\n\n%s\n\n%s' "$FOLLOWUPS" "$STYLE" "$RELEASES" "$SANDBOX" "$ESCALATION")"
+          fi
+          printf 'text<<__CI_EOF__\n%s\n__CI_EOF__\n' "$text" >> "$GITHUB_OUTPUT"
+
       - name: Resolve subscription mode
         id: subscription
         env:
@@ -284,7 +307,7 @@ jobs:
           mirror-agent-logs: ${{ inputs.debug }}
           skills: ${{ inputs.skills }}
           plugins: ${{ inputs.plugins }}
-          custom-instructions: ${{ steps.instr.outputs.combined }}
+          custom-instructions: ${{ steps.custom.outputs.text }}
           bash-allow-append: ${{ steps.whitelist.outputs.patterns }}
           use-claude-code-subscription: ${{ steps.subscription.outputs.enabled }}
           claude-code-oauth-token: ${{ steps.subscription.outputs.enabled == 'true' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}

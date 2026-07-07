@@ -31,7 +31,7 @@ outputs:
     description: 'Permission-escalation instructions (applies in all contexts).'
     value: ${{ steps.emit.outputs.escalation }}
   combined:
-    description: 'board + followups + style + releases + sandbox + escalation, blank-line separated (for infer custom-instructions).'
+    description: 'board + followups + style + releases + sandbox + escalation, blank-line separated. infer.yml@main now composes per trigger from the individual outputs, but release-pinned callers still reference this - keep emitting it.'
     value: ${{ steps.emit.outputs.combined }}
 
 runs:
