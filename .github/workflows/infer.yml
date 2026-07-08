@@ -54,7 +54,7 @@ on:
       model:
         description: 'Model id passed to infer-action (provider/model)'
         type: string
-        default: zai/glm-5.2
+        default: ollama_cloud/deepseek-v4-flash
       prompt:
         description: 'Free-text task for manual (workflow_dispatch) runs. Empty = issue/comment mode (task comes from the @infer comment).'
         type: string
