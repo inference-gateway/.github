@@ -248,7 +248,7 @@ maintainer runs: gh workflow run migrate-codex.yml [-f codex_version=X.Y.Z] -f d
    ▼
 .github/workflows/migrate-codex.yml
    │  matrix job: `flox show codex` -> latest catalog version, resolves the caller ref
-   │  (latest .github release tag), reads repos.yaml (select(.orchestrators.codex != null))
+   │  (main by default), reads repos.yaml (select(.orchestrators.codex != null))
    ▼
 per-target job (one per repo with an orchestrators.codex block):
    │  mints scoped App token, checks out target into ./target/, installs Flox,

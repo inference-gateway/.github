@@ -22,7 +22,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: 'Reusable workflow ref to pin callers to. Blank = the latest .github release tag.'
+        description: 'Reusable workflow ref to pin callers to. Blank = main (callers track the reusable workflow live, no re-migrate rollout needed).'
         required: false
         type: string
         default: ''
@@ -77,7 +77,7 @@ jobs:
           if [ -n "$REF_IN" ]; then
             ref="$REF_IN"
           else
-            ref=$(gh release view --repo inference-gateway/.github --json tagName --jq .tagName)
+            ref=main
           fi
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
           echo "::notice::Callers will pin inference-gateway/.github/.github/workflows/infer.yml@${ref}"
@@ -207,7 +207,10 @@ jobs:
           with_block=$(echo "$INFER_JSON" | jq -r --arg lang "$LANG" '
             {language: $lang} + .
             | to_entries
-            | map("      \(.key): \(.value | if type == "string" then "\"\(.)\"" else tostring end)")
+            | map(if (.value | type) == "string" and (.value | contains("\n"))
+                  then "      \(.key): |\n" + (.value | rtrimstr("\n") | split("\n") | map("        " + .) | join("\n"))
+                  else "      \(.key): \(.value | if type == "string" then "\"\(.)\"" else tostring end)"
+                  end)
             | .[]')
 
           {

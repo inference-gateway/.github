@@ -27,7 +27,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: 'Reusable workflow ref to pin callers to. Blank = the latest .github release tag.'
+        description: 'Reusable workflow ref to pin callers to. Blank = main (callers track the reusable workflow live, no re-migrate rollout needed).'
         required: false
         type: string
         default: ''
@@ -95,7 +95,7 @@ jobs:
           if [ -n "$REF_IN" ]; then
             ref="$REF_IN"
           else
-            ref=$(gh release view --repo inference-gateway/.github --json tagName --jq .tagName)
+            ref=main
           fi
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
           echo "::notice::Callers will pin inference-gateway/.github/.github/workflows/codex.yml@${ref}"
