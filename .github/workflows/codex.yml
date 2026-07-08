@@ -102,7 +102,31 @@ jobs:
           repositories: |
             ${{ github.event.repository.name }}
             .github
+            python-sdk
+            typescript-sdk
+            rust-sdk
+            sdk
             docs
+            adk
+            rust-adk
+            typescript-adk
+            browser-agent
+            documentation-agent
+            google-calendar-agent
+            grafana-agent
+            mock-agent
+            n8n-agent
+            cli
+            a2a-debugger
+            adl-cli
+            adl
+            inference-gateway
+            infer-action
+            operator
+            registry
+            schemas
+            skills
+            agents
 
       - name: Get GitHub App User ID
         id: get-user-id
