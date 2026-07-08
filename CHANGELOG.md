@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.20.2](https://github.com/inference-gateway/.github/compare/v0.20.1...v0.20.2) (2026-07-08)
+
+### 🔧 Miscellaneous
+
+* **deps:** update default model in infer.yml workflow ([04d3b93](https://github.com/inference-gateway/.github/commit/04d3b9365fa96c83fe767687a9d283f115c880d2))
+
 ## [0.20.1](https://github.com/inference-gateway/.github/compare/v0.20.0...v0.20.1) (2026-07-08)
 
 ### 🔧 Miscellaneous
