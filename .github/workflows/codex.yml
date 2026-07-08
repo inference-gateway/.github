@@ -262,7 +262,7 @@ jobs:
 
       - name: Run Codex
         id: codex
-        uses: openai/codex-action@v1.9
+        uses: openai/codex-action@v1.11
         env:
           GITHUB_TOKEN: ${{ github.token }}
           RUST_LOG: ${{ inputs.debug && 'debug' || '' }}
