@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.20.1](https://github.com/inference-gateway/.github/compare/v0.20.0...v0.20.1) (2026-07-08)
+
+### 🔧 Miscellaneous
+
+* **workflows:** update workflow ref descriptions to default to main for live tracking ([df732d0](https://github.com/inference-gateway/.github/commit/df732d04e741eef1bfebcdebee4829de5a2a3991))
+
 ## [0.20.0](https://github.com/inference-gateway/.github/compare/v0.19.0...v0.20.0) (2026-07-08)
 
 ### ✨ Features
