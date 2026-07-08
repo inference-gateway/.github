@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.19.0](https://github.com/inference-gateway/.github/compare/v0.18.2...v0.19.0) (2026-07-08)
+
+### ✨ Features
+
+* **workflows:** add additional repositories to the reusable workflows for better integration ([be45aa1](https://github.com/inference-gateway/.github/commit/be45aa1c4e2976a8a20d813f0debd137da3784f8))
+* **workflows:** update default model in infer workflow to zai/glm-5.2 ([42d9433](https://github.com/inference-gateway/.github/commit/42d94331503ae9983740eab6461626c6f04544ed))
+
 ## [0.18.2](https://github.com/inference-gateway/.github/compare/v0.18.1...v0.18.2) (2026-07-08)
 
 ### 🔧 Miscellaneous
