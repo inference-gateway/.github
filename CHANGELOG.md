@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.20.0](https://github.com/inference-gateway/.github/compare/v0.19.0...v0.20.0) (2026-07-08)
+
+### ✨ Features
+
+* **ci:** add ZAI API key to GitHub Actions workflow ([b1e2d4b](https://github.com/inference-gateway/.github/commit/b1e2d4b50ad72d97701665994adbca6f042b9081))
+
 ## [0.19.0](https://github.com/inference-gateway/.github/compare/v0.18.2...v0.19.0) (2026-07-08)
 
 ### ✨ Features
