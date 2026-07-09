@@ -179,8 +179,16 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Checkout PR head branch
-        if: github.event_name == 'issue_comment' && github.event.issue.pull_request != null
-        run: gh pr checkout "${{ github.event.issue.number }}"
+        if: >
+          (github.event_name == 'issue_comment' && github.event.issue.pull_request != null) ||
+          github.event_name == 'pull_request_review_comment' ||
+          github.event_name == 'pull_request_review'
+        run: |
+          if [ "${{ github.event_name }}" = "issue_comment" ]; then
+            gh pr checkout "${{ github.event.issue.number }}"
+          else
+            gh pr checkout "${{ github.event.pull_request.number }}"
+          fi
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
 
