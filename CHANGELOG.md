@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.21.1](https://github.com/inference-gateway/.github/compare/v0.21.0...v0.21.1) (2026-07-09)
+
+### 🔧 Miscellaneous
+
+* **cli:** enable precommit hook for infer workflow in cli repo ([21558d3](https://github.com/inference-gateway/.github/commit/21558d36d82a3a428d526ca2bc37f6912ae20137))
+
 ## [0.21.0](https://github.com/inference-gateway/.github/compare/v0.20.5...v0.21.0) (2026-07-09)
 
 ### ✨ Features
