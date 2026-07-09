@@ -68,6 +68,10 @@ on:
         description: 'Set up Node and install prettier'
         type: boolean
         default: false
+      eslint:
+        description: 'Set up Node and install eslint'
+        type: boolean
+        default: false
       precommit:
         description: 'Install pre-commit and run `task precommit:install`'
         type: boolean
@@ -227,7 +231,7 @@ jobs:
           echo "enabled=$enabled" >> "$GITHUB_OUTPUT"
 
       - name: Set up Node.js
-        if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint || inputs.prettier || steps.browser.outputs.enabled == 'true'
+        if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint || inputs.prettier || inputs.eslint || steps.browser.outputs.enabled == 'true'
         uses: actions/setup-node@v6.4.0
         with:
           node-version: 'lts/*'
@@ -239,6 +243,10 @@ jobs:
       - name: Install prettier
         if: inputs.prettier
         run: npm install -g prettier
+
+      - name: Install eslint
+        if: inputs.eslint
+        run: npm install -g eslint
 
       - name: Install pre-commit
         if: inputs.precommit
@@ -279,6 +287,7 @@ jobs:
           EXTRA_MCP: ${{ inputs.extra-mcp-servers }}
           NODE: ${{ inputs.node }}
           PRETTIER: ${{ inputs.prettier }}
+          ESLINT: ${{ inputs.eslint }}
           EVENT: ${{ github.event_name }}
         run: |
           set -euo pipefail
@@ -310,6 +319,7 @@ jobs:
             [ "$CONTEXT7" = "true" ]   && tools="$tools,mcp__context7"
             [ "$BROWSER" = "true" ] && tools="$tools,mcp__playwright"
             [ "$PRETTIER" = "true" ] && tools="$tools,Bash(prettier:*)"
+            [ "$ESLINT" = "true" ] && tools="$tools,Bash(eslint:*)"
             [ -n "$EXTRA_TOOLS" ]      && tools="$tools,$EXTRA_TOOLS"
           fi
 

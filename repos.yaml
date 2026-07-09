@@ -271,10 +271,12 @@ targets:
     orchestrators:
       claude:
         prettier: true
+        eslint: true
         plugins: |
           DietrichGebert/ponytail
       infer:
         prettier: true
+        eslint: true
         plugins: |
           DietrichGebert/ponytail
       codex: {}
