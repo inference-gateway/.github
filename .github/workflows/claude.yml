@@ -64,6 +64,10 @@ on:
         description: 'Set up Node and install markdownlint-cli'
         type: boolean
         default: false
+      prettier:
+        description: 'Set up Node and install prettier'
+        type: boolean
+        default: false
       precommit:
         description: 'Install pre-commit and run `task precommit:install`'
         type: boolean
@@ -223,7 +227,7 @@ jobs:
           echo "enabled=$enabled" >> "$GITHUB_OUTPUT"
 
       - name: Set up Node.js
-        if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint || steps.browser.outputs.enabled == 'true'
+        if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint || inputs.prettier || steps.browser.outputs.enabled == 'true'
         uses: actions/setup-node@v6.4.0
         with:
           node-version: 'lts/*'
@@ -231,6 +235,10 @@ jobs:
       - name: Install markdownlint
         if: inputs.markdownlint
         run: npm install -g markdownlint-cli
+
+      - name: Install prettier
+        if: inputs.prettier
+        run: npm install -g prettier
 
       - name: Install pre-commit
         if: inputs.precommit
@@ -270,6 +278,7 @@ jobs:
           BROWSER: ${{ steps.browser.outputs.enabled }}
           EXTRA_MCP: ${{ inputs.extra-mcp-servers }}
           NODE: ${{ inputs.node }}
+          PRETTIER: ${{ inputs.prettier }}
           EVENT: ${{ github.event_name }}
         run: |
           set -euo pipefail
@@ -300,6 +309,7 @@ jobs:
             [ "$NODE" = "true" ]       && tools="$tools,Bash(node:*),Bash(npm:*)"
             [ "$CONTEXT7" = "true" ]   && tools="$tools,mcp__context7"
             [ "$BROWSER" = "true" ] && tools="$tools,mcp__playwright"
+            [ "$PRETTIER" = "true" ] && tools="$tools,Bash(prettier:*)"
             [ -n "$EXTRA_TOOLS" ]      && tools="$tools,$EXTRA_TOOLS"
           fi
 

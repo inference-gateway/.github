@@ -79,6 +79,10 @@ on:
         description: 'Install markdownlint-cli and add markdownlint to the bash whitelist'
         type: boolean
         default: false
+      prettier:
+        description: 'Install prettier and add prettier to the bash whitelist'
+        type: boolean
+        default: false
       precommit:
         description: 'Install pre-commit and run `task precommit:install`'
         type: boolean
@@ -215,14 +219,14 @@ jobs:
         uses: oven-sh/setup-bun@v2.2.0
 
       - name: Set up pnpm
-        if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint
+        if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint || inputs.prettier
         uses: pnpm/action-setup@v6.0.9
         with:
           version: 10.18.0
           run_install: false
 
       - name: Set up Node.js
-        if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint
+        if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint || inputs.prettier
         uses: actions/setup-node@v6.4.0
         with:
           node-version: 'lts/*'
@@ -230,6 +234,10 @@ jobs:
       - name: Install markdownlint
         if: inputs.markdownlint
         run: npm install -g markdownlint-cli
+
+      - name: Install prettier
+        if: inputs.prettier
+        run: npm install -g prettier
 
       - name: Install pre-commit
         if: inputs.precommit
@@ -243,6 +251,7 @@ jobs:
         env:
           LANGUAGE: ${{ inputs.language }}
           MARKDOWNLINT: ${{ inputs.markdownlint }}
+          PRETTIER: ${{ inputs.prettier }}
           NODE: ${{ inputs.node }}
           EXTRA: ${{ inputs.extra-bash-commands }}
           EXTRA_PATTERNS: ${{ inputs.extra-bash-patterns }}
@@ -258,6 +267,7 @@ jobs:
           esac
           [ "$NODE" = "true" ]         && patterns="$patterns,^node( .*)?$,^npm( .*)?$,^pnpm( .*)?$,^npx( .*)?$,^prettier( .*)?$"
           [ "$MARKDOWNLINT" = "true" ] && patterns="$patterns,^node( .*)?$,^npm( .*)?$,^pnpm( .*)?$,^npx( .*)?$,^prettier( .*)?$,^markdownlint( .*)?$"
+          [ "$PRETTIER" = "true" ] && patterns="$patterns,^prettier( .*)?$"
           patterns="$patterns,^gh issue create( .*)?$,^gh issue edit( .*)?$,^gh issue comment( .*)?$,^gh pr create( .*)?$,^gh project (item-add|item-edit)( .*)?$"
           gql='^gh api graphql -f query='\''mutation\(\$id:ID!\x2c\$t:ID!\)\{updateIssueIssueType\(input:\{issueId:\$id\x2cissueTypeId:\$t\}\)\{issue\{number issueType\{name\}\}\}\}'\'' -f id="[^"]+" -f t="IT_[A-Za-z0-9_-]+"$'
           patterns="$patterns,$gql"
