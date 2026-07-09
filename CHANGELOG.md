@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.22.1](https://github.com/inference-gateway/.github/compare/v0.22.0...v0.22.1) (2026-07-09)
+
+### 🐛 Bug Fixes
+
+* checkout PR head branch when infer is triggered from a PR comment ([#101](https://github.com/inference-gateway/.github/issues/101)) ([4ec2479](https://github.com/inference-gateway/.github/commit/4ec24793fa87afd0cacc2ac624d816d8f931e80e))
+* update golangci-lint action to use install-only flag instead of args ([60a084b](https://github.com/inference-gateway/.github/commit/60a084b9f24f5edbf1872be4f1fa9892b386e96c))
+
+### 👷 CI
+
+* **infer:** add pull_request_review_comment and pull_request_review triggers ([b461d6d](https://github.com/inference-gateway/.github/commit/b461d6d0c4c73133bf8cdd3f9741313b698b5658))
+
+### 🔧 Miscellaneous
+
+* add eslint input to reusable workflows and enable for infer-action ([ed5bee5](https://github.com/inference-gateway/.github/commit/ed5bee5f1983595fca745043d08a1695f053c4fc))
+* add prettier input to reusable workflows and enable for infer-action ([58c3310](https://github.com/inference-gateway/.github/commit/58c331086e18cd62b93fd9a48f346b1c52fe85e7))
+* **deps:** update infer-action version to v0.30.9 ([86e76ff](https://github.com/inference-gateway/.github/commit/86e76ffa661fc8951466f4f11401bb87a8f6da4c))
+* **deps:** update infer.yml to remove unused token and version ([53a9f7c](https://github.com/inference-gateway/.github/commit/53a9f7ca97b46d3d3c532ea9b609b01b7bfc29d2))
+
 ## [0.22.0](https://github.com/inference-gateway/.github/compare/v0.21.1...v0.22.0) (2026-07-09)
 
 ### ✨ Features
