@@ -72,6 +72,10 @@ on:
         description: 'JSON object of additional mcpServers merged into --mcp-config'
         type: string
         default: '{}'
+      plugins:
+        description: 'Newline-separated GitHub plugin marketplaces (owner/repo) to register and enable for the run, mirroring the `plugins` input on infer.yml. Each entry registers the repo as a Claude Code plugin marketplace AND enables the plugin whose name is the repo basename (e.g. "DietrichGebert/ponytail" -> marketplace "ponytail" + plugin "ponytail@ponytail"). Merged into the claude-code-action `settings` JSON as extraKnownMarketplaces + enabledPlugins; the headless CLI fetches each marketplace and installs the enabled plugins at startup. Default none.'
+        type: string
+        default: ''
       debug:
         description: 'Enable Claude CLI debug logging (--debug -> stderr) and full JSON output (show_full_output) in the run log. Defaults false; turn on per-repo via repos.yaml for verbose agent logs (private repos only - debug output can include sensitive values).'
         type: boolean
@@ -411,12 +415,43 @@ jobs:
           { echo "settings=$settings"; echo "dir=$MEM_DIR"; } >> "$GITHUB_OUTPUT"
           echo "Auto-memory relocated to: $MEM_DIR"
 
+      - name: Compose settings (merge plugin marketplaces into memory settings)
+        id: settings
+        env:
+          MEM_SETTINGS: ${{ steps.memory-sync-in.outputs.settings }}
+          PLUGINS: ${{ inputs.plugins }}
+        run: |
+          set -euo pipefail
+          # Pass the memory settings (possibly empty when inputs.memory is false) through
+          # unchanged when there are no plugins, preserving the prior behavior byte-for-byte.
+          settings="$MEM_SETTINGS"
+          if [ -n "$(printf '%s' "$PLUGINS" | tr -d '[:space:]')" ]; then
+            marketplaces='{}'
+            enabled='{}'
+            while IFS= read -r line; do
+              # Trim surrounding whitespace; skip blanks.
+              line="${line#"${line%%[![:space:]]*}"}"
+              line="${line%"${line##*[![:space:]]}"}"
+              [ -n "$line" ] || continue
+              name="${line##*/}"   # repo basename => marketplace name AND plugin name
+              marketplaces="$(printf '%s' "$marketplaces" | jq -c --arg n "$name" --arg r "$line" \
+                '. + {($n): {source: {source: "github", repo: $r}}}')"
+              enabled="$(printf '%s' "$enabled" | jq -c --arg k "$name@$name" '. + {($k): true}')"
+            done <<< "$PLUGINS"
+            base="$settings"; [ -n "$base" ] || base='{}'
+            settings="$(printf '%s' "$base" | jq -c --argjson m "$marketplaces" --argjson e "$enabled" \
+              '. + {extraKnownMarketplaces: ((.extraKnownMarketplaces // {}) + $m),
+                    enabledPlugins:         ((.enabledPlugins // {}) + $e)}')"
+          fi
+          echo "settings=$settings" >> "$GITHUB_OUTPUT"
+          echo "Composed settings: ${settings:-<empty>}"
+
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1.0.169
         with:
           github_token: ${{ steps.app-token.outputs.token }}
-          settings: ${{ steps.memory-sync-in.outputs.settings }}
+          settings: ${{ steps.settings.outputs.settings }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           display_report: true
           show_full_output: ${{ inputs.debug }}
