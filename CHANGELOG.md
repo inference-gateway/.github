@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.22.0](https://github.com/inference-gateway/.github/compare/v0.21.1...v0.22.0) (2026-07-09)
+
+### ✨ Features
+
+* add golangci-lint installation step for Go language support ([a7c3046](https://github.com/inference-gateway/.github/commit/a7c30467ae512adadd50360502536cdaf91d9199))
+
 ## [0.21.1](https://github.com/inference-gateway/.github/compare/v0.21.0...v0.21.1) (2026-07-09)
 
 ### 🔧 Miscellaneous
