@@ -181,6 +181,12 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
 
+      - name: Checkout PR head branch
+        if: github.event_name == 'issue_comment' && github.event.issue.pull_request != null
+        run: gh pr checkout "${{ github.event.issue.number }}"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
       - name: Install task
         uses: arduino/setup-task@v3.0.0
         with:
