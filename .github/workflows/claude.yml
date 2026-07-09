@@ -422,8 +422,7 @@ jobs:
           PLUGINS: ${{ inputs.plugins }}
         run: |
           set -euo pipefail
-          # Pass the memory settings (possibly empty when inputs.memory is false) through
-          # unchanged when there are no plugins, preserving the prior behavior byte-for-byte.
+
           settings="$MEM_SETTINGS"
           if [ -n "$(printf '%s' "$PLUGINS" | tr -d '[:space:]')" ]; then
             marketplaces='{}'

@@ -224,9 +224,6 @@ jobs:
 
           static_browser=$(echo "$CLAUDE_JSON" | jq -r 'if .browser == true then "true" else "false" end')
 
-          # .browser is folded into the merged `browser:` line below; .skills stays unused for
-          # claude. .plugins IS forwarded (multiline-aware, as a `|` block scalar) so the reusable
-          # claude.yml registers the same marketplaces as infer.yml.
           with_block=$(echo "$CLAUDE_JSON" | jq -r --arg lang "$LANG" '
             {language: $lang} + . | del(.browser, .skills)
             | to_entries
