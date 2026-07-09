@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.21.0](https://github.com/inference-gateway/.github/compare/v0.20.5...v0.21.0) (2026-07-09)
+
+### ✨ Features
+
+* plumb repos.yaml plugins to the reusable claude workflow ([#98](https://github.com/inference-gateway/.github/issues/98)) ([f773512](https://github.com/inference-gateway/.github/commit/f77351294233c0623994f007bd3201cf2b74d002))
+
 ## [0.20.5](https://github.com/inference-gateway/.github/compare/v0.20.4...v0.20.5) (2026-07-09)
 
 ### 🔧 Miscellaneous
