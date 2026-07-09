@@ -62,7 +62,7 @@ on:
       cli-version:
         description: 'infer CLI version installed by infer-action (must be a release with published binaries)'
         type: string
-        default: v0.139.0
+        default: v0.139.1
       trigger-phrase:
         description: 'Mention that activates the bot'
         type: string
@@ -316,7 +316,7 @@ jobs:
           echo "model=$model" >> "$GITHUB_OUTPUT"
 
       - name: Run Infer Agent
-        uses: inference-gateway/infer-action@v0.30.4
+        uses: inference-gateway/infer-action@v0.30.5
         with:
           version: ${{ inputs.cli-version }}
           memory-repo: https://github.com/inference-gateway/.memory
