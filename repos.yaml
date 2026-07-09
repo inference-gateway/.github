@@ -33,7 +33,11 @@
 #                              is a thin caller of the matching org reusable workflow. Three sub-blocks:
 #                                claude -> migrate-claude.yml operates on every `orchestrators.claude != null`
 #                                          entry; sub-keys map 1:1 to claude.yml inputs.
-#                                          `skills`/`plugins` accepted for forward-compat but unused.
+#                                          `plugins` (string) Newline-separated GitHub plugin marketplaces
+#                                          (owner/repo) registered + enabled for @claude, mirroring infer:
+#                                          each becomes an extraKnownMarketplaces + enabledPlugins entry in
+#                                          claude-code-action's `settings` (plugin name = repo basename).
+#                                          `skills` accepted for forward-compat but unused.
 #                                infer  -> migrate-infer.yml operates on every `orchestrators.infer != null`
 #                                          entry; sub-keys map 1:1 to infer.yml inputs.
 #                                          `skills`  (string) Newline-separated org skills for infer-action. Default ''.
@@ -65,7 +69,9 @@ targets:
     kind: sdk
     language: python
     orchestrators:
-      claude: {}
+      claude:
+        plugins: |
+          DietrichGebert/ponytail
       infer:
         plugins: |
           DietrichGebert/ponytail
@@ -76,6 +82,8 @@ targets:
     orchestrators:
       claude:
         markdownlint: true
+        plugins: |
+          DietrichGebert/ponytail
       infer:
         markdownlint: true
         plugins: |
@@ -86,7 +94,9 @@ targets:
     kind: sdk
     language: rust
     orchestrators:
-      claude: {}
+      claude:
+        plugins: |
+          DietrichGebert/ponytail
       infer:
         plugins: |
           DietrichGebert/ponytail
@@ -97,6 +107,8 @@ targets:
     orchestrators:
       claude:
         node: true
+        plugins: |
+          DietrichGebert/ponytail
       infer:
         plugins: |
           DietrichGebert/ponytail
@@ -110,6 +122,8 @@ targets:
     orchestrators:
       claude:
         markdownlint: true
+        plugins: |
+          DietrichGebert/ponytail
       infer:
         markdownlint: true
         plugins: |
@@ -125,6 +139,8 @@ targets:
       claude:
         node: true
         markdownlint: true
+        plugins: |
+          DietrichGebert/ponytail
       infer:
         markdownlint: true
         plugins: |
@@ -135,7 +151,9 @@ targets:
     kind: adk
     language: rust
     orchestrators:
-      claude: {}
+      claude:
+        plugins: |
+          DietrichGebert/ponytail
       infer:
         plugins: |
           DietrichGebert/ponytail
@@ -147,6 +165,8 @@ targets:
       claude:
         markdownlint: true
         allowed-tools: "Bash(task:*),Bash(node:*),Bash(npm:*),Bash(pnpm:*)"
+        plugins: |
+          DietrichGebert/ponytail
       infer:
         markdownlint: true
         plugins: |
@@ -184,6 +204,8 @@ targets:
       claude:
         markdownlint: true
         precommit: true
+        plugins: |
+          DietrichGebert/ponytail
       infer:
         markdownlint: true
         plugins: |
@@ -197,6 +219,8 @@ targets:
     orchestrators:
       claude:
         allowed-tools: "Bash(task:*),Bash(go:*)"
+        plugins: |
+          DietrichGebert/ponytail
       infer:
         plugins: |
           DietrichGebert/ponytail
@@ -207,6 +231,8 @@ targets:
     orchestrators:
       claude:
         node: true
+        plugins: |
+          DietrichGebert/ponytail
       infer:
         plugins: |
           DietrichGebert/ponytail
@@ -218,6 +244,8 @@ targets:
     orchestrators:
       claude:
         browser: true
+        plugins: |
+          DietrichGebert/ponytail
       infer:
         plugins: |
           DietrichGebert/ponytail
@@ -229,6 +257,8 @@ targets:
       claude:
         node: true
         extra-tools: "Bash(helm:*)"
+        plugins: |
+          DietrichGebert/ponytail
       infer:
         plugins: |
           DietrichGebert/ponytail
@@ -238,7 +268,9 @@ targets:
     kind: none
     language: bun
     orchestrators:
-      claude: {}
+      claude:
+        plugins: |
+          DietrichGebert/ponytail
       infer:
         plugins: |
           DietrichGebert/ponytail
@@ -247,7 +279,9 @@ targets:
     kind: none
     language: go
     orchestrators:
-      claude: {}
+      claude:
+        plugins: |
+          DietrichGebert/ponytail
       infer:
         plugins: |
           DietrichGebert/ponytail
@@ -258,6 +292,8 @@ targets:
     orchestrators:
       claude:
         markdownlint: true
+        plugins: |
+          DietrichGebert/ponytail
       infer:
         markdownlint: true
         plugins: |
@@ -268,7 +304,9 @@ targets:
     kind: none
     language: bun
     orchestrators:
-      claude: {}
+      claude:
+        plugins: |
+          DietrichGebert/ponytail
       infer:
         plugins: |
           DietrichGebert/ponytail
@@ -277,7 +315,9 @@ targets:
     kind: none
     language: node
     orchestrators:
-      claude: {}
+      claude:
+        plugins: |
+          DietrichGebert/ponytail
       infer:
         plugins: |
           DietrichGebert/ponytail
@@ -286,7 +326,9 @@ targets:
     kind: none
     language: node
     orchestrators:
-      claude: {}
+      claude:
+        plugins: |
+          DietrichGebert/ponytail
       infer:
         plugins: |
           DietrichGebert/ponytail

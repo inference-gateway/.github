@@ -225,9 +225,12 @@ jobs:
           static_browser=$(echo "$CLAUDE_JSON" | jq -r 'if .browser == true then "true" else "false" end')
 
           with_block=$(echo "$CLAUDE_JSON" | jq -r --arg lang "$LANG" '
-            {language: $lang} + . | del(.browser, .skills, .plugins)
+            {language: $lang} + . | del(.browser, .skills)
             | to_entries
-            | map("      \(.key): \(.value | if type == "string" then "\"\(.)\"" else tostring end)")
+            | map(if (.value | type) == "string" and (.value | contains("\n"))
+                  then "      \(.key): |\n" + (.value | rtrimstr("\n") | split("\n") | map("        " + .) | join("\n"))
+                  else "      \(.key): \(.value | if type == "string" then "\"\(.)\"" else tostring end)"
+                  end)
             | .[]')
 
           {
