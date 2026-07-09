@@ -208,6 +208,7 @@ targets:
           DietrichGebert/ponytail
       infer:
         markdownlint: true
+        precommit: true
         plugins: |
           DietrichGebert/ponytail
       codex:
