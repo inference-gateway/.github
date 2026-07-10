@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.22.2](https://github.com/inference-gateway/.github/compare/v0.22.1...v0.22.2) (2026-07-10)
+
+### 🐛 Bug Fixes
+
+* install repo-pinned bun dependencies before agent runs ([#102](https://github.com/inference-gateway/.github/issues/102)) ([417477b](https://github.com/inference-gateway/.github/commit/417477b7bf5cc380acf1d9250a820f7726a808a3)), references [infer-action#203](https://github.com/infer-action/issues/203)
+
+### 🔧 Miscellaneous
+
+* **deps:** update infer CLI version and action version ([74b7b6a](https://github.com/inference-gateway/.github/commit/74b7b6ab78ac65bb6e38f3e3ad27ef5de2bc7694))
+* **deps:** update infer-action version to v0.31.0 ([a052bd2](https://github.com/inference-gateway/.github/commit/a052bd2985a3f1eaec444262fd5bb6d8b5bfec23))
+
 ## [0.22.1](https://github.com/inference-gateway/.github/compare/v0.22.0...v0.22.1) (2026-07-09)
 
 ### 🐛 Bug Fixes
