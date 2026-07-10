@@ -209,6 +209,10 @@ jobs:
         if: inputs.language == 'bun'
         uses: oven-sh/setup-bun@v2.2.0
 
+      - name: Install repo dependencies
+        if: inputs.language == 'bun' && hashFiles('bun.lock') != ''
+        run: bun install --frozen-lockfile
+
       - name: Resolve browser mode
         id: browser
         env:
