@@ -233,6 +233,10 @@ jobs:
         if: inputs.language == 'bun'
         uses: oven-sh/setup-bun@v2.2.0
 
+      - name: Install repo dependencies
+        if: inputs.language == 'bun' && hashFiles('bun.lock') != ''
+        run: bun install --frozen-lockfile
+
       - name: Set up pnpm
         if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint || inputs.prettier || inputs.eslint
         uses: pnpm/action-setup@v6.0.9
