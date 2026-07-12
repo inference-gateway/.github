@@ -31,7 +31,7 @@ permissions:
 
 jobs:
   matrix:
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     outputs:
       targets: ${{ steps.read.outputs.targets }}
     steps:
@@ -48,7 +48,7 @@ jobs:
       fail-fast: false
       matrix:
         target: ${{ fromJSON(needs.matrix.outputs.targets) }}
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout orchestrator (.github)
         uses: actions/checkout@v7.0.0

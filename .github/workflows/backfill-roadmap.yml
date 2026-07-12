@@ -73,7 +73,7 @@ concurrency:
 
 jobs:
   matrix:
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       contents: read
     outputs:
@@ -94,7 +94,7 @@ jobs:
       max-parallel: 5
       matrix:
         target: ${{ fromJSON(needs.matrix.outputs.targets) }}
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Mint App token (scoped to ${{ matrix.target.name }})
         id: token
