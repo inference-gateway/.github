@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.22.3](https://github.com/inference-gateway/.github/compare/v0.22.2...v0.22.3) (2026-07-13)
+
+### 🔧 Miscellaneous
+
+* **deps:** update Claude Code Action version to 1.0.171 ([2ba43dc](https://github.com/inference-gateway/.github/commit/2ba43dcfc27d4577eef7797ca14963aeab08c259))
+* **deps:** update infer CLI version and action version ([e34a6d4](https://github.com/inference-gateway/.github/commit/e34a6d4fccf9133d93eec27e1e9148c39b0d1058))
+* **deps:** update infer CLI version and action version ([86856f1](https://github.com/inference-gateway/.github/commit/86856f13553b97b5a3496edb20b2825219e38c4c))
+
 ## [0.22.2](https://github.com/inference-gateway/.github/compare/v0.22.1...v0.22.2) (2026-07-10)
 
 ### 🐛 Bug Fixes
