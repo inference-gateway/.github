@@ -446,9 +446,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # claude-code-action installs plugins only via its native `plugins` /
-          # `plugin_marketplaces` inputs; merging extraKnownMarketplaces /
-          # enabledPlugins into `settings` is silently ignored in headless runs.
           marketplaces=''
           plugins=''
           while IFS= read -r line; do
@@ -456,7 +453,7 @@ jobs:
             line="${line#"${line%%[![:space:]]*}"}"
             line="${line%"${line##*[![:space:]]}"}"
             [ -n "$line" ] || continue
-            name="${line##*/}"   # repo basename => marketplace name AND plugin name
+            name="${line##*/}"
             marketplaces="${marketplaces}https://github.com/${line}.git"$'\n'
             plugins="${plugins}${name}@${name}"$'\n'
           done <<< "$PLUGINS"
