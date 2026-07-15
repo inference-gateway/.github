@@ -258,8 +258,8 @@ jobs:
           sign-commits: true
           delete-branch: true
           add-paths: agent.yaml
-          commit-message: "chore(adl): Refresh agent.yaml defaults from ADL CLI ${{ env.ADL_VERSION }}"
-          title: "chore(adl): Refresh agent.yaml defaults from ADL CLI ${{ env.ADL_VERSION }}"
+          commit-message: "chore(adl): refresh agent.yaml defaults from ADL CLI ${{ env.ADL_VERSION }}"
+          title: "chore(adl): refresh agent.yaml defaults from ADL CLI ${{ env.ADL_VERSION }}"
           body: |
             ## Summary
             Additively merges new `adl init` defaults from ADL CLI `${{ env.ADL_VERSION }}` into `agent.yaml`. Only keys present in the fresh scaffold but missing here were added; every pre-existing value is byte-identical.
