@@ -185,9 +185,16 @@ jobs:
           github.event_name == 'pull_request_review'
         run: |
           if [ "${{ github.event_name }}" = "issue_comment" ]; then
-            gh pr checkout "${{ github.event.issue.number }}"
+            PR="${{ github.event.issue.number }}"
           else
-            gh pr checkout "${{ github.event.pull_request.number }}"
+            PR="${{ github.event.pull_request.number }}"
+          fi
+          # A merged/closed PR's head branch may be deleted; stay on the
+          # default branch (it already contains the merged work).
+          if [ "$(gh pr view "$PR" --json state -q .state)" = "OPEN" ]; then
+            gh pr checkout "$PR"
+          else
+            echo "PR #$PR is not open; staying on the default branch"
           fi
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
