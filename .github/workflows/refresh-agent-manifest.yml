@@ -9,9 +9,9 @@ name: Refresh agent.yaml defaults across agents
 # `PRESERVE_KEYS` below (spec.tools / spec.skills / spec.config /
 # spec.services today). One PR per agent.
 #
-# agent.yaml passes through yq, so its formatting normalizes to yq's
-# canonical style (folded text blocks become single lines). This is
-# intentional: after one normalization PR per agent, re-runs with no new
+# agent.yaml passes through yq (which collapses folded text blocks), then
+# prettier re-wraps it at a fixed print width. yq + prettier is idempotent,
+# so after a one-time normalization PR per agent, re-runs with no new
 # defaults produce a byte-identical file and are skipped cleanly.
 
 on:
@@ -219,6 +219,10 @@ jobs:
           done <<< "$PRESERVE_KEYS"
           cp "$RUNNER_TEMP/merged.yaml" target/agent.yaml
 
+      - name: Normalize formatting with prettier
+        working-directory: target
+        run: npx --yes prettier@3.8.3 --parser yaml --prose-wrap always --print-width 80 --write agent.yaml
+
       - name: Validate merged agent.yaml
         working-directory: target
         run: adl validate agent.yaml
@@ -260,7 +264,7 @@ jobs:
             ## Summary
             Additively merges new `adl init` defaults from ADL CLI `${{ env.ADL_VERSION }}` into `agent.yaml`. Only keys present in the fresh scaffold but missing here were added; every pre-existing value is byte-identical.
 
-            The paths listed in the workflow's `PRESERVE_KEYS` (`spec.tools`, `spec.skills`, `spec.config`, `spec.services`) are snapshotted before the merge and restored byte-for-byte afterwards. Keys that were absent in the original stay absent.
+            The paths listed in the workflow's `PRESERVE_KEYS` (`spec.tools`, `spec.skills`, `spec.config`, `spec.services`) are snapshotted before the merge and restored unchanged afterwards (values identical; formatting normalized by prettier). Keys that were absent in the original stay absent.
 
             Ran in CI:
             - `adl init --defaults --language ${{ steps.lang.outputs.value }}` in a throwaway temp dir to capture the latest scaffold shape
@@ -272,7 +276,7 @@ jobs:
 
             ## Test plan
             - [ ] CI green
-            - [ ] Every `PRESERVE_KEYS` path is byte-identical to base
+            - [ ] Every `PRESERVE_KEYS` path is semantically identical to base
             - [ ] Every other change is a key addition, not a value overwrite
 
             Filed by [refresh-agent-manifest.yml](https://github.com/inference-gateway/.github/blob/main/.github/workflows/refresh-agent-manifest.yml).
