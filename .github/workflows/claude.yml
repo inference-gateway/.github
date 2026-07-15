@@ -477,7 +477,7 @@ jobs:
           show_full_output: ${{ inputs.debug }}
           additional_permissions: |
             actions: read
-          use_commit_signing: ${{ github.event_name != 'workflow_dispatch' }}
+          use_commit_signing: true
           base_branch: main
           branch_prefix: ${{ steps.prefix.outputs.value }}
           claude_args: |
