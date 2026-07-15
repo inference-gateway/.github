@@ -98,7 +98,7 @@ jobs:
           test -s openapi.yaml
 
       - name: Audit target against spec and file drift issues
-        uses: anthropics/claude-code-action@v1.0.168
+        uses: anthropics/claude-code-action@v1.0.174
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
