@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.22.5](https://github.com/inference-gateway/.github/compare/v0.22.4...v0.22.5) (2026-07-15)
+
+### 🐛 Bug Fixes
+
+* **infer:** skip PR head checkout when the PR is not open ([#106](https://github.com/inference-gateway/.github/issues/106)) ([259c57e](https://github.com/inference-gateway/.github/commit/259c57ee7fe17547f129c197eddff8745a387b27)), closes [inference-gateway/infer-action#211](https://github.com/inference-gateway/infer-action/issues/211)
+
+### 🔧 Miscellaneous
+
+* **deps:** bump the github-actions group with 2 updates ([#105](https://github.com/inference-gateway/.github/issues/105)) ([791c027](https://github.com/inference-gateway/.github/commit/791c0272f668db1d7db12c3d885b7187bff6d0d3))
+* **deps:** update infer-action version to v0.32.2 ([18b7ba5](https://github.com/inference-gateway/.github/commit/18b7ba5279a3962b86abc5826db7f01a70f055ac))
+
 ## [0.22.4](https://github.com/inference-gateway/.github/compare/v0.22.3...v0.22.4) (2026-07-14)
 
 ### 🐛 Bug Fixes
