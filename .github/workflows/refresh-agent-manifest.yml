@@ -8,6 +8,11 @@ name: Refresh agent.yaml defaults across agents
 # overwriting existing values, never touching the paths listed in
 # `PRESERVE_KEYS` below (spec.tools / spec.skills / spec.config /
 # spec.services today). One PR per agent.
+#
+# agent.yaml passes through yq, so its formatting normalizes to yq's
+# canonical style (folded text blocks become single lines). This is
+# intentional: after one normalization PR per agent, re-runs with no new
+# defaults produce a byte-identical file and are skipped cleanly.
 
 on:
   workflow_dispatch:
@@ -226,11 +231,6 @@ jobs:
           if git diff --quiet -- agent.yaml; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "::notice::${{ matrix.target.name }} agent.yaml already matches ADL CLI ${ADL_VERSION} defaults; skipping"
-          elif diff -q <(git show HEAD:agent.yaml | yq -o=json 'sort_keys(..)') \
-                       <(yq -o=json 'sort_keys(..)' agent.yaml) >/dev/null; then
-            git checkout -- agent.yaml
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::${{ matrix.target.name }} agent.yaml semantically unchanged (yq formatting churn only); skipping"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
             echo "::notice::${{ matrix.target.name }}: new init defaults will be added to agent.yaml"
