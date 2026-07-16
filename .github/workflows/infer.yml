@@ -62,7 +62,7 @@ on:
       cli-version:
         description: 'infer CLI version installed by infer-action (must be a release with published binaries)'
         type: string
-        default: v0.147.0
+        default: v0.147.1
       trigger-phrase:
         description: 'Mention that activates the bot'
         type: string
