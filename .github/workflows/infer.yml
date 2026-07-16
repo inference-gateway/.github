@@ -363,7 +363,7 @@ jobs:
           echo "model=$model" >> "$GITHUB_OUTPUT"
 
       - name: Run Infer Agent
-        uses: inference-gateway/infer-action@v0.33.1
+        uses: inference-gateway/infer-action@v0.34.0
         with:
           version: ${{ inputs.cli-version }}
           memory-repo: https://github.com/inference-gateway/.memory
