@@ -281,12 +281,15 @@ targets:
     language: go
     orchestrators:
       claude:
+        prettier: true
         plugins: |
           DietrichGebert/ponytail
       infer:
+        prettier: true
         plugins: |
           DietrichGebert/ponytail
-      codex: {}
+      codex:
+        prettier: true
   - name: registry
     kind: none
     language: typescript
