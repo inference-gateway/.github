@@ -29,13 +29,13 @@ on:
         type: string
         default: ubuntu-24.04
       effort:
-        description: 'Claude effort: low | medium | high | xhigh | max (NOT ultracode)'
+        description: 'Claude effort: low | medium | high | xhigh | max'
         type: string
-        default: max
+        default: medium
       model:
         description: 'Claude model id'
         type: string
-        default: claude-opus-4-8
+        default: fable-5
       prompt:
         description: 'Free-text task for manual (workflow_dispatch) runs. Empty = issue/PR mode (task comes from the @claude comment).'
         type: string
