@@ -1,0 +1,173 @@
+---
+name: Schemas Sync (reusable)
+
+# Reusable deterministic schemas->types sync for the inference-gateway org.
+#
+# Single source of truth for the per-repo `.github/workflows/schemas-sync.yml` thin caller in
+# every OpenAPI consumer (sdk, python-sdk, rust-sdk, typescript-sdk, inference-gateway). Runs the
+# target repo's standardized `task oas-sync SCHEMAS_REF=<ref>` (download the pinned spec +
+# regenerate types) and opens a PR with the result. A fix here (action bump, PR shape, toolchain
+# step) is one commit instead of one PR per repo.
+#
+# Caller contract:
+#   jobs.sync.uses: inference-gateway/.github/.github/workflows/schemas-sync.yml@main
+#   with: { language: <go|python|rust|typescript>, ref: ${{ inputs.ref }} }
+#   secrets: inherit
+# The `on: workflow_dispatch` trigger stays in the caller; the schemas repo's
+# sync-downstream.yml fans out `gh workflow run schemas-sync.yml` to every consumer.
+#
+# Idempotency contract (do not break):
+# - Fixed branch name `schemas-sync`: peter-evans/create-pull-request force-updates the branch
+#   and edits the existing open PR in place; re-runs never open a second PR, and a re-run whose
+#   diff is empty closes the PR and deletes the branch.
+# - `ref` pins the schemas input (empty = latest schemas release tag, resolved at run time), and
+#   each repo pins its codegen tool, so same ref -> byte-identical regeneration.
+# - Job-level concurrency (one group per repo, cancel-in-progress) means a re-dispatch supersedes
+#   an in-flight run instead of racing it on the same branch.
+
+on:
+  workflow_call:
+    inputs:
+      language:
+        description: 'Toolchain preset: go | python | rust | typescript'
+        type: string
+        required: true
+      ref:
+        description: 'schemas ref to sync (refs/tags/vX.Y.Z, refs/heads/main, or a SHA). Empty = latest schemas release tag.'
+        type: string
+        default: ''
+      setup:
+        description: 'Extra shell run after toolchain setup, for repo-specific codegen deps (e.g. `npm install -g prettier`)'
+        type: string
+        default: ''
+      runner:
+        description: 'Runner image'
+        type: string
+        default: ubuntu-24.04
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ${{ inputs.runner }}
+    concurrency:
+      group: schemas-sync-${{ github.repository }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/create-github-app-token@v3.2.0
+        id: app-token
+        with:
+          client-id: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_ID }}
+          private-key: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            ${{ github.event.repository.name }}
+
+      - name: Get GitHub App User ID
+        id: get-user-id
+        run: echo "user-id=$(gh api "/users/${{ steps.app-token.outputs.app-slug }}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.0
+        with:
+          persist-credentials: true
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Resolve schemas ref
+        id: ref
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          if [ -n "$INPUT_REF" ]; then
+            ref="$INPUT_REF"
+          else
+            tag=$(gh release view --repo inference-gateway/schemas --json tagName --jq .tagName)
+            ref="refs/tags/$tag"
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "label=${ref#refs/*/}" >> "$GITHUB_OUTPUT"
+
+      - name: Install Task
+        uses: arduino/setup-task@v3.0.0
+        with:
+          version: 3.50.0
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Go
+        if: inputs.language == 'go'
+        uses: actions/setup-go@v6.5.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Python
+        if: inputs.language == 'python'
+        uses: actions/setup-python@v6.3.0
+        with:
+          python-version: '3.13'
+
+      - name: Install Python dependencies
+        if: inputs.language == 'python'
+        run: pip install -e ".[dev]"
+
+      - name: Set up Node.js
+        if: inputs.language == 'typescript'
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: package.json
+          cache: npm
+
+      - name: Install Node.js dependencies
+        if: inputs.language == 'typescript'
+        run: npm ci
+
+      # rust: the runner's preinstalled stable toolchain matches the SDK's own CI.
+
+      - name: Repo-specific setup
+        if: inputs.setup != ''
+        run: ${{ inputs.setup }}
+
+      - name: Sync spec and regenerate types
+        run: task oas-sync SCHEMAS_REF=${{ steps.ref.outputs.ref }}
+
+      - name: Create Pull Request
+        id: cpr
+        uses: peter-evans/create-pull-request@v8.1.1
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          sign-commits: true
+          author: "${{ steps.app-token.outputs.app-slug }}[bot] <${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com>"
+          committer: "${{ steps.app-token.outputs.app-slug }}[bot] <${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com>"
+          commit-message: "feat: sync generated types with schemas ${{ steps.ref.outputs.label }}"
+          title: "feat: sync generated types with schemas ${{ steps.ref.outputs.label }}"
+          body: |
+            Deterministic type sync from [inference-gateway/schemas](https://github.com/inference-gateway/schemas) at [`${{ steps.ref.outputs.label }}`](https://github.com/inference-gateway/schemas/blob/${{ steps.ref.outputs.ref }}/openapi.yaml).
+
+            Regenerated with `task oas-sync SCHEMAS_REF=${{ steps.ref.outputs.ref }}` by the org [schemas-sync](https://github.com/inference-gateway/.github/blob/main/.github/workflows/schemas-sync.yml) reusable workflow. Re-runs update this PR in place; it closes automatically if the repo is back in sync.
+
+            If the new types need follow-up implementation (client surface, examples, docs), comment `@claude` or `@infer` on this PR with instructions.
+          labels: |
+            schema
+            sync
+            bot
+          branch: schemas-sync
+          base: main
+          delete-branch: true
+
+      - name: Add PR to Roadmap 2026 project (QA)
+        if: steps.cpr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_URL: ${{ steps.cpr.outputs.pull-request-url }}
+        run: |
+          item_id=$(gh project item-add 7 --owner ${{ github.repository_owner }} --url "$PR_URL" --format json --jq '.id')
+          gh project item-edit \
+            --id "$item_id" \
+            --project-id PVT_kwDOC6ve6c4BNnSt \
+            --field-id PVTSSF_lADOC6ve6c4BNnStzg8jqxU \
+            --single-select-option-id 0a18abd7

@@ -7,8 +7,11 @@
 # Per-entry schema:
 #   name           (required)  repo name under inference-gateway/
 #   kind           (required)  sdk | docs | adk | agent | none  -> routes to workflows:
-#                                sdk   -> sync-sdks.yml (drift classes A-D)
-#                                docs  -> sync-sdks.yml (drift class E)
+#                                sdk   -> deterministic type sync: per-repo schemas-sync.yml thin
+#                                         callers of the reusable schemas-sync.yml here, fanned
+#                                         out by schemas' sync-downstream.yml (no orchestrator
+#                                         matrix reads this kind for sync anymore)
+#                                docs  -> sync-docs.yml (drift class E)
 #                                adk   -> sync-adks.yml
 #                                agent -> bump-adl.yml, refresh-agent-manifest.yml, trigger-cd.yml
 #                                none  -> infra/tooling repos with no sync/agent family;
@@ -64,7 +67,7 @@
 # "Validate repos.yaml".
 
 targets:
-  # --- SDKs (sync-sdks.yml; all have centralized claude + infer + codex callers) ---
+  # --- SDKs (deterministic schemas-sync callers; all have centralized claude + infer + codex callers) ---
   - name: python-sdk
     kind: sdk
     language: python
@@ -115,7 +118,7 @@ targets:
       codex:
         node: true
 
-  # --- Docs site (sync-sdks.yml drift class E; centralized claude + infer + codex callers) ---
+  # --- Docs site (sync-docs.yml drift class E; centralized claude + infer + codex callers) ---
   - name: docs
     kind: docs
     language: bun

@@ -6,7 +6,7 @@ Org-level repo holding:
 - **Org-default issue templates** (`.github/ISSUE_TEMPLATE/`) - applied to any repo without local templates.
 - **Cross-repo orchestrators** - workflows that fan out across downstream repos listed in [`repos.yaml`](./repos.yaml). Every orchestrator resolves its target set through the shared [`.github/actions/resolve-targets`](./.github/actions/resolve-targets) composite action (one `yq` read + a jq `select` + an optional single-target `repository` input), and every fan-out workflow defaults to `dry_run: true` on manual dispatch. The families:
   - **Sync orchestrators** - audit downstream repos and file structured drift issues for human review:
-    - `sync-sdks.yml` audits each SDK and the docs site against the canonical OpenAPI spec in [`inference-gateway/schemas`](https://github.com/inference-gateway/schemas).
+    - `sync-docs.yml` audits the docs site against the canonical OpenAPI spec in [`inference-gateway/schemas`](https://github.com/inference-gateway/schemas) (manual-only; the SDK audit is retired - deterministic type sync for the OpenAPI consumers lives in the reusable `schemas-sync.yml`, see below).
     - `sync-adks.yml` audits each ADK against the canonical A2A JSON-RPC schema in [`inference-gateway/schemas`](https://github.com/inference-gateway/schemas).
   - **Agent orchestrators** - mechanical fan-out across `kind: agent` targets:
     - `bump-adl.yml` bumps every agent's ADL CLI pin to a given version, regenerates, and opens one PR per agent.
@@ -18,20 +18,56 @@ Org-level repo holding:
     - `backfill-roadmap.yml` adds open issues **and open PRs** that are on no project board to the org Roadmap 2026 board (project #7) at Status `Todo`, so work filed outside the `@claude` / `@infer` flow is not lost off the roadmap. PRs are added from any author (humans and bots); only draft PRs are skipped.
   - **Migration (one-shot)** - `migrate-claude.yml` rewrites each repo's `.github/workflows/claude.yml` into a thin caller of the org [reusable `claude.yml`](./.github/workflows/claude.yml), reading its inputs from that entry's `orchestrators.claude` block (`select(.orchestrators.claude != null)`), and in the same PR also bumps the target's own Flox `claude-code` pin (`.flox/env/manifest.toml`) to the latest flox catalog version, isolates `claude-code` in its own `pkg-group = "claude-code"` (so the bumped floor resolves independently of `codex` - a shared `ai` group made the constraints unsatisfiable), and refreshes the lock - note `claude-code` is a flox catalog package (`claude-code.version = "^X.Y.Z"`), not a GitHub release, so the latest comes from `flox show claude-code` (never npm, which can be ahead of the catalog), and there is no config-regen step - so `flox activate -- true` runs explicitly after `flox upgrade claude-code` purely to write `manifest.lock` in its canonical form. Its PR title names the moves - `chore(deps): bump claude-code X -> Y, claude-code-action vA -> vB` (claude-code-action read from the reusable `claude.yml` at the caller's old vs. new ref) - falling back to `ci: centralize claude.yml via reusable workflow`. The generated caller also exposes a `browser` boolean dispatch checkbox (forwarded as `browser: ${{ inputs.browser || <static> }}`); that, a per-repo `repos.yaml` `browser: true`, and a case-insensitive `[browser]` marker in an issue/comment/review all enable the reusable workflow's browser MCP (headless Chromium + `@playwright/mcp`) for that run. `migrate-infer.yml` does the same for `.github/workflows/infer.yml` against the org [reusable `infer.yml`](./.github/workflows/infer.yml), reading that entry's `orchestrators.infer` block (`select(.orchestrators.infer != null)`), and in the same PR also bumps the target's own Flox `infer` pin (`.flox/env/manifest.toml`) to the latest `inference-gateway/cli` release and refreshes the lock - mirroring how `migrate-claude.yml` bumps each repo's `claude-code` pin (`flox upgrade infer` then a bare `flox activate -- true` to canonicalize `manifest.lock`). The migrate-infer PR title names the actual version moves - `chore(deps): bump infer CLI vX -> vY, infer-action vA -> vB` - listing only the component(s) that changed (infer-action is read from the reusable `infer.yml` at the caller's old vs. new ref), and falls back to `ci(infer): centralize infer.yml via reusable workflow` when no version moved. `migrate-codex.yml` does the same for `.github/workflows/codex.yml` against the org [reusable `codex.yml`](./.github/workflows/codex.yml), reading that entry's `orchestrators.codex` block (`select(.orchestrators.codex != null)`), and in the same PR also bumps the target's own Flox `codex` caret pin (`.flox/env/manifest.toml`) to the latest flox catalog version and isolates `codex` in its own `pkg-group = "codex"` - converted from the former standalone `bump-codex.yml` now that `@codex` is a bot. Its PR title is `chore(deps): bump codex X -> Y[, codex-action vA -> vB]`, falling back to `ci(codex): centralize codex.yml via reusable workflow`. All three migrations operate on every repo that defines the matching block. If a target has **no** Flox env (`.flox/env/manifest.toml` absent, e.g. a freshly registered repo), the bump step first `flox init`s one and pins the bot's own CLI (`infer` / `claude-code` / `codex`) at the latest version, so the migration still succeeds (the PR adds a bootstrapped `.flox/`) instead of aborting on the missing manifest.
 
-## How the SDK orchestrator works
+## How the deterministic schemas sync works (`schemas-sync.yml`, reusable)
+
+The LLM drift audit for SDK targets is retired: OpenAPI type sync for the consumer repos (`sdk`, `python-sdk`, `rust-sdk`, `typescript-sdk`, and the gateway `inference-gateway`) is now a deterministic, reviewable PR produced by the reusable [`schemas-sync.yml`](./.github/workflows/schemas-sync.yml) (`on: workflow_call`) - the same reusable-workflow shape as `claude.yml` / `infer.yml` / `codex.yml`, not a `repos.yaml` fan-out.
 
 ```
 schemas (openapi.yaml)
-   │  push to main → repository_dispatch (event_type: spec-updated)
+   │  maintainer runs sync-downstream.yml (workflow_dispatch) on the schemas repo
+   │  → gh workflow run schemas-sync.yml -R inference-gateway/<repo> -f ref=<ref>  (per consumer)
    ▼
-.github/workflows/sync-sdks.yml
-   │  reads repos.yaml (kind: sdk | docs), fans out matrix
+per-consumer thin caller .github/workflows/schemas-sync.yml
+   │  uses: inference-gateway/.github/.github/workflows/schemas-sync.yml@main
+   │  with: language (+ optional ref), secrets: inherit
+   ▼
+reusable schemas-sync.yml (this repo)
+   │  resolves the schemas ref (empty = latest schemas release tag),
+   │  runs the repo's standardized `task oas-sync SCHEMAS_REF=<ref>`
+   │  (download pinned spec + regenerate types)
+   ▼
+peter-evans/create-pull-request (App token) opens or updates ONE PR
+on fixed branch `schemas-sync`, added to the Roadmap 2026 board
+   │
+   ▼
+maintainer reviews the deterministic diff and merges
+```
+
+**Caller contract:** each consumer keeps a thin `.github/workflows/schemas-sync.yml` whose `on: workflow_dispatch` trigger lives in the caller and whose single job is `uses: inference-gateway/.github/.github/workflows/schemas-sync.yml@main` with `secrets: inherit`. Inputs: `language` (required toolchain preset: `go | python | rust | typescript`), `ref` (schemas ref to sync - `refs/tags/vX.Y.Z`, `refs/heads/main`, or a SHA; empty resolves to the latest schemas release tag at run time), `setup` (optional extra shell for repo-specific codegen deps), and `runner` (default `ubuntu-24.04`).
+
+**Idempotency contract:** the fixed branch name `schemas-sync` means re-runs force-update the branch and edit the existing open PR in place - never a second PR - and a re-run whose diff is empty closes the PR and deletes the branch. Job-level concurrency (one group per repo, cancel-in-progress) makes a re-dispatch supersede an in-flight run instead of racing it on the same branch. Same ref → byte-identical regeneration, since each repo pins its codegen tool.
+
+```sh
+# Run on the CONSUMER repo - the thin caller dispatches the reusable workflow:
+gh workflow run schemas-sync.yml --repo inference-gateway/sdk                          # sync against the latest schemas release
+gh workflow run schemas-sync.yml --repo inference-gateway/sdk -f ref=refs/tags/vX.Y.Z  # pin a specific schemas ref
+```
+
+The schemas repo's `sync-downstream.yml` (`workflow_dispatch`) is the fan-out entry point: it runs `gh workflow run schemas-sync.yml -R inference-gateway/<repo> -f ref=<ref>` for all five consumers.
+
+## How the docs orchestrator works
+
+```
+maintainer runs: gh workflow run sync-docs.yml  (manual-only; dry_run defaults true)
+   ▼
+.github/workflows/sync-docs.yml
+   │  reads repos.yaml (kind: docs), fans out matrix
    ▼
 claude-code-action (one per target)
-   │  reads spec + target tree, detects drift,
-   │  files structured [FEATURE] / [TASK] issues
+   │  reads spec + target tree, detects coverage drift,
+   │  files a structured [DOCS] issue
    ▼
-issues on python-sdk / typescript-sdk / rust-sdk / sdk / docs
+issues on docs
    │
    ▼
 maintainer reviews each issue and decides next steps
@@ -275,7 +311,7 @@ Converted from the former standalone `bump-codex.yml`: codex used to be a local-
     bot-instructions/         # composite action: shared @claude/@infer/@codex board-tracking + release-policy + sandbox + escalation prompt
   ISSUE_TEMPLATE/             # org-default issue templates (feature, refactor, bug, documentation)
   workflows/
-    sync-sdks.yml             # SDK + docs audit against OpenAPI (kind: sdk | docs)
+    sync-docs.yml             # docs coverage audit against OpenAPI (kind: docs)
     sync-adks.yml             # ADK audit against A2A schema (kind: adk)
     bump-adl.yml              # ADL CLI version bump fan-out (kind: agent)
     refresh-agent-manifest.yml # additive agent.yaml defaults refresh (kind: agent)
@@ -289,6 +325,7 @@ Converted from the former standalone `bump-codex.yml`: codex used to be a local-
     claude.yml                # reusable @claude workflow (workflow_call)
     infer.yml                 # reusable @infer workflow (workflow_call)
     codex.yml                 # reusable @codex workflow (workflow_call)
+    schemas-sync.yml          # reusable deterministic OpenAPI type sync (workflow_call; called per consumer repo)
 repos.yaml                    # single downstream registry - drives every matrix
 profile/                      # GitHub-rendered org profile
 ```
@@ -300,10 +337,14 @@ Once the GitHub App secrets (`INFERENCE_GATEWAY_MAINTAINER_APP_ID`, `INFERENCE_G
 Every fan-out workflow below defaults to `dry_run: true` on manual dispatch (safe preview). Add `-f dry_run=false` to act for real and `-f repository=<name>` to run on a single target first (or `-f repository=<name1>,<name2>` for a comma-separated subset).
 
 ```sh
-# Sync orchestrators (audit against current schemas main HEAD; spec-updated events file for real):
-gh workflow run sync-sdks.yml --repo inference-gateway/.github                                            # dry, all sdk/docs
-gh workflow run sync-sdks.yml --repo inference-gateway/.github -f dry_run=false -f repository=python-sdk  # file for real, one repo
+# Sync orchestrators (audit against current schemas main HEAD; sync-docs is manual-only, a2a-spec-updated events file sync-adks for real):
+gh workflow run sync-docs.yml --repo inference-gateway/.github                                            # dry, all docs targets
+gh workflow run sync-docs.yml --repo inference-gateway/.github -f dry_run=false -f repository=docs        # file for real, one repo
 gh workflow run sync-adks.yml --repo inference-gateway/.github
+
+# Deterministic schemas sync (run on the CONSUMER repo - its thin caller invokes the reusable schemas-sync.yml):
+gh workflow run schemas-sync.yml --repo inference-gateway/sdk                                             # sync against the latest schemas release
+gh workflow run schemas-sync.yml --repo inference-gateway/sdk -f ref=refs/tags/vX.Y.Z                     # pin a specific schemas ref
 
 # Agent orchestrators:
 gh workflow run bump-adl.yml --repo inference-gateway/.github -f adl_version=vX.Y.Z                       # dry preview
@@ -335,7 +376,7 @@ gh workflow run backfill-roadmap.yml --repo inference-gateway/.github -f dry_run
 gh workflow run backfill-roadmap.yml --repo inference-gateway/.github -f dry_run=false                          # backfill all targets for real
 ```
 
-For SDK targets the workflow uses each SDK's own `task oas-download` to pull the canonical `openapi.yaml`. For docs it fetches raw from `inference-gateway/schemas`. For ADK targets the workflow uses each ADK's own `task a2a:download-schema` to pull the canonical `a2a/a2a-schema.yaml`. Both sync workflows always audit against current `main` of `schemas`.
+For docs the sync workflow fetches the canonical `openapi.yaml` raw from `inference-gateway/schemas`. For ADK targets the workflow uses each ADK's own `task a2a:download-schema` to pull the canonical `a2a/a2a-schema.yaml`. Both sync workflows always audit against current `main` of `schemas`. The deterministic `schemas-sync.yml` instead pins a schemas ref (empty `ref` = latest schemas release tag) via each consumer's own `task oas-sync`.
 
 ## Pre-merge requirements
 
@@ -344,6 +385,7 @@ Before the orchestrators can run end-to-end, the following pieces need to land s
 1. **GitHub App** `inference-gateway-maintainer-bot` provisioned and installed on every target listed in `repos.yaml`. Its `INFERENCE_GATEWAY_MAINTAINER_APP_ID` (client ID) and `INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY` saved as repo or org secrets, plus `CLAUDE_CODE_OAUTH_TOKEN` for the Claude Code Max subscription auth. The reusable `@claude` and `@infer` workflows (`claude.yml`, `infer.yml`) both mint a maintainer-App token from the `INFERENCE_GATEWAY_MAINTAINER_APP_ID` / `INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY` secret pair (the identity the agent's `gh` runs as; the App needs `issues: write`, `contents: write`, `pull-requests: write` on every target it runs on, plus org-level Projects: Read and write - see the per-workflow bullets below). `infer.yml` additionally forwards the provider API-key secrets to `infer-action` (`DEEPSEEK_API_KEY` covers the default `deepseek/deepseek-v4-flash` model; `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`, `CLOUDFLARE_API_KEY`, `COHERE_API_KEY`, `OLLAMA_API_KEY`, `OLLAMA_CLOUD_API_KEY`, `MOONSHOT_API_KEY` enable the others). `infer.yml` also accepts the optional `CLAUDE_CODE_OAUTH_TOKEN` secret (forwarded via `secrets: inherit`); when a maintainer writes `/subscription anthropic/<model>` in the `@infer` prompt or issue/comment body, that run forces the model to the specified Claude model and authenticates via the Claude Code Max subscription (OAuth) instead of `ANTHROPIC_API_KEY` — the directive is case-insensitive and the `anthropic/` prefix is stripped so infer-action receives a bare Claude id (e.g. `claude-sonnet-4-6`) as its subscription mode requires. All reach the reusable workflow via `secrets: inherit`.
 2. **App installation permissions** must cover what every orchestrator needs:
    - Sync workflows: `issues: write` on the target + `contents: read` on the target and `schemas`.
+   - Reusable `schemas-sync.yml`: `contents: write` + `pull-requests: write` on every OpenAPI consumer (it pushes the `schemas-sync` branch and opens the PR as the App), plus the org-level Projects: Read and write grant to add the PR to the Roadmap 2026 board - all already covered by the grants the bot workflows use.
    - Reusable `claude.yml` (the `@claude` bot): `contents: write`, `pull-requests: write`, `issues: write` on every target it runs on, **plus Organization permissions -> Projects: Read and write** (org-level, not per-repo) so the bot can add the issue it works on to the Roadmap 2026 board (org project #7) and advance its Status (In progress at start, QA at PR open). The agent's `gh` already runs as the maintainer App (claude-code-action exports the `github_token` input to it as `GH_TOKEN`/`GITHUB_TOKEN`), so only the App's org-Projects grant is needed - no extra token wiring. On a permission failure it files a best-effort, idempotent tracking issue in `inference-gateway/.github` (title `[bot] Missing GitHub permission: <capability>`, label `bot`, deduped org-wide) and continues without aborting the task - so a `bot` label must exist on `inference-gateway/.github`. It also persists Claude Code auto-memory across runs to the private `.memory` repo's `claude` branch (default-on `memory` input; per-repo opt-out `orchestrators.claude.memory: false`; `@infer` uses `main`, so the two agents' differing memory layouts stay isolated on separate branches), so `.memory` is in the App-token `repositories:` allow-list (`contents: write` there, already granted since `@infer` writes it).
    - Reusable `infer.yml` (the `@infer` bot): the same `contents: write`, `pull-requests: write`, `issues: write` on every target **plus the org-level Projects: Read and write** grant - and because both bots now mint from the same `INFERENCE_GATEWAY_MAINTAINER_APP_*` maintainer App, that single grant already covers `@infer`. Board tracking + permission-escalation match `claude.yml`, injected via infer-action's `custom-instructions`. Both bots mint the App token with an explicit `repositories:` allow-list of every public repo registered in `repos.yaml` (plus `.github` and `.memory`), so escalation issues and cross-repo follow-ups (create + label) reach any registered repo; keep the list in sync when registering a new repo.
    - Reusable `codex.yml` (the `@codex` bot): the same `contents: write`, `pull-requests: write`, `issues: write` on every target **plus the org-level Projects: Read and write** grant - all already covered by the shared maintainer App. Unlike `@claude` / `@infer`, the GitHub side-effects (board, PR, comment) run as **explicit workflow steps** with the App token, not via the action (`openai/codex-action` is a bare `codex exec` runner with no `gh`); it additionally needs the `OPENAI_API_KEY` secret, forwarded via `secrets: inherit`.
@@ -355,29 +397,24 @@ Before the orchestrators can run end-to-end, the following pieces need to land s
    - `stale.yml`: `issues: write` (label, comment, close) on every swept target (`select(.kind != "none")`). No new scope beyond what the sync workflows already require.
    - `cleanup-runs.yml`: `actions: write` on every swept target (`select(true)` - every registered target, **including the `kind: none` infra repos** `cli`, `operator`, `inference-gateway`, `registry`, `schemas`, `skills`, `adl`, `adl-cli`, `a2a-debugger`, `infer-action`) to delete workflow runs (deleting skipped, failed, or any conclusion needs no broader scope). The maintainer App is already installed on these repos (the `migrate-*` workflows mint tokens for them) and its `actions: write` permission is installation-wide; `trigger-cd.yml` relies on the same scope on agent targets.
    - `backfill-roadmap.yml`: `issues: read` **and `pull-requests: read`** on every swept target (`select(true)` - every registered target, incl. `kind: none` and `kind: agent`) to list issues and PRs and read their `projectItems`, **plus the org-level Projects: Read and write** grant to add them to project #7 and set Status. All are already provisioned - `issues` access is installation-wide (the sync/stale workflows use it), `pull-requests` is the same grant `claude.yml` / `infer.yml` use to open PRs (write subsumes read), and the org-Projects grant is the same one the bots use - so no new scope and no new secret.
-3. **Dispatch workflows in `inference-gateway/schemas`** that fire `repository_dispatch` to this repo:
-   - `event_type: spec-updated` whenever `openapi.yaml` changes on `main` (drives `sync-sdks.yml`).
-   - `event_type: a2a-spec-updated` whenever `a2a/a2a-schema.yaml` changes on `main` (drives `sync-adks.yml`).
-   Until these land, the sync orchestrators only run on manual trigger.
-4. **Drift labels** must exist on each sync target before issues file cleanly: `sdk-drift` on every `kind: sdk` / `kind: docs` repo and `adk-drift` on every `kind: adk` repo. `stale.yml` also exempts a `docs-coverage` label (legacy, kept so any historical coverage tickets stay long-lived).
+3. **Dispatch workflows in `inference-gateway/schemas`**:
+   - `sync-downstream.yml` (`workflow_dispatch`) fans out `gh workflow run schemas-sync.yml -R inference-gateway/<repo> -f ref=<ref>` to every OpenAPI consumer's thin caller of the reusable `schemas-sync.yml`.
+   - a `repository_dispatch` to this repo with `event_type: a2a-spec-updated` whenever `a2a/a2a-schema.yaml` changes on `main` (drives `sync-adks.yml`).
+   Until these land, the workflows only run on manual trigger. `sync-docs.yml` is manual-only by design (its former `spec-updated` trigger was retired with the SDK audit).
+4. **Drift labels** must exist on each sync target before issues file cleanly: `sdk-drift` on the `kind: docs` repo (docs class E files with `documentation,sdk-drift`) and `adk-drift` on every `kind: adk` repo. `stale.yml` also exempts a `docs-coverage` label (legacy, kept so any historical coverage tickets stay long-lived) and still exempts `sdk-drift` on the SDK repos (historical issues from the retired SDK audit carry it).
 5. **PR labels** `dependencies` and `adl-cli` should exist on every `kind: agent` repo for the bump-adl PRs, and `dependencies`, `codex`, `ci`, `bot` on every `select(.orchestrators.codex != null)` repo for the migrate-codex PRs (the action will create them if the App has permission, but pre-existing is cleaner).
 
 Until these are in place, `workflow_dispatch` lets a maintainer kick any workflow off manually for testing.
 
 ## Drift classes detected
 
-### SDK targets (`sync-sdks.yml`, kind: sdk)
+SDK drift classes A-D are retired: the deterministic `schemas-sync.yml` PR diff replaces the LLM audit for the OpenAPI consumers.
 
-- **A. Operation coverage** - `operationId`s without a corresponding public method.
-- **B. Generated models / types** - top-level schemas missing from the committed generated-types file.
-- **C. README / examples** - operations not demonstrated in `README.md` or `examples/`.
-- **D. Vendored spec staleness** - SDK's checked-in `openapi.yaml` diverging from the canonical one.
-
-> Note: the five `proxy*` operations (`proxyGet`/`Post`/`Put`/`Delete`/`Patch`) under `/proxy/{provider}/{path}` are gateway-internal endpoints and are exempt from classes A, C, and E across all targets.
-
-### Docs target (`sync-sdks.yml`, kind: docs)
+### Docs target (`sync-docs.yml`, kind: docs)
 
 - **E. Docs coverage** - `operationId`s or schemas not mentioned in `markdown/**` or `app/**`. Filed as `[DOCS] …` with `type: documentation`.
+
+> Note: the five `proxy*` operations (`proxyGet`/`Post`/`Put`/`Delete`/`Patch`) under `/proxy/{provider}/{path}` are gateway-internal endpoints and are exempt from class E.
 
 ### ADK targets (`sync-adks.yml`, kind: adk)
 
@@ -386,4 +423,4 @@ Until these are in place, `workflow_dispatch` lets a maintainer kick any workflo
 - **C. README / examples** - JSON-RPC methods not demonstrated in `README.md` or `examples/`.
 - **D. Vendored schema staleness** - ADK's checked-in `schema.yaml` diverging from the canonical `a2a/a2a-schema.yaml`.
 
-Each class maps to one stable issue title and a matching Issue Type (`feature` for sync-sdks/sync-adks A/C, `task` for B/D, `documentation` for sync-sdks class E); re-runs refresh in place.
+Each class maps to one stable issue title and a matching Issue Type (`feature` for sync-adks A/C, `task` for sync-adks B/D, `documentation` for sync-docs class E); re-runs refresh in place.
