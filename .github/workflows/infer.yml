@@ -95,6 +95,10 @@ on:
         description: 'Force Node/pnpm setup even when language is not typescript/node'
         type: boolean
         default: false
+      k3d:
+        description: 'Install k3d and allow k3d/kubectl/helm in the bash allow-list (kubectl/helm/docker are preinstalled on the runner)'
+        type: boolean
+        default: false
       extra-bash-commands:
         description: 'Comma-separated bare commands appended to the language-derived bash allow list. Each is wrapped as a Go regex anchored to the whole command, e.g. "helm" becomes "^helm( .*)?$".'
         type: string
@@ -208,6 +212,10 @@ jobs:
         with:
           version: "1.13.0"
 
+      - name: Install k3d
+        if: inputs.k3d
+        run: curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+
       - name: Set up Go
         if: inputs.language == 'go'
         uses: actions/setup-go@v6.5.0
@@ -282,6 +290,7 @@ jobs:
           PRETTIER: ${{ inputs.prettier }}
           ESLINT: ${{ inputs.eslint }}
           NODE: ${{ inputs.node }}
+          K3D: ${{ inputs.k3d }}
           EXTRA: ${{ inputs.extra-bash-commands }}
           EXTRA_PATTERNS: ${{ inputs.extra-bash-patterns }}
         run: |
@@ -298,6 +307,7 @@ jobs:
           [ "$MARKDOWNLINT" = "true" ] && patterns="$patterns,^node( .*)?$,^npm( .*)?$,^pnpm( .*)?$,^npx( .*)?$,^prettier( .*)?$,^markdownlint( .*)?$"
           [ "$PRETTIER" = "true" ] && patterns="$patterns,^prettier( .*)?$"
           [ "$ESLINT" = "true" ] && patterns="$patterns,^eslint( .*)?$"
+          [ "$K3D" = "true" ] && patterns="$patterns,^k3d( .*)?$,^kubectl( .*)?$,^helm( .*)?$"
           patterns="$patterns,^gh issue create( .*)?$,^gh issue edit( .*)?$,^gh issue comment( .*)?$,^gh pr create( .*)?$,^gh project (item-add|item-edit)( .*)?$"
           gql='^gh api graphql -f query='\''mutation\(\$id:ID!\x2c\$t:ID!\)\{updateIssueIssueType\(input:\{issueId:\$id\x2cissueTypeId:\$t\}\)\{issue\{number issueType\{name\}\}\}\}'\'' -f id="[^"]+" -f t="IT_[A-Za-z0-9_-]+"$'
           patterns="$patterns,$gql"
