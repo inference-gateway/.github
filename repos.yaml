@@ -212,6 +212,7 @@ targets:
       infer:
         markdownlint: true
         precommit: true
+        k3d: true
         plugins: |
           DietrichGebert/ponytail
       codex:
