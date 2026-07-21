@@ -1,27 +1,29 @@
 ---
-name: Sync SDKs and docs with spec
+name: Sync docs with spec
 
-# Triggered when the canonical OpenAPI spec at inference-gateway/schemas
-# changes (via repository_dispatch from that repo) or manually. For each
-# target in repos.yaml, runs Claude Code Action with a single audit prompt
-# that detects drift and files structured issues on the target repo for a
-# human to triage. The orchestrator does NOT mention @claude on the issues
-# and does NOT trigger any downstream automation - issues are notifications
-# only; a maintainer decides whether to implement, defer, or close.
+# Manual-only audit of the docs site against the canonical OpenAPI spec at
+# inference-gateway/schemas. Runs Claude Code Action with an audit prompt
+# that detects coverage drift and files structured issues on the docs repo
+# for a human to triage. The orchestrator does NOT mention @claude on the
+# issues and does NOT trigger any downstream automation - issues are
+# notifications only; a maintainer decides whether to implement, defer, or
+# close.
+#
+# SDK targets are NOT audited here anymore: deterministic type sync for the
+# OpenAPI consumers (sdk, python-sdk, rust-sdk, typescript-sdk,
+# inference-gateway) lives in the reusable schemas-sync.yml + per-repo thin
+# callers, fanned out by the schemas repo's sync-downstream.yml.
 
 on:
-  repository_dispatch:
-    types:
-      - spec-updated
   workflow_dispatch:
     inputs:
       repository:
-        description: 'Single repos.yaml sdk/docs target to audit (omit = all). Use to test on one repo.'
+        description: 'Single repos.yaml docs target to audit (omit = all docs targets). Use to test on one repo.'
         required: false
         type: string
         default: ''
       dry_run:
-        description: 'Audit and print the issues that WOULD be filed, without creating/editing/closing any (manual runs preview by default; spec-updated events file for real)'
+        description: 'Audit and print the issues that WOULD be filed, without creating/editing/closing any (manual runs preview by default)'
         required: false
         type: boolean
         default: true
@@ -39,7 +41,7 @@ jobs:
       - id: read
         uses: ./.github/actions/resolve-targets
         with:
-          select: '.kind == "sdk" or .kind == "docs"'
+          select: '.kind == "docs"'
           repository: ${{ inputs.repository }}
 
   sync:
@@ -78,23 +80,12 @@ jobs:
           sha=$(gh api repos/inference-gateway/schemas/commits/main --jq .sha)
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
-      - name: Install task
-        uses: arduino/setup-task@v3.0.0
-        with:
-          version: 3.50.0
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Pull canonical openapi.yaml
         run: |
           set -euo pipefail
-          if [ "${{ matrix.target.kind }}" = "sdk" ]; then
-            (cd target && task oas-download)
-            cp target/openapi.yaml openapi.yaml
-          else
-            curl -fsSL \
-              "https://raw.githubusercontent.com/inference-gateway/schemas/${{ steps.spec.outputs.sha }}/openapi.yaml" \
-              -o openapi.yaml
-          fi
+          curl -fsSL \
+            "https://raw.githubusercontent.com/inference-gateway/schemas/${{ steps.spec.outputs.sha }}/openapi.yaml" \
+            -o openapi.yaml
           test -s openapi.yaml
 
       - name: Audit target against spec and file drift issues
@@ -141,15 +132,11 @@ jobs:
             byte-identical to what a real run would use, because titles are
             idempotency keys. End with the usual `summary:` line plus `mode=dry-run`.
             When `DRY_RUN` is `false`, behave exactly as specified below
-            (create/refresh issues for real). Automatic `spec-updated` runs set
-            `DRY_RUN=false`.
+            (create/refresh issues for real).
 
             **Inputs already on disk:**
             - `./openapi.yaml` - the canonical OpenAPI spec at SHA `${{ steps.spec.outputs.sha }}`
             - `./target/` - the target repo's working tree at its default branch
-              (for SDK targets, `target/openapi.yaml` has just been refreshed
-              by `task oas-download`, so `git -C target diff openapi.yaml`
-              reveals any pre-existing vendored-spec staleness - drift class D)
 
             **Authentication:** use `gh` (token in `GH_TOKEN`). The token has
             `issues:write` on `inference-gateway/${{ matrix.target.name }}` and
@@ -163,45 +150,10 @@ jobs:
             **Internal endpoints - fully exempt.** The five proxy operations
             (`proxyGet`, `proxyPost`, `proxyPut`, `proxyDelete`, `proxyPatch`)
             under `/proxy/{provider}/{path}` are gateway-internal pass-through
-            helpers, **not** part of any SDK's or docs site's public surface.
-            Treat them as covered across **every** drift class (A, C, E) -
-            never flag them as missing operations, missing examples, or
-            missing docs, regardless of whether a verb-collapsed
-            `proxy_request` helper exists. This is load-bearing: the issue
-            tracker has been polluted by repeated false-positive class A
-            issues about these endpoints.
-
-            For an **SDK** target (`kind=sdk`), check four drift classes:
-
-            **A. Operation coverage.** For each `operationId` in the spec, is
-            there a corresponding public method in the SDK's client surface?
-            Account for naming conventions across languages (snake_case in
-            Python/Rust, camelCase in TypeScript, PascalCase in Go). Streaming
-            variants (e.g. `*_stream`, `stream*`) count as coverage. (Proxy
-            operations are exempt - see "Internal endpoints" above.)
-            The Rust SDK exposes its API via a `pub trait` -
-            the trait's method names are the surface. The Go SDK uses
-            `clientImpl` as the receiver; exported methods on it are the surface.
-
-            **B. Generated models / types.** Does the SDK's committed
-            generated-types file reference all top-level component schemas in
-            the spec? You don't need to re-run codegen - visual name inspection
-            is enough. Common locations:
-            - python-sdk: `inference_gateway/models.py`
-            - typescript-sdk: `src/types/generated/index.ts`
-            - rust-sdk: `src/generated/schemas.rs`
-            - sdk (Go): `generated_types.go`
-
-            **C. README / examples.** Is each spec operation demonstrated in
-            either `README.md` or the `examples/` folder? Aliases count.
-            (Proxy operations are exempt - see "Internal endpoints" above.)
-
-            **D. Vendored spec staleness.** The workflow has already run
-            `task oas-download` inside `./target/`, which overwrites the
-            SDK's vendored `openapi.yaml` with the canonical one. Run
-            `git -C target diff openapi.yaml` - a non-empty diff means the
-            committed vendored copy was out of sync with the canonical.
-            For docs targets, this class does not apply.
+            helpers, **not** part of the docs site's public surface. Treat
+            them as covered - never flag them as missing docs. This is
+            load-bearing: the issue tracker has been polluted by repeated
+            false-positive issues about these endpoints.
 
             For a **docs** target (`kind=docs`), check one drift class:
 
@@ -220,10 +172,6 @@ jobs:
 
             | Class | Title | Type | Labels |
             | --- | --- | --- | --- |
-            | A | `[FEATURE] Implement missing OpenAPI operations` | `feature` | `enhancement,sdk-drift` |
-            | B | `[TASK] Refactor regenerate models from latest spec` | `task` | `refactor,sdk-drift` |
-            | C | `[FEATURE] Add usage examples for missing operations` | `feature` | `enhancement,sdk-drift` |
-            | D | `[TASK] Refactor sync vendored openapi.yaml with schemas` | `task` | `refactor,sdk-drift` |
             | E | `[DOCS] Document missing operations and schemas` | `documentation` | `documentation,sdk-drift` |
 
             **Body shape** must follow the org's `feature_request.md` /
@@ -268,9 +216,8 @@ jobs:
               from stdin) to refresh, then `gh issue comment <num> --body
               "Spec has changed - refreshed gap list above. Spec is now at ${{ steps.spec.outputs.sha }}."`
             - If no match: `gh issue create` with the labels from the table
-              above for that class (e.g. `--label enhancement,sdk-drift` for
-              class A/C, `--label refactor,sdk-drift` for class B/D,
-              `--label documentation,sdk-drift` for class E).
+              above for that class (`--label documentation,sdk-drift` for
+              class E).
 
             ## Setting the Issue Type
 
@@ -313,4 +260,5 @@ jobs:
             - If the target is fully in sync, file nothing and just print
               `summary: target=${{ matrix.target.name }} status=in-sync`.
             - End with a single-line summary, e.g.
-              `summary: target=${{ matrix.target.name }} filed=[A,C] clean=[B,D]`.
+              `summary: target=${{ matrix.target.name }} filed=[E]` or
+              `summary: target=${{ matrix.target.name }} clean=[E]`.

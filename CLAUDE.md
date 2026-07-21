@@ -24,8 +24,8 @@ It is **one list** (`targets`); there is no separate `claude_targets`. Each entr
 
 | `kind`     | Picked up by                                                |
 | ---------- | ----------------------------------------------------------- |
-| `sdk`      | `sync-sdks.yml`, `stale.yml`, `cleanup-runs.yml`, `backfill-roadmap.yml`, `migrate-claude.yml`, `migrate-infer.yml`, `migrate-codex.yml` |
-| `docs`     | `sync-sdks.yml` (separate drift class E), `stale.yml`, `cleanup-runs.yml`, `backfill-roadmap.yml`, `migrate-claude.yml`, `migrate-infer.yml`, `migrate-codex.yml` |
+| `sdk`      | `stale.yml`, `cleanup-runs.yml`, `backfill-roadmap.yml`, `migrate-claude.yml`, `migrate-infer.yml`, `migrate-codex.yml` (type sync happens via each repo's own `schemas-sync.yml` thin caller of the org reusable workflow, not a `repos.yaml` fan-out) |
+| `docs`     | `sync-docs.yml` (drift class E), `stale.yml`, `cleanup-runs.yml`, `backfill-roadmap.yml`, `migrate-claude.yml`, `migrate-infer.yml`, `migrate-codex.yml` |
 | `adk`      | `sync-adks.yml`, `stale.yml`, `cleanup-runs.yml`, `backfill-roadmap.yml`, `migrate-claude.yml`, `migrate-infer.yml`, `migrate-codex.yml` |
 | `agent`    | `bump-adl.yml`, `refresh-agent-manifest.yml`, `trigger-cd.yml`, `stale.yml`, `cleanup-runs.yml`, `backfill-roadmap.yml` |
 | `none`     | `cleanup-runs.yml`, `backfill-roadmap.yml`, `migrate-claude.yml`, `migrate-infer.yml`, `migrate-codex.yml` (infra/tooling repos with no sync/agent family; swept by `cleanup-runs.yml` and `backfill-roadmap.yml` but intentionally **not** by `stale.yml`) |
@@ -35,7 +35,7 @@ It is **one list** (`targets`); there is no separate `claude_targets`. Each entr
 Target resolution is centralized in the **`.github/actions/resolve-targets`** composite action: a single `yq` read of `.targets`, a jq `select` expression passed per workflow, and an optional `repository` input to narrow to one or more targets (a single name or a comma-separated list, e.g. `docs,infer-action,schemas`; whitespace tolerated, and any requested name absent from the filtered set fails the job listing every miss). The canonical selects:
 
 - `.kind == "agent"` - `bump-adl.yml`, `refresh-agent-manifest.yml`, `trigger-cd.yml`.
-- `.kind == "sdk" or .kind == "docs"` - `sync-sdks.yml`.
+- `.kind == "docs"` - `sync-docs.yml`.
 - `.kind == "adk"` - `sync-adks.yml`.
 - `.kind != "none"` - `stale.yml` (every product repo except the `kind: none` infra repos).
 - `true` (all entries) - `cleanup-runs.yml` and `backfill-roadmap.yml` (every registered repo, including `kind: none`; private repos are never registered in `repos.yaml`).
@@ -47,15 +47,19 @@ Add a new workflow by passing the `select` it needs to `resolve-targets`; don't 
 
 ## Three workflow families, different rules
 
-### Sync orchestrators (`sync-sdks.yml`, `sync-adks.yml`) — issues only
+### Sync orchestrators (`sync-docs.yml`, `sync-adks.yml`) — issues only
 
-These run `anthropics/claude-code-action` with an audit prompt and file structured drift issues. They default `dry_run: true` on manual dispatch (audit + print the would-file list, mutate no issue); the automatic `repository_dispatch` from `schemas` runs for real via `${{ inputs.dry_run || 'false' }}`. The dry-run guard is enforced inside the prompt, since issue filing happens there. Hard invariants when editing their prompts:
+These run `anthropics/claude-code-action` with an audit prompt and file structured drift issues. They default `dry_run: true` on manual dispatch (audit + print the would-file list, mutate no issue); `sync-docs.yml` is `workflow_dispatch`-only, while `sync-adks.yml` also runs for real on the automatic `a2a-spec-updated` `repository_dispatch` from `schemas` via `${{ inputs.dry_run || 'false' }}`. The dry-run guard is enforced inside the prompt, since issue filing happens there.
+
+SDK targets are **not** audited by any orchestrator anymore: deterministic type sync for the OpenAPI consumers (`sdk`, `python-sdk`, `rust-sdk`, `typescript-sdk`, `inference-gateway`) is the reusable `schemas-sync.yml` — an `on: workflow_call` workflow like `claude.yml`/`infer.yml`/`codex.yml`, **not** an audit orchestrator and not a `repos.yaml` fan-out. Each consumer's thin caller runs `task oas-sync SCHEMAS_REF=<ref>` and opens an idempotent PR on the fixed branch `schemas-sync`; the schemas repo's `sync-downstream.yml` fans out the dispatches. SDK drift classes A–D are retired — the deterministic PR diff replaces the LLM audit.
+
+Hard invariants when editing the sync prompts:
 
 - **They inline the org's issue-filing mechanics.** The Issue Type id table and the `updateIssueIssueType` mutation live in each sync prompt (no skill is installed); keep the workflow-specific drift classes, exact titles, labels, and hard safety rules inline here too.
 - **Never open PRs, never modify target code, never mention `@claude`.** Issues are notifications for a human reviewer.
 - **Issue titles are load-bearing for idempotency.** Re-runs find existing issues via byte-exact title match (`gh issue list --search 'in:title "<exact title>"'`). Changing a title in the prompt orphans every open issue using the old title — open issues will pile up as duplicates. The title→class→Issue Type→labels table in each prompt is the contract.
 - **`gh issue create/edit` has no `--type` flag.** Setting the Issue Type requires the GraphQL `updateIssueIssueType` mutation after creation. Each sync prompt inlines that mutation plus the Bug/Feature/Task type-id table; preserve that procedure - including the "Type not in table → warn and leave untyped" rule, which is what keeps class E (`documentation`, no org type) untyped - when editing either side.
-- **Proxy endpoints are exempt** from drift classes A, C, E across every SDK and docs target (`proxyGet/Post/Put/Delete/Patch` under `/proxy/{provider}/{path}`). This exemption is explicitly called out as load-bearing because the tracker was repeatedly polluted by false-positive class A issues about these endpoints.
+- **Proxy endpoints are exempt** from docs drift class E (`proxyGet/Post/Put/Delete/Patch` under `/proxy/{provider}/{path}`). This exemption is explicitly called out as load-bearing because the tracker was repeatedly polluted by false-positive issues about these endpoints.
 - **`docs` target is ASCII-only.** No em dashes (`—` U+2014) or en dashes (`–` U+2013) anywhere in titles, bodies, or comments — plain hyphen-minus (`-`) only. Applies to every character emitted for that target.
 - **Dry-run is prompt-enforced.** When `DRY_RUN` is `true` the prompt forbids `gh issue create/edit/comment/close` and `updateIssueIssueType`; the agent prints the would-file list (byte-exact titles, since titles are idempotency keys) instead. The read-only `gh issue list` idempotency search is still allowed.
 
@@ -73,7 +77,7 @@ Daily cron + manual `workflow_dispatch`. All three default `dry_run: true` on ma
 
 - **Cannot use `actions/stale`.** That action is hard-coded to `github.context.repo`; there is no input to target a foreign repo. The orchestrator does the equivalent via `gh issue list --search "updated:<… -label:stale …"` → label + comment, then `gh issue list --label stale --search "updated:<…"` → close.
 - **Matrix is `select(.kind != "none")`** — every target except the infra/tooling repos. Those repos (`cli`, `operator`, `registry`, `inference-gateway`, `adl`, …) are `kind: none` and are intentionally not swept; `awesome-a2a` and anything else absent from `repos.yaml` is likewise untouched.
-- **Defaults: 30 d → mark `stale` → 7 d → close.** Exempt labels: `pinned`, `security`, `sdk-drift`, `adk-drift`, `docs-coverage`. The drift labels matter - the sync orchestrators (sync-sdks, sync-adks) file `[FEATURE] / [TASK] / [DOCS]` tickets that may legitimately sit open while a maintainer triages, so they must never get auto-closed. (`docs-coverage` is legacy from the removed audit-docs-coverage workflow; kept exempt so any historical tickets survive.)
+- **Defaults: 30 d → mark `stale` → 7 d → close.** Exempt labels: `pinned`, `security`, `sdk-drift`, `adk-drift`, `docs-coverage`. The drift labels matter - the sync orchestrators (sync-docs, sync-adks) file `[FEATURE] / [TASK] / [DOCS]` tickets that may legitimately sit open while a maintainer triages, so they must never get auto-closed (`sdk-drift` also rides on historical issues filed by the retired SDK audit). (`docs-coverage` is legacy from the removed audit-docs-coverage workflow; kept exempt so any historical tickets survive.)
 - **Search-query semantics rely on `updatedAt`.** Adding a label or comment bumps `updatedAt`, so the close step's `updated:<7d ago` filter correctly excludes any issue that received activity (including ours) within the grace window. This is why removal of the `stale` label on re-activity is *not* implemented - the close query already does the right thing.
 - **Issues only.** PRs are intentionally untouched.
 
@@ -135,10 +139,14 @@ Per-workflow App permission requirements are documented in `README.md` under "Pr
 Every fan-out workflow defaults to `dry_run: true` on manual dispatch (safe preview). Add `-f dry_run=false` to act for real, and `-f repository=<name>` to run on a single target first (or `-f repository=<name1>,<name2>` for a comma-separated subset).
 
 ```sh
-# Sync (audit + print would-file issues; spec-updated events from `schemas` file for real):
-gh workflow run sync-sdks.yml --repo inference-gateway/.github                                            # dry, all sdk/docs
-gh workflow run sync-sdks.yml --repo inference-gateway/.github -f dry_run=false -f repository=python-sdk  # file for real, one repo
+# Sync (audit + print would-file issues; sync-docs is manual-only, a2a-spec-updated events from `schemas` file sync-adks for real):
+gh workflow run sync-docs.yml --repo inference-gateway/.github                                            # dry, all docs targets
+gh workflow run sync-docs.yml --repo inference-gateway/.github -f dry_run=false -f repository=docs        # file for real, one repo
 gh workflow run sync-adks.yml --repo inference-gateway/.github
+
+# Deterministic schemas sync (run on the CONSUMER repo - its thin caller invokes the org reusable workflow):
+gh workflow run schemas-sync.yml --repo inference-gateway/sdk                          # sync against the latest schemas release
+gh workflow run schemas-sync.yml --repo inference-gateway/sdk -f ref=refs/tags/vX.Y.Z  # pin a specific schemas ref
 
 # Agent fan-out:
 gh workflow run bump-adl.yml --repo inference-gateway/.github -f adl_version=vX.Y.Z                       # dry preview
@@ -175,7 +183,7 @@ yq '.targets[] | .language' repos.yaml | sort -u   # should only print lowercase
 yq '.targets[] | select(.orchestrators.claude.language != null or .orchestrators.infer.language != null or .orchestrators.codex.language != null) | .name' repos.yaml  # must be EMPTY: language is top-level only, never a bot sub-key
 ```
 
-The sync workflows are normally driven by `repository_dispatch` from `inference-gateway/schemas` (`event_type: spec-updated` for OpenAPI, `a2a-spec-updated` for the A2A schema). `workflow_dispatch` is the manual path for testing.
+`sync-adks.yml` is normally driven by `repository_dispatch` from `inference-gateway/schemas` (`event_type: a2a-spec-updated`); `sync-docs.yml` is `workflow_dispatch`-only. The deterministic `schemas-sync.yml` callers are dispatched by the schemas repo's `sync-downstream.yml` (or manually per consumer, as above).
 
 ## Local dev environment
 

@@ -8,7 +8,7 @@ name: Stale issues sweep
 #
 # Exempt labels:
 #   - pinned, security: human override - never touch
-#   - sdk-drift, adk-drift: filed by sync-sdks.yml / sync-adks.yml as
+#   - sdk-drift, adk-drift: filed by sync-docs.yml / sync-adks.yml as
 #     long-lived drift trackers; they may legitimately sit open for weeks
 #     while a maintainer triages.
 #   - docs-coverage: legacy label from the removed audit-docs-coverage.yml;
