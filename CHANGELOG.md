@@ -2,6 +2,43 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.23.0](https://github.com/inference-gateway/.github/compare/v0.22.5...v0.23.0) (2026-07-21)
+
+### ✨ Features
+
+* **refresh:** normalize agent.yaml formatting with prettier after merge ([#109](https://github.com/inference-gateway/.github/issues/109)) ([e2ac8c0](https://github.com/inference-gateway/.github/commit/e2ac8c07b837409ff1750bf277375d4eea5ed1b3))
+
+### 🐛 Bug Fixes
+
+* **orchestrators:** install prettier for operator agent runs ([#111](https://github.com/inference-gateway/.github/issues/111)) ([d89d358](https://github.com/inference-gateway/.github/commit/d89d3588a5bec5aa49fad2784668b4da7f3d0238))
+* **refresh:** revert semantic skip so agent.yaml formatting can normalize ([#108](https://github.com/inference-gateway/.github/issues/108)) ([90eee66](https://github.com/inference-gateway/.github/commit/90eee669bf59e02c0fd6b5f95a8480affe8a3172))
+* **refresh:** skip formatting-only agent.yaml diffs from yq round-trip ([#107](https://github.com/inference-gateway/.github/issues/107)) ([6cf5205](https://github.com/inference-gateway/.github/commit/6cf5205d3359adc0b22aa4594aac5a5687ef79fc))
+* **workflows:** sign commits on workflow_dispatch runs so they attribute to the maintainer app ([ead5ae9](https://github.com/inference-gateway/.github/commit/ead5ae9ce0159acfbdd689d728d0aaa431e8d52c))
+* **workflows:** standardize commit message casing for agent.yaml refresh ([fa3c6c9](https://github.com/inference-gateway/.github/commit/fa3c6c9021188f46b4abe8b42dce61e5e8482ed3))
+* **workflows:** use full model id claude-fable-5 in claude.yml default ([#115](https://github.com/inference-gateway/.github/issues/115)) ([0c995c6](https://github.com/inference-gateway/.github/commit/0c995c6259f5586d48b988e89ecf60f6f2cca8a9))
+
+### 👷 CI
+
+* replace SDK drift audit with reusable deterministic schemas sync ([#116](https://github.com/inference-gateway/.github/issues/116)) ([9237988](https://github.com/inference-gateway/.github/commit/92379889da6d49e72c1c4eaa1beb97e66ca124b3))
+
+### 📚 Documentation
+
+* add issue template fetching instructions ([de57dc5](https://github.com/inference-gateway/.github/commit/de57dc5be50c24be95711578f65f07bb9c4d810f))
+
+### 🔧 Miscellaneous
+
+* **deps:** update Claude Code Action to version 1.0.178 ([3597abf](https://github.com/inference-gateway/.github/commit/3597abf26d5d94dd7095a175c9af7dc0336cfe13))
+* **deps:** update Claude Code Action version to v1.0.177 ([bc2e720](https://github.com/inference-gateway/.github/commit/bc2e7203c5cb5c6a97abc6b66e114cbd1faafa72))
+* **deps:** update default infer CLI version to v0.147.1 ([ec6fbdc](https://github.com/inference-gateway/.github/commit/ec6fbdc48df4a1363e3a498513b07e3d46264aac))
+* **deps:** update Infer CLI version and action version ([c5e9aac](https://github.com/inference-gateway/.github/commit/c5e9aac631b746112237b109f6f8bf61a43609e7))
+* **deps:** update Infer CLI version and action version ([ad55296](https://github.com/inference-gateway/.github/commit/ad55296397bd15721622320bbd5440e4dc6359db))
+* **deps:** update Infer CLI version and action version ([5df465d](https://github.com/inference-gateway/.github/commit/5df465dd92e2ab474d66b28a3db850ae94524f71))
+* **deps:** update infer-action version to v0.33.1 ([afc002d](https://github.com/inference-gateway/.github/commit/afc002de5e71d5cc99ce09ebba6365d0ff534a3d))
+* **deps:** update infer-action version to v0.34.0 ([c7ceddf](https://github.com/inference-gateway/.github/commit/c7ceddfa7373e925c7ac419c148b355f6153859a))
+* modify default values in claude.yml workflow ([bb16906](https://github.com/inference-gateway/.github/commit/bb16906e18007d9aef65f7623741f07870303fb0))
+* **release:** update GitHub App credentials to use RELEASER_APP_ID and RELEASER_APP_PRIVATE_KEY ([5e63390](https://github.com/inference-gateway/.github/commit/5e63390c50be3ec70f894a7d0b5dec3936e77793))
+* update infer to v0.146.0 ([993b5f8](https://github.com/inference-gateway/.github/commit/993b5f807414192780ca044573f776004e46b229))
+
 ## [0.22.5](https://github.com/inference-gateway/.github/compare/v0.22.4...v0.22.5) (2026-07-15)
 
 ### 🐛 Bug Fixes
