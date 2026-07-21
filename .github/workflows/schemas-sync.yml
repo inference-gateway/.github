@@ -40,6 +40,10 @@ on:
         description: 'Extra shell run after toolchain setup, for repo-specific codegen deps (e.g. `npm install -g prettier`)'
         type: string
         default: ''
+      dry_run:
+        description: 'Regenerate and print the diff to the job summary without opening/updating a PR'
+        type: boolean
+        default: false
       runner:
         description: 'Runner image'
         type: string
@@ -135,7 +139,25 @@ jobs:
       - name: Sync spec and regenerate types
         run: task oas-sync SCHEMAS_REF=${{ steps.ref.outputs.ref }}
 
+      - name: Dry run - report diff without opening a PR
+        if: inputs.dry_run
+        run: |
+          set -euo pipefail
+          {
+            echo "## schemas-sync dry run (\`${{ steps.ref.outputs.label }}\`)"
+            if git diff --quiet; then
+              echo "Repository is already in sync - a real run would open no PR (and close any open \`schemas-sync\` PR)."
+            else
+              echo 'A real run would open/update the `schemas-sync` PR with:'
+              echo '```'
+              git diff --stat
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          git diff --stat
+
       - name: Create Pull Request
+        if: ${{ !inputs.dry_run }}
         id: cpr
         uses: peter-evans/create-pull-request@v8.1.1
         with:
@@ -160,7 +182,7 @@ jobs:
           delete-branch: true
 
       - name: Add PR to Roadmap 2026 project (QA)
-        if: steps.cpr.outputs.pull-request-number
+        if: ${{ !inputs.dry_run && steps.cpr.outputs.pull-request-number }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_URL: ${{ steps.cpr.outputs.pull-request-url }}
