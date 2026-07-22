@@ -45,7 +45,7 @@ jobs:
       targets: ${{ steps.read.outputs.targets }}
       adl_version: ${{ steps.resolve.outputs.version }}
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
 
       - name: Validate version format
         env:
@@ -106,7 +106,7 @@ jobs:
             ${{ matrix.target.name }}
 
       - name: Checkout target
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
         with:
           repository: inference-gateway/${{ matrix.target.name }}
           path: target
