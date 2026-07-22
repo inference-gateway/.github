@@ -61,7 +61,7 @@ jobs:
       codex_version: ${{ steps.resolve.outputs.version }}
       codex_action_version: ${{ steps.actionver.outputs.version }}
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
 
       - name: Install Flox
         uses: flox/install-flox-action@v2.5.3
@@ -143,7 +143,7 @@ jobs:
             ${{ matrix.target.name }}
 
       - name: Checkout target
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
         with:
           repository: inference-gateway/${{ matrix.target.name }}
           path: target

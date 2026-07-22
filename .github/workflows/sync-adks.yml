@@ -36,7 +36,7 @@ jobs:
     outputs:
       targets: ${{ steps.read.outputs.targets }}
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - id: read
         uses: ./.github/actions/resolve-targets
         with:
@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout orchestrator (.github)
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
 
       - name: Mint GitHub App token
         id: token
@@ -65,7 +65,7 @@ jobs:
             ${{ matrix.target.name }}
 
       - name: Checkout target
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
         with:
           repository: inference-gateway/${{ matrix.target.name }}
           path: target
@@ -93,7 +93,7 @@ jobs:
           test -s schema.yaml
 
       - name: Audit target against A2A schema and file drift issues
-        uses: anthropics/claude-code-action@v1.0.174
+        uses: anthropics/claude-code-action@v1.0.180
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}

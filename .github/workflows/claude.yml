@@ -162,7 +162,7 @@ jobs:
           git config --global commit.signoff true
     
       - name: Checkout repository
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 1
           persist-credentials: true
@@ -181,7 +181,7 @@ jobs:
 
       - name: Set up Go
         if: inputs.language == 'go'
-        uses: actions/setup-go@v6.5.0
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: 'go.mod'
           cache: true
@@ -201,7 +201,7 @@ jobs:
 
       - name: Set up Python
         if: inputs.language == 'python'
-        uses: actions/setup-python@v6.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: '3.x'
 
@@ -466,7 +466,7 @@ jobs:
 
       - name: Run Claude Code
         id: claude
-        uses: anthropics/claude-code-action@v1.0.178
+        uses: anthropics/claude-code-action@v1.0.180
         with:
           github_token: ${{ steps.app-token.outputs.token }}
           settings: ${{ steps.memory-sync-in.outputs.settings }}
