@@ -28,6 +28,16 @@ on:
         required: false
         type: string
         default: ''
+      claude_code_version:
+        description: 'claude-code catalog version to pin (e.g. 2.0.30). Blank = latest from `flox show claude-code`.'
+        required: false
+        type: string
+        default: ''
+      bump_flox:
+        description: 'Also bump the target Flox claude-code pin in the same PR (uncheck to only (re)write claude.yml)'
+        required: false
+        type: boolean
+        default: true
       repository:
         description: 'Optional single repos.yaml target (with an orchestrators.claude block) to migrate; blank = all'
         required: false
@@ -56,21 +66,28 @@ jobs:
       - uses: actions/checkout@v7.0.1
 
       - name: Install Flox
+        if: inputs.bump_flox
         uses: flox/install-flox-action@v2.5.3
         with:
           version: "1.13.0"
 
-      - name: Resolve latest claude-code catalog version
+      - name: Resolve claude-code catalog version
         id: resolve
+        if: inputs.bump_flox
+        env:
+          INPUT_VERSION: ${{ inputs.claude_code_version }}
         run: |
           set -euo pipefail
-          V=$(flox show claude-code 2>/dev/null | grep -oE 'claude-code@[0-9]+\.[0-9]+\.[0-9]+' | head -1 | sed 's|claude-code@||' || true)
+          V="$INPUT_VERSION"
+          if [ -z "$V" ]; then
+            V=$(flox show claude-code 2>/dev/null | grep -oE 'claude-code@[0-9]+\.[0-9]+\.[0-9]+' | head -1 | sed 's|claude-code@||' || true)
+          fi
           if ! echo "$V" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "::error::Unexpected latest claude-code version from flox show: '$V'"
+            echo "::error::Unexpected claude-code version (input or from flox show): '$V'"
             exit 1
           fi
           echo "version=$V" >> "$GITHUB_OUTPUT"
-          echo "::notice::Latest flox-catalog claude-code is ${V}; each target's Flox pin will be bumped to it"
+          echo "::notice::Targets' Flox claude-code pin will be bumped to ${V}"
 
       - name: Resolve reusable-workflow ref
         id: ref
@@ -152,12 +169,14 @@ jobs:
           fi
 
       - name: Install Flox
+        if: inputs.bump_flox
         uses: flox/install-flox-action@v2.5.3
         with:
           version: "1.13.0"
 
       - name: Bump claude-code pin in the target's Flox manifest
         id: bump
+        if: inputs.bump_flox
         working-directory: target
         env:
           NEW: ${{ env.CLAUDE_CODE_VERSION }}
@@ -205,6 +224,7 @@ jobs:
           fi
 
       - name: Refresh Flox lock (scoped to claude-code)
+        if: inputs.bump_flox
         working-directory: target
         env:
           NIX_CONFIG: "access-tokens = github.com=${{ steps.token.outputs.token }}"
@@ -405,7 +425,9 @@ jobs:
             echo "### ${{ matrix.target.name }}"
             echo "- Operation: \`${{ steps.pr.outputs.pull-request-operation }}\`"
             echo "- Title: \`${{ steps.meta.outputs.title }}\`"
-            echo "- claude-code: \`${{ steps.bump.outputs.old }}\` -> \`${{ needs.matrix.outputs.claude_code_version }}\`"
+            if [ "${{ inputs.bump_flox }}" = "true" ]; then
+              echo "- claude-code: \`${{ steps.bump.outputs.old }}\` -> \`${{ needs.matrix.outputs.claude_code_version }}\`"
+            fi
             if [ -n "$CA_OLD" ] && [ -n "$CA_NEW" ] && [ "$CA_OLD" != "$CA_NEW" ]; then
               echo "- claude-code-action: \`${CA_OLD}\` -> \`${CA_NEW}\` (via reusable ref)"
             fi
