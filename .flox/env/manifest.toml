@@ -1,7 +1,7 @@
 schema-version = "1.13.0"
 
 [install]
-infer.flake = "github:inference-gateway/cli/v0.146.0"
+infer.flake = "github:inference-gateway/cli/v0.152.0"
 claude-code.pkg-path = "claude-code"
 claude-code.version = "^2.1.201"
 claude-code.pkg-group = "claude-code"
