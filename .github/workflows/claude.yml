@@ -234,6 +234,40 @@ jobs:
           echo "Browser MCP enabled: $enabled"
           echo "enabled=$enabled" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve effort and model
+        id: agent
+        env:
+          USER_PROMPT: ${{ inputs.prompt }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          REVIEW_BODY: ${{ github.event.review.body }}
+          INPUT_EFFORT: ${{ inputs.effort }}
+          INPUT_MODEL: ${{ inputs.model }}
+        run: |
+          set -euo pipefail
+          effort="$INPUT_EFFORT"
+          model="$INPUT_MODEL"
+          text="$(printf '%s\n%s\n%s\n%s\n%s\n' \
+                   "$USER_PROMPT" "$ISSUE_TITLE" "$ISSUE_BODY" "$COMMENT_BODY" "$REVIEW_BODY")"
+
+          em="$(printf '%s' "$text" \
+                | grep -oiE '/effort[[:space:]]+(low|medium|high|xhigh|max)' | head -n1 || true)"
+          if [ -n "$em" ]; then
+            effort="$(printf '%s' "$em" | sed -E 's|^/effort[[:space:]]+||I' | tr '[:upper:]' '[:lower:]')"
+          fi
+
+          mm="$(printf '%s' "$text" \
+                | grep -oiE '/model[[:space:]]+(claude-opus-4-8|claude-fable-5|claude-sonnet-5)' | head -n1 || true)"
+          if [ -n "$mm" ]; then
+            model="$(printf '%s' "$mm" | sed -E 's|^/model[[:space:]]+||I' | tr '[:upper:]' '[:lower:]')"
+          fi
+
+          echo "Resolved effort: $effort"
+          echo "Resolved model: $model"
+          echo "effort=$effort" >> "$GITHUB_OUTPUT"
+          echo "model=$model" >> "$GITHUB_OUTPUT"
+
       - name: Set up Node.js
         if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint || inputs.prettier || inputs.eslint || steps.browser.outputs.enabled == 'true'
         uses: actions/setup-node@v7.0.0
@@ -481,8 +515,8 @@ jobs:
           base_branch: main
           branch_prefix: ${{ steps.prefix.outputs.value }}
           claude_args: |
-            --effort ${{ inputs.effort }}
-            --model ${{ inputs.model }}
+            --effort ${{ steps.agent.outputs.effort }}
+            --model ${{ steps.agent.outputs.model }}
             --allowedTools "${{ steps.args.outputs.tools }}"
             ${{ steps.args.outputs.mcp_arg }}
             ${{ inputs.debug && '--debug' || '' }}
