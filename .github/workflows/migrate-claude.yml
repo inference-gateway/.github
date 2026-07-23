@@ -244,9 +244,10 @@ jobs:
 
           static_browser=$(echo "$CLAUDE_JSON" | jq -r 'if .browser == true then "true" else "false" end')
           static_effort=$(echo "$CLAUDE_JSON" | jq -r '.effort // "medium"')
+          static_model=$(echo "$CLAUDE_JSON" | jq -r '.model // "claude-opus-8"')
 
           with_block=$(echo "$CLAUDE_JSON" | jq -r --arg lang "$LANG" '
-            {language: $lang} + . | del(.browser, .skills, .effort)
+            {language: $lang} + . | del(.browser, .skills, .effort, .model)
             | to_entries
             | map(if (.value | type) == "string" and (.value | contains("\n"))
                   then "      \(.key): |\n" + (.value | rtrimstr("\n") | split("\n") | map("        " + .) | join("\n"))
@@ -287,6 +288,14 @@ jobs:
                         - xhigh
                         - max
                   default: medium
+                model:
+                  description: 'Claude model'
+                  required: false
+                  type: choice
+                  options:
+                        - claude-opus-8
+                        - claude-fable-5
+                  default: claude-opus-4-8
             issue_comment:
               types:
                 - created
@@ -324,6 +333,7 @@ jobs:
             d='$'
             echo "      browser: ${d}{{ inputs.browser || ${static_browser} }}"
             echo "      effort: ${d}{{ inputs.effort || '${static_effort}' }}"
+            echo "      model: ${d}{{ inputs.model || '${static_model}' }}"
             echo "      prompt: ${d}{{ inputs.prompt }}"
             echo "    secrets: inherit"
           } > .github/workflows/claude.yml
