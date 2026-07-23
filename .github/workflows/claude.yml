@@ -252,13 +252,13 @@ jobs:
                    "$USER_PROMPT" "$ISSUE_TITLE" "$ISSUE_BODY" "$COMMENT_BODY" "$REVIEW_BODY")"
 
           em="$(printf '%s' "$text" \
-                | grep -oiE '/effort[[:space:]]+(low|medium|high|xhigh|max)' | head -n1 || true)"
+                | grep -oiE '/effort[[:space:]]+[^[:space:]]+' | head -n1 || true)"
           if [ -n "$em" ]; then
             effort="$(printf '%s' "$em" | sed -E 's|^/effort[[:space:]]+||I' | tr '[:upper:]' '[:lower:]')"
           fi
 
           mm="$(printf '%s' "$text" \
-                | grep -oiE '/model[[:space:]]+(claude-opus-4-8|claude-fable-5|claude-sonnet-5)' | head -n1 || true)"
+                | grep -oiE '/model[[:space:]]+[^[:space:]]+' | head -n1 || true)"
           if [ -n "$mm" ]; then
             model="$(printf '%s' "$mm" | sed -E 's|^/model[[:space:]]+||I' | tr '[:upper:]' '[:lower:]')"
           fi
