@@ -251,14 +251,12 @@ jobs:
           text="$(printf '%s\n%s\n%s\n%s\n%s\n' \
                    "$USER_PROMPT" "$ISSUE_TITLE" "$ISSUE_BODY" "$COMMENT_BODY" "$REVIEW_BODY")"
 
-          # /effort <low|medium|high|xhigh|max> - regex bounds the value; junk is ignored.
           em="$(printf '%s' "$text" \
                 | grep -oiE '/effort[[:space:]]+(low|medium|high|xhigh|max)' | head -n1 || true)"
           if [ -n "$em" ]; then
             effort="$(printf '%s' "$em" | sed -E 's|^/effort[[:space:]]+||I' | tr '[:upper:]' '[:lower:]')"
           fi
 
-          # /model <allow-listed id> - keep this list in sync with migrate-claude.yml's model dropdown.
           mm="$(printf '%s' "$text" \
                 | grep -oiE '/model[[:space:]]+(claude-opus-4-8|claude-fable-5|claude-sonnet-5)' | head -n1 || true)"
           if [ -n "$mm" ]; then
