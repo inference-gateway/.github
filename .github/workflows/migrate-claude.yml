@@ -243,9 +243,10 @@ jobs:
           mkdir -p .github/workflows
 
           static_browser=$(echo "$CLAUDE_JSON" | jq -r 'if .browser == true then "true" else "false" end')
+          static_effort=$(echo "$CLAUDE_JSON" | jq -r '.effort // "medium"')
 
           with_block=$(echo "$CLAUDE_JSON" | jq -r --arg lang "$LANG" '
-            {language: $lang} + . | del(.browser, .skills)
+            {language: $lang} + . | del(.browser, .skills, .effort)
             | to_entries
             | map(if (.value | type) == "string" and (.value | contains("\n"))
                   then "      \(.key): |\n" + (.value | rtrimstr("\n") | split("\n") | map("        " + .) | join("\n"))
@@ -275,6 +276,17 @@ jobs:
                   required: false
                   type: boolean
                   default: false
+                effort:
+                  description: 'Claude effort level'
+                  required: false
+                  type: choice
+                  options:
+                        - low
+                        - medium
+                        - high
+                        - xhigh
+                        - max
+                  default: medium
             issue_comment:
               types:
                 - created
@@ -311,6 +323,7 @@ jobs:
             echo "$with_block"
             d='$'
             echo "      browser: ${d}{{ inputs.browser || ${static_browser} }}"
+            echo "      effort: ${d}{{ inputs.effort || '${static_effort}' }}"
             echo "      prompt: ${d}{{ inputs.prompt }}"
             echo "    secrets: inherit"
           } > .github/workflows/claude.yml
