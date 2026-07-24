@@ -99,7 +99,7 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 | [**skills**](https://github.com/inference-gateway/skills) | Skills repository |
 | [**awesome-a2a**](https://github.com/inference-gateway/awesome-a2a) | Curated list of A2A-compatible agents |
 | [**infer-action**](https://github.com/inference-gateway/infer-action) | GitHub Action for the Infer CLI |
-| [**browser-extension**](https://github.com/inference-gateway/browser-extension) | Browser extension for better integration with Github |
+| [**opentask**](https://github.com/inference-gateway/opentask) | Make Github great again |
 
 ---
 
