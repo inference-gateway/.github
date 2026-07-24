@@ -163,6 +163,7 @@ jobs:
             schemas
             skills
             agents
+            browser-extension
 
       - name: Get GitHub App User ID
         id: get-user-id
