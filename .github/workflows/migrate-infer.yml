@@ -26,6 +26,11 @@ on:
         required: false
         type: string
         default: ''
+      bump_flox:
+        description: 'Also bump the target Flox infer pin in the same PR (uncheck to only (re)write infer.yml)'
+        required: false
+        type: boolean
+        default: true
       repository:
         description: 'Optional single repos.yaml target (with an orchestrators.infer block) to migrate; blank = all'
         required: false
@@ -55,6 +60,7 @@ jobs:
 
       - name: Resolve latest infer CLI version
         id: resolve
+        if: inputs.bump_flox
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -149,12 +155,14 @@ jobs:
           fi
 
       - name: Install Flox
+        if: inputs.bump_flox
         uses: flox/install-flox-action@v2.5.3
         with:
           version: "1.13.0"
 
       - name: Bump infer pin in the target's Flox manifest
         id: bump
+        if: inputs.bump_flox
         working-directory: target
         env:
           NEW: ${{ env.INFER_VERSION }}
@@ -187,6 +195,7 @@ jobs:
           fi
 
       - name: Refresh Flox lock (scoped to infer)
+        if: inputs.bump_flox
         working-directory: target
         env:
           NIX_CONFIG: "access-tokens = github.com=${{ steps.token.outputs.token }}"
