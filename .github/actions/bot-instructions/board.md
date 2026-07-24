@@ -9,10 +9,9 @@ the id it prints, and paste that literal id into the next command - never write 
 
 - BEFORE you change any code: add the issue to project #7 and set Status = "In progress".
   - Resolve the issue URL: `gh issue view <number> --json url -q .url`
-  - `gh project item-add 7 --owner inference-gateway --url <issue-url>` (idempotent - already on
-    the board is fine, carry on)
-  - Read its project-item id:
-    `gh project item-list 7 --owner inference-gateway --format json -L 1000 -q '.items[] | select(.content.url=="<issue-url>") | .id'`
+  - Add it and read the printed project-item id (idempotent - returns the id whether it creates
+    the item or it was already on the board):
+    `gh project item-add 7 --owner inference-gateway --url <issue-url> --format json -q .id`
   - Set Status to In progress (paste the item id):
     `gh project item-edit --id <item-id> --project-id PVT_kwDOC6ve6c4BNnSt --field-id PVTSSF_lADOC6ve6c4BNnStzg8jqxU --single-select-option-id 47fc9ee4`
 - RIGHT AFTER you open the pull request: set Status to "QA" with the same item-edit command and
