@@ -236,8 +236,7 @@ jobs:
         run: |
           set -uo pipefail
           url=$(gh issue view "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --json url -q .url) || exit 0
-          gh project item-add 7 --owner inference-gateway --url "$url" || true
-          item=$(gh project item-list 7 --owner inference-gateway --format json -L 1000 -q ".items[] | select(.content.url==\"$url\") | .id" || true)
+          item=$(gh project item-add 7 --owner inference-gateway --url "$url" --format json -q .id || true)
           if [ -n "$item" ]; then
             gh project item-edit --id "$item" \
               --project-id PVT_kwDOC6ve6c4BNnSt \
