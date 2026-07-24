@@ -347,3 +347,13 @@ targets:
         plugins: |
           DietrichGebert/ponytail
       codex: {}
+  - name: browser-extension
+    kind: none
+    language: bun
+    orchestrators:
+      claude:
+        plugins: |
+          DietrichGebert/ponytail
+      infer:
+        plugins: |
+          DietrichGebert/ponytail
