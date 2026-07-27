@@ -31,11 +31,11 @@ on:
       effort:
         description: 'Claude effort: low | medium | high | xhigh | max'
         type: string
-        default: medium
+        default: low
       model:
         description: 'Claude model id'
         type: string
-        default: claude-opus-4-8
+        default: claude-fable-5
       prompt:
         description: 'Free-text task for manual (workflow_dispatch) runs. Empty = issue/PR mode (task comes from the @claude comment).'
         type: string
