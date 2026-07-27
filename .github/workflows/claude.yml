@@ -147,6 +147,7 @@ jobs:
             schemas
             skills
             agents
+            opentask
 
       - name: Get GitHub App User ID
         id: get-user-id
