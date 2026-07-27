@@ -88,7 +88,7 @@ jobs:
         id: token
         uses: actions/create-github-app-token@v3.2.0
         with:
-          client-id: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_ID }}
+          client-id: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_CLIENT_ID }}
           private-key: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY }}
           owner: inference-gateway
           repositories: |
