@@ -99,6 +99,10 @@ on:
         description: 'Install k3d and allow k3d/kubectl/helm in the bash allow-list (kubectl/helm/docker are preinstalled on the runner)'
         type: boolean
         default: false
+      mockgen:
+        description: 'Install mockgen (go install go.uber.org/mock/mockgen) so `go generate ./...` can regenerate mocks. Go repos only.'
+        type: boolean
+        default: false
       extra-bash-commands:
         description: 'Comma-separated bare commands appended to the language-derived bash allow list. Each is wrapped as a Go regex anchored to the whole command, e.g. "helm" becomes "^helm( .*)?$".'
         type: string
@@ -229,6 +233,10 @@ jobs:
         with:
           version: v2.12.2
           install-only: true
+
+      - name: Install mockgen
+        if: inputs.language == 'go' && inputs.mockgen
+        run: go install go.uber.org/mock/mockgen@v0.6.0
 
       - name: Set up Rust
         if: inputs.language == 'rust'
