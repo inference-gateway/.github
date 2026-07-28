@@ -2,6 +2,57 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.24.0](https://github.com/inference-gateway/.github/compare/v0.23.0...v0.24.0) (2026-07-28)
+
+### ✨ Features
+
+* add effort input to workflow ([2e8f075](https://github.com/inference-gateway/.github/commit/2e8f075f092180a588e64ba3eff11d077d774c26))
+* add model input to claude workflow ([c64c9a8](https://github.com/inference-gateway/.github/commit/c64c9a87915a2648160e3eebe89e24c0ca356f82))
+* **infer:** k3d support for the reusable infer workflow, enabled for cli ([#117](https://github.com/inference-gateway/.github/issues/117)) ([70bb5b3](https://github.com/inference-gateway/.github/commit/70bb5b3afb11282ef08fd47ee328fa41cfa4275e))
+* make Flox infer bump optional in migrate-infer ([#127](https://github.com/inference-gateway/.github/issues/127)) ([78bebc8](https://github.com/inference-gateway/.github/commit/78bebc8f6be0bcd836d15982e779b227d72ef9e4))
+* resolve [@claude](https://github.com/claude) effort/model from inline /effort and /model directives ([#123](https://github.com/inference-gateway/.github/issues/123)) ([9ba5101](https://github.com/inference-gateway/.github/commit/9ba5101dbc48ab0a0c4c10169a027d130af03a8a))
+
+### 🐛 Bug Fixes
+
+* **board:** resolve project-item id from item-add, drop full-board scan ([#128](https://github.com/inference-gateway/.github/issues/128)) ([810a0bb](https://github.com/inference-gateway/.github/commit/810a0bb08339b339a5345e5d172fc0d88b610bf8))
+* **ci:** update maintainer app ID to client ID in workflows and documentation ([7c0c79b](https://github.com/inference-gateway/.github/commit/7c0c79b1b85d0dad1b3bc941c45b2203067d951f))
+* **claude:** tolerate leading caret in migrate-claude version input ([#121](https://github.com/inference-gateway/.github/issues/121)) ([0aacd50](https://github.com/inference-gateway/.github/commit/0aacd50a760f3cc8cb64af427f0680607089d67d))
+* **infer:** install mockgen so gateway codegen works in [@infer](https://github.com/infer) job ([#132](https://github.com/inference-gateway/.github/issues/132)) ([6b69321](https://github.com/inference-gateway/.github/commit/6b6932169bcf89d93ea4851bf556f39a06f4ed22))
+* **repos:** drop stale browser-extension entry (renamed to browser-agent) ([f0f4710](https://github.com/inference-gateway/.github/commit/f0f47105cc0dab8e4027aa2ec2df13a325e2649e))
+* use [effort:x]/[model:x] markers instead of /effort /model ([8c27316](https://github.com/inference-gateway/.github/commit/8c27316ec39b4666dd629d4ccacae109de89f187))
+
+### 👷 CI
+
+* **claude:** allow pinning claude-code version and skipping Flox bump in migrate-claude ([#120](https://github.com/inference-gateway/.github/issues/120)) ([1deece6](https://github.com/inference-gateway/.github/commit/1deece6392ea3e20ad8a2fd08decfb51f2e9d75b))
+* **infer:** pass resolved bot user-id to infer-action ([#129](https://github.com/inference-gateway/.github/issues/129)) ([a8633b1](https://github.com/inference-gateway/.github/commit/a8633b1f4a45f88a38e4802b3e02b8d26e92142d))
+* **repos:** install prettier for inference-gateway @infer/@claude/[@codex](https://github.com/codex) ([#119](https://github.com/inference-gateway/.github/issues/119)) ([76e725d](https://github.com/inference-gateway/.github/commit/76e725d970fc272c7cb1b42efefc0a3eacc453ab))
+
+### 🔧 Miscellaneous
+
+* add 'opentask' to the workflow configuration ([2a08bf8](https://github.com/inference-gateway/.github/commit/2a08bf8510cd2ee249e4020bb6533f3c81e92e24))
+* add browser extension link to README ([8348fe7](https://github.com/inference-gateway/.github/commit/8348fe7dda1b0a0c0725549e2d0e7c0babb414bb))
+* add opentask to workflow configuration ([dc18637](https://github.com/inference-gateway/.github/commit/dc1863717a336c03d2584340405fe3c741f2b59b))
+* change default values in migrate-claude.yml ([02cd99b](https://github.com/inference-gateway/.github/commit/02cd99b7c8a81df0ef5bff77cafbb3a3a69efb23))
+* **deps:** add prettier configuration for adl orchestrators ([20da5a0](https://github.com/inference-gateway/.github/commit/20da5a0c2a2cbedfafd6aa0ad7d830b6937ce0a2))
+* **deps:** bump the github-actions group with 4 updates ([#118](https://github.com/inference-gateway/.github/issues/118)) ([8e08e20](https://github.com/inference-gateway/.github/commit/8e08e20da9b367980b869087c4e9e7697bf85c7f))
+* **deps:** update Claude Code Action to version 1.0.181 ([66fa8bf](https://github.com/inference-gateway/.github/commit/66fa8bf9e9f3977dd72efbb08679e28bf4590758))
+* **deps:** update Claude Code Action to version 1.0.183 ([a8dcc4f](https://github.com/inference-gateway/.github/commit/a8dcc4ff73fca8646a8765d3ca816fef6a4738ea))
+* **deps:** update Infer CLI version and action reference ([63aea88](https://github.com/inference-gateway/.github/commit/63aea88d76c4880ec78a29ccfb3a6aa48f4c6386))
+* **deps:** update infer CLI version and action version ([a9345e4](https://github.com/inference-gateway/.github/commit/a9345e4cb1b06bad3d7d4208378cdbfa36430bbb))
+* **deps:** update infer CLI version and action version ([e782161](https://github.com/inference-gateway/.github/commit/e782161ae10cf7405399b6a4ff7ce5e1158c7376))
+* **deps:** update infer CLI version and action version ([3319930](https://github.com/inference-gateway/.github/commit/3319930a0372774b9b564b8cd1b23e740f008f83))
+* **deps:** update Infer CLI version and action version ([8442bde](https://github.com/inference-gateway/.github/commit/8442bde8e58f5a89a631dfa6a2692761ea91cfae))
+* **deps:** update infer-action version to v0.34.3 ([7c3102d](https://github.com/inference-gateway/.github/commit/7c3102d063454a6c92bcfa1e4cd1917f20c26659))
+* **deps:** update infer-action version to v0.34.5 ([ad407ae](https://github.com/inference-gateway/.github/commit/ad407aeb4da36cc537667229ae114f6f9defc437))
+* **deps:** update infer-action version to v0.36.0 ([9ba39c8](https://github.com/inference-gateway/.github/commit/9ba39c8c4f65aff578c95655bf5cd35922e1f3e7))
+* **deps:** update infer-action version to v0.36.2 ([8798008](https://github.com/inference-gateway/.github/commit/8798008bfe98f08b89fa4655c50449cadc3fde01))
+* install markdownlint for the skills repo bots ([#133](https://github.com/inference-gateway/.github/issues/133)) ([9dc458a](https://github.com/inference-gateway/.github/commit/9dc458a1faef2b795dca5025d32e6d329b9ff753))
+* register browser-extension for claude + infer orchestrators ([#126](https://github.com/inference-gateway/.github/issues/126)) ([7c2b58b](https://github.com/inference-gateway/.github/commit/7c2b58beccc60e960d19c33ea8eda3b716357687))
+* update default values for effort and model in CLAUDE workflow ([b8c2910](https://github.com/inference-gateway/.github/commit/b8c2910b30fb86dbc09803c538126de6708bb7e7))
+* update infer to v0.152.0 ([d53fa05](https://github.com/inference-gateway/.github/commit/d53fa05c8464f026725c09a99bec98f448381902))
+* update README with opentask repository link ([1dbfe1a](https://github.com/inference-gateway/.github/commit/1dbfe1ac9999b1838806dfcc1c3d9ed1345e9632))
+* use fable-5 low effort ([66bb5a5](https://github.com/inference-gateway/.github/commit/66bb5a5b2db60c324447af77e7908e146c65742e))
+
 ## [0.23.0](https://github.com/inference-gateway/.github/compare/v0.22.5...v0.23.0) (2026-07-21)
 
 ### ✨ Features
