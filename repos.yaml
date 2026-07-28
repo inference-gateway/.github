@@ -331,12 +331,15 @@ targets:
     language: node
     orchestrators:
       claude:
+        markdownlint: true
         plugins: |
           DietrichGebert/ponytail
       infer:
+        markdownlint: true
         plugins: |
           DietrichGebert/ponytail
-      codex: {}
+      codex:
+        markdownlint: true
   - name: agents
     kind: none
     language: node
