@@ -196,6 +196,15 @@ jobs:
             echo "::notice::Migrated spec.development.ai.enabled -> claudecode.enabled+infer.enabled"
           fi
 
+      - name: Migrate renamed secret defaults
+        working-directory: target
+        run: |
+          set -euo pipefail
+          if [ "$(yq -r '.spec.scm.app_id_secret' agent.yaml)" = "RELEASER_APP_ID" ]; then
+            yq -i '.spec.scm.app_id_secret = "RELEASER_APP_CLIENT_ID"' agent.yaml
+            echo "::notice::Migrated scm.app_id_secret RELEASER_APP_ID -> RELEASER_APP_CLIENT_ID"
+          fi
+
       - name: Additive deep merge (existing wins, new keys added)
         run: |
           set -euo pipefail
