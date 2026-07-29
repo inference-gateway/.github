@@ -253,7 +253,7 @@ jobs:
         with:
           token: ${{ steps.token.outputs.token }}
           path: target
-          branch: bot/refresh-agent-manifest-${{ env.ADL_VERSION }}
+          branch: bot/refresh-agent-manifest
           base: main
           sign-commits: true
           delete-branch: true
