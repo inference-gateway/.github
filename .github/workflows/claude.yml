@@ -184,11 +184,12 @@ jobs:
         if: inputs.language == 'go'
         uses: actions/setup-go@v7.0.0
         with:
-          go-version-file: 'go.mod'
-          cache: true
+          go-version-file: ${{ hashFiles('go.mod') != '' && 'go.mod' || '' }}
+          go-version: ${{ hashFiles('go.mod') != '' && '' || 'stable' }}
+          cache: ${{ hashFiles('go.mod') != '' }}
 
       - name: Install golangci-lint
-        if: inputs.language == 'go'
+        if: inputs.language == 'go' && hashFiles('go.mod') != ''
         uses: golangci/golangci-lint-action@v9.3.0
         with:
           version: v2.12.2
