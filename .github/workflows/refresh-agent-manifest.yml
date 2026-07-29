@@ -200,9 +200,6 @@ jobs:
         working-directory: target
         run: |
           set -euo pipefail
-          # The additive merge never rewrites an existing value, so a RENAMED
-          # default has to be migrated explicitly. The org secret is
-          # RELEASER_APP_CLIENT_ID; RELEASER_APP_ID no longer exists.
           if [ "$(yq -r '.spec.scm.app_id_secret' agent.yaml)" = "RELEASER_APP_ID" ]; then
             yq -i '.spec.scm.app_id_secret = "RELEASER_APP_CLIENT_ID"' agent.yaml
             echo "::notice::Migrated scm.app_id_secret RELEASER_APP_ID -> RELEASER_APP_CLIENT_ID"
