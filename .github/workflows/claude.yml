@@ -184,7 +184,6 @@ jobs:
         if: inputs.language == 'go'
         uses: actions/setup-go@v7.0.0
         with:
-          # No go.mod = a repo that needs the toolchain but has no module of its own.
           go-version-file: ${{ hashFiles('go.mod') != '' && 'go.mod' || '' }}
           go-version: ${{ hashFiles('go.mod') != '' && '' || 'stable' }}
           cache: ${{ hashFiles('go.mod') != '' }}
