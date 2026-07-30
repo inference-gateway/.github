@@ -142,7 +142,6 @@ targets:
       claude:
         node: true
         markdownlint: true
-        # examples/authentication brings up Keycloak via docker compose for the e2e auth suite
         extra-tools: "Bash(docker:*)"
         plugins: |
           DietrichGebert/ponytail
