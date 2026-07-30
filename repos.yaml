@@ -145,10 +145,12 @@ targets:
         extra-tools: "Bash(docker:*)"
         plugins: |
           DietrichGebert/ponytail
+          ayghri/i-have-adhd
       infer:
         markdownlint: true
         plugins: |
           DietrichGebert/ponytail
+          ayghri/i-have-adhd
       codex:
         markdownlint: true
   - name: rust-adk
