@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.24.1](https://github.com/inference-gateway/.github/compare/v0.24.0...v0.24.1) (2026-07-30)
+
+### 🐛 Bug Fixes
+
+* **refresh-agent-manifest:** migrate RELEASER_APP_ID -> RELEASER_APP_CLIENT_ID ([#136](https://github.com/inference-gateway/.github/issues/136)) ([1ec302f](https://github.com/inference-gateway/.github/commit/1ec302f4eacc321ba7de1ca367879d913b66c06f))
+* **workflows:** set up Go even when the repo has no go.mod ([#137](https://github.com/inference-gateway/.github/issues/137)) ([86d7ca9](https://github.com/inference-gateway/.github/commit/86d7ca924872541e424a0f7257286c47a885595f))
+
+### 👷 CI
+
+* **adk:** allow docker in the [@claude](https://github.com/claude) tool allow-list ([#138](https://github.com/inference-gateway/.github/issues/138)) ([10e943c](https://github.com/inference-gateway/.github/commit/10e943cfe7dcf4273dfa0b18339367e15528f69e)), references [inference-gateway/adk#267](https://github.com/inference-gateway/adk/issues/267)
+* **refresh-agent-manifest:** use a fixed PR branch ([#135](https://github.com/inference-gateway/.github/issues/135)) ([fa123d8](https://github.com/inference-gateway/.github/commit/fa123d8736026388b1beb36d39b04a3dc9c069ce))
+
+### 🔧 Miscellaneous
+
+* add claude-opus-5 as an option ([c6996e7](https://github.com/inference-gateway/.github/commit/c6996e76838130e7d76802c08428d0f2f05215f1))
+* **deps:** bump anthropics/claude-code-action ([#134](https://github.com/inference-gateway/.github/issues/134)) ([28d41da](https://github.com/inference-gateway/.github/commit/28d41dafb8ac7867f5ea55dad701eee9779d4421))
+* **deps:** update infer-action version to v0.38.0 ([6df057e](https://github.com/inference-gateway/.github/commit/6df057e263537a1c69328e4351a3e43ae1ddafe2))
+* **deps:** update infer-action version to v0.38.1 ([88f5d95](https://github.com/inference-gateway/.github/commit/88f5d95b162a03375f316d5230e9843de9ccc51a))
+* **deps:** update infer-action version to v0.38.2 ([4a63923](https://github.com/inference-gateway/.github/commit/4a639230022ac03c16d12e417ee415c5df0549dc))
+
 ## [0.24.0](https://github.com/inference-gateway/.github/compare/v0.23.0...v0.24.0) (2026-07-28)
 
 ### ✨ Features
