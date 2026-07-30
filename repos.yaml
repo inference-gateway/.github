@@ -142,6 +142,7 @@ targets:
       claude:
         node: true
         markdownlint: true
+        extra-tools: "Bash(docker:*)"
         plugins: |
           DietrichGebert/ponytail
       infer:
