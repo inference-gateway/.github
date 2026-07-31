@@ -213,8 +213,11 @@ jobs:
           set -euo pipefail
           mkdir -p .github/workflows
 
+          static_browser=$(echo "$INFER_JSON" | jq -r 'if .browser == true then "true" else "false" end')
+          static_browser_engine=$(echo "$INFER_JSON" | jq -r '.browser_engine // "chromium"')
+
           with_block=$(echo "$INFER_JSON" | jq -r --arg lang "$LANG" '
-            {language: $lang} + .
+            {language: $lang} + . | del(.browser, .browser_engine)
             | to_entries
             | map(if (.value | type) == "string" and (.value | contains("\n"))
                   then "      \(.key): |\n" + (.value | rtrimstr("\n") | split("\n") | map("        " + .) | join("\n"))
@@ -239,6 +242,21 @@ jobs:
                   description: 'Free-text task for infer (deepseek) to work on in this repo'
                   required: true
                   type: string
+                browser:
+                  description: 'Run the browser-agent A2A container for this run'
+                  required: false
+                  type: boolean
+                  default: false
+                browser_engine:
+                  description: 'Browser engine: chromium | firefox | webkit or lightpanda (fastest, no graphical rendering, partial Web API coverage)'
+                  required: false
+                  type: choice
+                  options:
+                    - chromium
+                    - firefox
+                    - webkit
+                    - lightpanda
+                  default: chromium
             issues:
               types:
                 - opened
@@ -278,6 +296,8 @@ jobs:
             echo "    with:"
             echo "$with_block"
             d='$'
+            echo "      browser: ${d}{{ inputs.browser || ${static_browser} }}"
+            echo "      browser_engine: ${d}{{ inputs.browser_engine || '${static_browser_engine}' }}"
             echo "      prompt: ${d}{{ inputs.prompt }}"
             echo "    secrets: inherit"
           } > .github/workflows/infer.yml

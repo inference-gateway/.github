@@ -75,6 +75,14 @@ on:
         description: 'Enable infer-action debug logging AND mirror the agent stdout transcript to the run log (mirror-agent-logs). Defaults false; turn on per-repo via repos.yaml for verbose agent logs (private repos only - the mirrored transcript can include sensitive values).'
         type: boolean
         default: false
+      browser:
+        description: 'Run the browser-agent A2A container alongside this run so the agent can drive live web pages. Sources, ORed: the static per-repo value from repos.yaml, the dispatch checkbox (forwarded by the caller), and a case-insensitive [browser] marker in the issue/comment/review body or issue title. The engine is chosen with `browser_engine` (or a [browser:<engine>] marker, which also enables the browser).'
+        type: boolean
+        default: false
+      browser_engine:
+        description: 'Browser engine when `browser` is enabled, mapped to the browser-agent image tag: chromium (default) | firefox | webkit | lightpanda (fastest, but no graphical rendering and only partial Web API coverage - pages that need a full browser should stay on chromium). Sources, in precedence order: a case-insensitive [browser:<engine>] marker in the issue/comment/review body or issue title, then this input (per-repo value from repos.yaml or the dispatch choice forwarded by the caller).'
+        type: string
+        default: chromium
       markdownlint:
         description: 'Install markdownlint-cli and add markdownlint to the bash whitelist'
         type: boolean
@@ -333,6 +341,41 @@ jobs:
           echo "patterns=$patterns" >> "$GITHUB_OUTPUT"
           echo "Bash allow append: $patterns"
 
+      - name: Resolve browser mode
+        id: browser
+        env:
+          BROWSER_INPUT: ${{ inputs.browser }}
+          ENGINE_INPUT: ${{ inputs.browser_engine }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          REVIEW_BODY: ${{ github.event.review.body }}
+        run: |
+          set -euo pipefail
+          text="$(printf '%s\n%s\n%s\n%s\n' \
+                   "$ISSUE_TITLE" "$ISSUE_BODY" "$COMMENT_BODY" "$REVIEW_BODY")"
+
+          enabled=false
+          engine="${ENGINE_INPUT:-chromium}"
+
+          # [browser:<engine>] both enables the browser and picks the engine.
+          marker="$(printf '%s' "$text" | grep -oiE '\[browser:[a-z]+\]' | head -n1 || true)"
+          if [ -n "$marker" ]; then
+            enabled=true
+            engine="$(printf '%s' "$marker" | sed -E 's|^\[browser:||I; s|\]$||' | tr '[:upper:]' '[:lower:]')"
+          elif [ "$BROWSER_INPUT" = "true" ] || printf '%s' "$text" | grep -qiF '[browser]'; then
+            enabled=true
+          fi
+
+          case "$engine" in
+            chromium|firefox|webkit|lightpanda) ;;
+            *) echo "::error::Invalid browser_engine '$engine' (expected: chromium | firefox | webkit | lightpanda)"; exit 1 ;;
+          esac
+
+          echo "Browser agent enabled: $enabled (engine: $engine)"
+          echo "enabled=$enabled" >> "$GITHUB_OUTPUT"
+          echo "engine=$engine" >> "$GITHUB_OUTPUT"
+
       - name: Load shared bot instructions
         id: instr
         uses: inference-gateway/.github/.github/actions/bot-instructions@main
@@ -348,12 +391,22 @@ jobs:
           RELEASES: ${{ steps.instr.outputs.releases }}
           SANDBOX: ${{ steps.instr.outputs.sandbox }}
           ESCALATION: ${{ steps.instr.outputs.escalation }}
+          BROWSER: ${{ steps.browser.outputs.enabled }}
+          BROWSER_ENGINE: ${{ steps.browser.outputs.engine }}
         run: |
           set -euo pipefail
           if [ "$EVENT" = "issues" ] || { [ "$EVENT" = "issue_comment" ] && [ "$IS_PR_COMMENT" != "true" ]; }; then
             text="$(printf '%s\n\n%s\n\n%s\n\n%s\n\n%s\n\n%s' "$BOARD" "$FOLLOWUPS" "$STYLE" "$RELEASES" "$SANDBOX" "$ESCALATION")"
           else
             text="$(printf '%s\n\n%s\n\n%s\n\n%s\n\n%s' "$FOLLOWUPS" "$STYLE" "$RELEASES" "$SANDBOX" "$ESCALATION")"
+          fi
+          if [ "$BROWSER" = "true" ]; then
+            if [ "$BROWSER_ENGINE" = "lightpanda" ]; then
+              note="**BROWSER:** A browser automation A2A agent (browser-agent, engine: lightpanda) is running alongside this task - use its tools to navigate and inspect live web pages. Lightpanda has no graphical rendering (no screenshots) and covers only part of the Web API surface, so a page failing in ways that look like missing browser features is a Lightpanda limitation, not necessarily a bug in the page."
+            else
+              note="**BROWSER:** A browser automation A2A agent (browser-agent, engine: $BROWSER_ENGINE) is running alongside this task - use its tools to navigate, inspect, screenshot, or verify live web pages when the task calls for a real browser."
+            fi
+            text="$(printf '%s\n\n%s' "$text" "$note")"
           fi
           printf 'text<<__CI_EOF__\n%s\n__CI_EOF__\n' "$text" >> "$GITHUB_OUTPUT"
 
@@ -398,6 +451,7 @@ jobs:
           mirror-agent-logs: ${{ inputs.debug }}
           skills: ${{ inputs.skills }}
           plugins: ${{ inputs.plugins }}
+          agents: ${{ steps.browser.outputs.enabled == 'true' && format('browser-agent:{0}', steps.browser.outputs.engine) || '' }}
           custom-instructions: ${{ steps.custom.outputs.text }}
           bash-allow-append: ${{ steps.whitelist.outputs.patterns }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}

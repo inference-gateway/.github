@@ -61,7 +61,7 @@ on:
         type: boolean
         default: false
       browser_engine:
-        description: 'Browser backend when `browser` is enabled: chromium (default, installs Chromium via Playwright) | lightpanda (runs the lightpanda/browser container as a CDP server and points @playwright/mcp at it - no Chromium install, much faster startup, but only partial Web API coverage, so sites that need a full browser should stay on chromium). Sources, in precedence order: a case-insensitive [browser:<engine>] marker in the issue/comment/review body or issue title, then this input (per-repo value from repos.yaml or the dispatch choice forwarded by the caller).'
+        description: 'Browser backend when `browser` is enabled: chromium (default) | firefox | webkit (each installed via Playwright) | lightpanda (runs the lightpanda/browser container as a CDP server and points @playwright/mcp at it - no browser install, much faster startup, but only partial Web API coverage, so sites that need a full browser should stay on chromium). Sources, in precedence order: a case-insensitive [browser:<engine>] marker in the issue/comment/review body or issue title, then this input (per-repo value from repos.yaml or the dispatch choice forwarded by the caller).'
         type: string
         default: chromium
       markdownlint:
@@ -246,8 +246,8 @@ jobs:
           fi
 
           case "$engine" in
-            chromium|lightpanda) ;;
-            *) echo "::error::Invalid browser_engine '$engine' (expected: chromium | lightpanda)"; exit 1 ;;
+            chromium|firefox|webkit|lightpanda) ;;
+            *) echo "::error::Invalid browser_engine '$engine' (expected: chromium | firefox | webkit | lightpanda)"; exit 1 ;;
           esac
 
           echo "Browser MCP enabled: $enabled (engine: $engine)"
@@ -313,9 +313,9 @@ jobs:
           pip install pre-commit
           task precommit:install
 
-      - name: Install Playwright + Chromium
-        if: steps.browser.outputs.enabled == 'true' && steps.browser.outputs.engine == 'chromium'
-        run: npx -y playwright@latest install --with-deps chromium
+      - name: Install Playwright browser
+        if: steps.browser.outputs.enabled == 'true' && steps.browser.outputs.engine != 'lightpanda'
+        run: npx -y playwright@latest install --with-deps ${{ steps.browser.outputs.engine }}
 
       - name: Start Lightpanda CDP server
         if: steps.browser.outputs.enabled == 'true' && steps.browser.outputs.engine == 'lightpanda'
@@ -377,7 +377,7 @@ jobs:
             if [ "$BROWSER_ENGINE" = "lightpanda" ]; then
               pw_args='["-y","@playwright/mcp@latest","--cdp-endpoint","ws://127.0.0.1:9222"]'
             else
-              pw_args='["-y","@playwright/mcp@latest","--headless","--browser","chromium","--isolated"]'
+              pw_args='["-y","@playwright/mcp@latest","--headless","--browser","'"$BROWSER_ENGINE"'","--isolated"]'
             fi
             servers="$(echo "$servers" | jq -c --argjson a "$pw_args" '. + {playwright:{command:"npx",args:$a}}')"
           fi
@@ -460,7 +460,7 @@ jobs:
             if [ "$BROWSER_ENGINE" = "lightpanda" ]; then
               note="**BROWSER:** A browser MCP server (mcp__playwright) backed by Lightpanda over CDP is available this run - use it to navigate, inspect, or verify live web pages. Lightpanda covers only part of the Web API surface, so a page that fails in ways that look like missing browser features is a Lightpanda limitation, not necessarily a bug in the page."
             else
-              note="**BROWSER:** A headless-Chromium browser MCP server (mcp__playwright) is available this run - use it to navigate, inspect, screenshot, or verify live web pages when the task calls for a real browser."
+              note="**BROWSER:** A headless $BROWSER_ENGINE browser MCP server (mcp__playwright) is available this run - use it to navigate, inspect, screenshot, or verify live web pages when the task calls for a real browser."
             fi
             common="$(printf '%s\n\n%s' "$common" "$note")"
           fi
