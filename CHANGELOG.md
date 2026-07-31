@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.24.2](https://github.com/inference-gateway/.github/compare/v0.24.1...v0.24.2) (2026-07-31)
+
+### 🔧 Miscellaneous
+
+* **deps:** update infer CLI version and action version ([aaa06d0](https://github.com/inference-gateway/.github/commit/aaa06d0bfec9a426a252aa7ce51db5108956d545))
+* **repos:** add ayghri/i-have-adhd plugin to adk claude + infer ([e3be357](https://github.com/inference-gateway/.github/commit/e3be357fadde23a998d01f90537b3bbbd41324fd))
+
 ## [0.24.1](https://github.com/inference-gateway/.github/compare/v0.24.0...v0.24.1) (2026-07-30)
 
 ### 🐛 Bug Fixes
