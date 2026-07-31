@@ -57,9 +57,13 @@ on:
         type: boolean
         default: true
       browser:
-        description: 'Enable the browser MCP server for this run (installs Chromium + adds the @playwright/mcp server and the mcp__playwright tool). Sources, ORed: the static per-repo value from repos.yaml, the dispatch checkbox (forwarded by the caller), and a case-insensitive [browser] marker in the issue/comment/review body or issue title.'
+        description: 'Enable the browser MCP server for this run (installs Chromium + adds the @playwright/mcp server and the mcp__playwright tool). Sources, ORed: the static per-repo value from repos.yaml, the dispatch checkbox (forwarded by the caller), and a case-insensitive [browser] marker in the issue/comment/review body or issue title. The engine is chosen with `browser_engine` (or a [browser:<engine>] marker, which also enables the browser).'
         type: boolean
         default: false
+      browser_engine:
+        description: 'Browser backend when `browser` is enabled: chromium (default) | firefox | webkit (each installed via Playwright) | lightpanda (runs the lightpanda/browser container as a CDP server and points @playwright/mcp at it - no browser install, much faster startup, but only partial Web API coverage, so sites that need a full browser should stay on chromium). Sources, in precedence order: a case-insensitive [browser:<engine>] marker in the issue/comment/review body or issue title, then this input (per-repo value from repos.yaml or the dispatch choice forwarded by the caller).'
+        type: string
+        default: chromium
       markdownlint:
         description: 'Set up Node and install markdownlint-cli'
         type: boolean
@@ -219,22 +223,36 @@ jobs:
         id: browser
         env:
           BROWSER_INPUT: ${{ inputs.browser }}
+          ENGINE_INPUT: ${{ inputs.browser_engine }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
           COMMENT_BODY: ${{ github.event.comment.body }}
           REVIEW_BODY: ${{ github.event.review.body }}
         run: |
           set -euo pipefail
+          text="$(printf '%s\n%s\n%s\n%s\n' \
+                   "$ISSUE_TITLE" "$ISSUE_BODY" "$COMMENT_BODY" "$REVIEW_BODY")"
+
           enabled=false
-          if [ "$BROWSER_INPUT" = "true" ]; then
+          engine="${ENGINE_INPUT:-chromium}"
+
+          # [browser:<engine>] both enables the browser and picks the backend.
+          marker="$(printf '%s' "$text" | grep -oiE '\[browser:[a-z]+\]' | head -n1 || true)"
+          if [ -n "$marker" ]; then
             enabled=true
-          elif printf '%s\n%s\n%s\n%s\n' \
-                 "$ISSUE_TITLE" "$ISSUE_BODY" "$COMMENT_BODY" "$REVIEW_BODY" \
-               | grep -qiF '[browser]'; then
+            engine="$(printf '%s' "$marker" | sed -E 's|^\[browser:||I; s|\]$||' | tr '[:upper:]' '[:lower:]')"
+          elif [ "$BROWSER_INPUT" = "true" ] || printf '%s' "$text" | grep -qiF '[browser]'; then
             enabled=true
           fi
-          echo "Browser MCP enabled: $enabled"
+
+          case "$engine" in
+            chromium|firefox|webkit|lightpanda) ;;
+            *) echo "::error::Invalid browser_engine '$engine' (expected: chromium | firefox | webkit | lightpanda)"; exit 1 ;;
+          esac
+
+          echo "Browser MCP enabled: $enabled (engine: $engine)"
           echo "enabled=$enabled" >> "$GITHUB_OUTPUT"
+          echo "engine=$engine" >> "$GITHUB_OUTPUT"
 
       - name: Resolve effort and model
         id: agent
@@ -295,9 +313,27 @@ jobs:
           pip install pre-commit
           task precommit:install
 
-      - name: Install Playwright + Chromium
-        if: steps.browser.outputs.enabled == 'true'
-        run: npx -y playwright@latest install --with-deps chromium
+      - name: Install Playwright browser
+        if: steps.browser.outputs.enabled == 'true' && steps.browser.outputs.engine != 'lightpanda'
+        run: npx -y playwright@latest install --with-deps ${{ steps.browser.outputs.engine }}
+
+      - name: Start Lightpanda CDP server
+        if: steps.browser.outputs.enabled == 'true' && steps.browser.outputs.engine == 'lightpanda'
+        run: |
+          set -euo pipefail
+          docker run -d --name lightpanda -p 127.0.0.1:9222:9222 lightpanda/browser:nightly
+
+          for _ in $(seq 30); do
+            if (exec 3<>/dev/tcp/127.0.0.1/9222) 2>/dev/null; then
+              echo "Lightpanda CDP server listening on ws://127.0.0.1:9222"
+              exit 0
+            fi
+            sleep 1
+          done
+
+          echo "::error::Lightpanda did not start listening on 127.0.0.1:9222 within 30s"
+          docker logs lightpanda || true
+          exit 1
 
       - name: Determine branch prefix
         id: prefix
@@ -324,6 +360,7 @@ jobs:
           EXTRA_TOOLS: ${{ inputs.extra-tools }}
           CONTEXT7: ${{ inputs.context7 }}
           BROWSER: ${{ steps.browser.outputs.enabled }}
+          BROWSER_ENGINE: ${{ steps.browser.outputs.engine }}
           EXTRA_MCP: ${{ inputs.extra-mcp-servers }}
           NODE: ${{ inputs.node }}
           PRETTIER: ${{ inputs.prettier }}
@@ -337,7 +374,12 @@ jobs:
             servers="$(echo "$servers" | jq -c '. + {context7:{command:"npx",args:["-y","@upstash/context7-mcp@latest"]}}')"
           fi
           if [ "$BROWSER" = "true" ]; then
-            servers="$(echo "$servers" | jq -c '. + {playwright:{command:"npx",args:["-y","@playwright/mcp@latest","--headless","--browser","chromium","--isolated"]}}')"
+            if [ "$BROWSER_ENGINE" = "lightpanda" ]; then
+              pw_args='["-y","@playwright/mcp@latest","--cdp-endpoint","ws://127.0.0.1:9222"]'
+            else
+              pw_args='["-y","@playwright/mcp@latest","--headless","--browser","'"$BROWSER_ENGINE"'","--isolated"]'
+            fi
+            servers="$(echo "$servers" | jq -c --argjson a "$pw_args" '. + {playwright:{command:"npx",args:$a}}')"
           fi
           servers="$(echo "$servers" | jq -c --argjson extra "$EXTRA_MCP" '. + $extra')"
 
@@ -390,6 +432,7 @@ jobs:
           STYLE: ${{ steps.instr.outputs.style }}
           ESCALATION: ${{ steps.instr.outputs.escalation }}
           BROWSER: ${{ steps.browser.outputs.enabled }}
+          BROWSER_ENGINE: ${{ steps.browser.outputs.engine }}
         run: |
           set -euo pipefail
 
@@ -414,7 +457,12 @@ jobs:
           )"
           common="$(printf '%s\n\n%s\n\n%s' "$common" "$STYLE" "$ESCALATION")"
           if [ "$BROWSER" = "true" ]; then
-            common="$(printf '%s\n\n%s' "$common" "**BROWSER:** A headless-Chromium browser MCP server (mcp__playwright) is available this run - use it to navigate, inspect, screenshot, or verify live web pages when the task calls for a real browser.")"
+            if [ "$BROWSER_ENGINE" = "lightpanda" ]; then
+              note="**BROWSER:** A browser MCP server (mcp__playwright) backed by Lightpanda over CDP is available this run - use it to navigate, inspect, or verify live web pages. Lightpanda covers only part of the Web API surface, so a page that fails in ways that look like missing browser features is a Lightpanda limitation, not necessarily a bug in the page."
+            else
+              note="**BROWSER:** A headless $BROWSER_ENGINE browser MCP server (mcp__playwright) is available this run - use it to navigate, inspect, screenshot, or verify live web pages when the task calls for a real browser."
+            fi
+            common="$(printf '%s\n\n%s' "$common" "$note")"
           fi
 
           if [ "$context" = "issue" ]; then

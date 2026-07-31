@@ -243,11 +243,12 @@ jobs:
           mkdir -p .github/workflows
 
           static_browser=$(echo "$CLAUDE_JSON" | jq -r 'if .browser == true then "true" else "false" end')
+          static_browser_engine=$(echo "$CLAUDE_JSON" | jq -r '.browser_engine // "chromium"')
           static_effort=$(echo "$CLAUDE_JSON" | jq -r '.effort // "medium"')
           static_model=$(echo "$CLAUDE_JSON" | jq -r '.model // "claude-opus-4-8"')
 
           with_block=$(echo "$CLAUDE_JSON" | jq -r --arg lang "$LANG" '
-            {language: $lang} + . | del(.browser, .skills, .effort, .model)
+            {language: $lang} + . | del(.browser, .browser_engine, .skills, .effort, .model)
             | to_entries
             | map(if (.value | type) == "string" and (.value | contains("\n"))
                   then "      \(.key): |\n" + (.value | rtrimstr("\n") | split("\n") | map("        " + .) | join("\n"))
@@ -273,10 +274,20 @@ jobs:
                   required: true
                   type: string
                 browser:
-                  description: 'Install Chromium + enable the browser MCP (mcp__playwright) for this run'
+                  description: 'Enable the browser MCP (mcp__playwright) for this run'
                   required: false
                   type: boolean
                   default: false
+                browser_engine:
+                  description: 'Browser backend: chromium | firefox | webkit (installed via Playwright) or lightpanda (CDP container, faster, partial Web API coverage)'
+                  required: false
+                  type: choice
+                  options:
+                    - chromium
+                    - firefox
+                    - webkit
+                    - lightpanda
+                  default: chromium
                 effort:
                   description: 'Claude effort level'
                   required: false
@@ -334,6 +345,7 @@ jobs:
             echo "$with_block"
             d='$'
             echo "      browser: ${d}{{ inputs.browser || ${static_browser} }}"
+            echo "      browser_engine: ${d}{{ inputs.browser_engine || '${static_browser_engine}' }}"
             echo "      effort: ${d}{{ inputs.effort || '${static_effort}' }}"
             echo "      model: ${d}{{ inputs.model || '${static_model}' }}"
             echo "      prompt: ${d}{{ inputs.prompt }}"
