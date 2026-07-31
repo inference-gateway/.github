@@ -245,7 +245,7 @@ jobs:
           static_browser=$(echo "$CLAUDE_JSON" | jq -r 'if .browser == true then "true" else "false" end')
           static_browser_engine=$(echo "$CLAUDE_JSON" | jq -r '.browser_engine // "chromium"')
           static_effort=$(echo "$CLAUDE_JSON" | jq -r '.effort // "medium"')
-          static_model=$(echo "$CLAUDE_JSON" | jq -r '.model // "claude-opus-4-8"')
+          static_model=$(echo "$CLAUDE_JSON" | jq -r '.model // "claude-opus-5"')
 
           with_block=$(echo "$CLAUDE_JSON" | jq -r --arg lang "$LANG" '
             {language: $lang} + . | del(.browser, .browser_engine, .skills, .effort, .model)
@@ -298,7 +298,7 @@ jobs:
                     - high
                     - xhigh
                     - max
-                  default: low
+                  default: medium
                 model:
                   description: 'Claude model'
                   required: false
@@ -307,8 +307,7 @@ jobs:
                     - claude-opus-5
                     - claude-fable-5
                     - claude-sonnet-5
-                    - claude-opus-4-8
-                  default: claude-fable-5
+                  default: claude-opus-5
             issue_comment:
               types:
                 - created
