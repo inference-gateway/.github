@@ -41,6 +41,14 @@
 #                                          each becomes an extraKnownMarketplaces + enabledPlugins entry in
 #                                          claude-code-action's `settings` (plugin name = repo basename).
 #                                          `skills` accepted for forward-compat but unused.
+#                                          `browser` (bool) enables the browser MCP; `browser_engine`
+#                                          (chromium | lightpanda, default chromium) picks the backend.
+#                                          `lightpanda` skips the Chromium install and drives the
+#                                          lightpanda/browser container over CDP - much faster startup,
+#                                          but only partial Web API coverage, so repos whose pages need a
+#                                          full browser should stay on chromium. Per run, a
+#                                          `[browser:lightpanda]` marker in an issue/comment/review body
+#                                          overrides both.
 #                                infer  -> migrate-infer.yml operates on every `orchestrators.infer != null`
 #                                          entry; sub-keys map 1:1 to infer.yml inputs.
 #                                          `skills`  (string) Newline-separated org skills for infer-action. Default ''.
