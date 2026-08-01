@@ -74,7 +74,7 @@ on:
       debug:
         description: 'Enable infer-action debug logging AND mirror the agent stdout transcript to the run log (mirror-agent-logs). Defaults false; turn on per-repo via repos.yaml for verbose agent logs (private repos only - the mirrored transcript can include sensitive values).'
         type: boolean
-        default: false
+        default: true
       browser:
         description: 'Run the browser-agent A2A container alongside this run so the agent can drive live web pages. Sources, ORed: the static per-repo value from repos.yaml, the dispatch checkbox (forwarded by the caller), and a case-insensitive [browser] marker in the issue/comment/review body or issue title. The engine is chosen with `browser_engine` (or a [browser:<engine>] marker, which also enables the browser).'
         type: boolean
