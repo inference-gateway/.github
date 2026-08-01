@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.25.0](https://github.com/inference-gateway/.github/compare/v0.24.2...v0.25.0) (2026-08-01)
+
+### ✨ Features
+
+* add browser engine choice to claude and infer bots ([#141](https://github.com/inference-gateway/.github/issues/141)) ([16dc0c5](https://github.com/inference-gateway/.github/commit/16dc0c5d462a90adc96f49f6eb6af5e6891c140b))
+
+### 🐛 Bug Fixes
+
+* **claude:** default generated callers to claude-opus-5 + medium effort ([#142](https://github.com/inference-gateway/.github/issues/142)) ([a2bcb8a](https://github.com/inference-gateway/.github/commit/a2bcb8a4aa8d139274d62d76bb3d55aa688245fd))
+
+### 🔧 Miscellaneous
+
+* **deps:** update infer CLI version and action version ([22a8a27](https://github.com/inference-gateway/.github/commit/22a8a27f5b85899ecba1efb5d028f20a6bf78ef0))
+* **deps:** update infer CLI version and action version ([fcb346a](https://github.com/inference-gateway/.github/commit/fcb346a8acde6995772c0bd24df4188e88f77a11))
+* **deps:** update infer-action version to v0.41.0 ([8803df4](https://github.com/inference-gateway/.github/commit/8803df40c3dd5239444a1333d5e7469ebdd8545d))
+* **deps:** update infer-action version to v0.41.1 ([7ac15a3](https://github.com/inference-gateway/.github/commit/7ac15a3a87fb68f754a24ce6a4ada868daef1b3e))
+
 ## [0.24.2](https://github.com/inference-gateway/.github/compare/v0.24.1...v0.24.2) (2026-07-31)
 
 ### 🔧 Miscellaneous
