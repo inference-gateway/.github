@@ -152,6 +152,8 @@ jobs:
             skills
             agents
             opentask
+            stt-binaries
+            desktop
 
       - name: Get GitHub App User ID
         id: get-user-id
