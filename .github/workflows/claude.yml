@@ -154,6 +154,7 @@ jobs:
             opentask
             stt-binaries
             desktop
+            tokenless
 
       - name: Get GitHub App User ID
         id: get-user-id
