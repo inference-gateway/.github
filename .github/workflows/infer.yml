@@ -62,7 +62,7 @@ on:
       cli-version:
         description: 'infer CLI version installed by infer-action (must be a release with published binaries)'
         type: string
-        default: v0.161.0
+        default: v0.162.0
       trigger-phrase:
         description: 'Mention that activates the bot'
         type: string
@@ -178,6 +178,7 @@ jobs:
             opentask
             stt-binaries
             desktop
+            tokenless
 
       - name: Get GitHub App User ID
         id: get-user-id
@@ -438,7 +439,7 @@ jobs:
           echo "model=$model" >> "$GITHUB_OUTPUT"
 
       - name: Run Infer Agent
-        uses: inference-gateway/infer-action@v0.44.2
+        uses: inference-gateway/infer-action@v0.44.3
         with:
           version: ${{ inputs.cli-version }}
           memory-repo: https://github.com/inference-gateway/.memory
