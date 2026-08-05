@@ -88,6 +88,10 @@ on:
         description: 'Newline-separated GitHub plugin marketplaces (owner/repo) to register and enable for the run, mirroring the `plugins` input on infer.yml. Each entry registers the repo as a Claude Code plugin marketplace AND enables the plugin whose name is the repo basename (e.g. "DietrichGebert/ponytail" -> marketplace "ponytail" + plugin "ponytail@ponytail"). Mapped to the claude-code-action native `plugins` + `plugin_marketplaces` inputs (settings-based extraKnownMarketplaces/enabledPlugins are ignored in headless runs). Default none.'
         type: string
         default: ''
+      skills:
+        description: 'Newline-separated org skill names to install for the run, mirroring the `skills` input on infer.yml. Each name is a directory under skills/ in inference-gateway/skills, copied into ~/.claude/skills/<name> where Claude Code auto-discovers it as a user-level skill (claude-code-action has no native skills input). Unknown names fail the job. Default none.'
+        type: string
+        default: ''
       debug:
         description: 'Enable Claude CLI debug logging (--debug -> stderr) and full JSON output (show_full_output) in the run log. Defaults false; turn on per-repo via repos.yaml for verbose agent logs (private repos only - debug output can include sensitive values).'
         type: boolean
@@ -525,6 +529,30 @@ jobs:
           settings="$(jq -cn --arg d "$MEM_DIR" '{autoMemoryDirectory: $d}')"
           { echo "settings=$settings"; echo "dir=$MEM_DIR"; } >> "$GITHUB_OUTPUT"
           echo "Auto-memory relocated to: $MEM_DIR"
+
+      - name: Install skills
+        if: inputs.skills != ''
+        env:
+          SKILLS: ${{ inputs.skills }}
+        run: |
+          set -euo pipefail
+
+          src="$(mktemp -d)"
+          git clone --quiet --depth 1 https://github.com/inference-gateway/skills.git "$src"
+          mkdir -p "$HOME/.claude/skills"
+          while IFS= read -r line; do
+            # Trim surrounding whitespace; skip blanks.
+            line="${line#"${line%%[![:space:]]*}"}"
+            line="${line%"${line##*[![:space:]]}"}"
+            [ -n "$line" ] || continue
+            if [ ! -d "$src/skills/$line" ]; then
+              echo "::error::Skill '$line' not found in inference-gateway/skills (skills/$line missing)"
+              exit 1
+            fi
+            rm -rf "$HOME/.claude/skills/$line"
+            cp -R "$src/skills/$line" "$HOME/.claude/skills/$line"
+            echo "Installed skill: $line"
+          done <<< "$SKILLS"
 
       - name: Compose plugin inputs
         id: settings

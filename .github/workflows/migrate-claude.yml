@@ -248,7 +248,7 @@ jobs:
           static_model=$(echo "$CLAUDE_JSON" | jq -r '.model // "claude-opus-5"')
 
           with_block=$(echo "$CLAUDE_JSON" | jq -r --arg lang "$LANG" '
-            {language: $lang} + . | del(.browser, .browser_engine, .skills, .effort, .model)
+            {language: $lang} + . | del(.browser, .effort, .model)
             | to_entries
             | map(if (.value | type) == "string" and (.value | contains("\n"))
                   then "      \(.key): |\n" + (.value | rtrimstr("\n") | split("\n") | map("        " + .) | join("\n"))
