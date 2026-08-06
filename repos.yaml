@@ -230,6 +230,7 @@ targets:
         markdownlint: true
         precommit: true
         k3d: true
+        review_inline: true
         plugins: |
           DietrichGebert/ponytail
       codex:
