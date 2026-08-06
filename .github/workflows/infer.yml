@@ -83,6 +83,10 @@ on:
         description: 'Browser engine when `browser` is enabled, mapped to the browser-agent image tag: chromium (default) | firefox | webkit | lightpanda (fastest, but no graphical rendering and only partial Web API coverage - pages that need a full browser should stay on chromium). Sources, in precedence order: a case-insensitive [browser:<engine>] marker in the issue/comment/review body or issue title, then this input (per-repo value from repos.yaml or the dispatch choice forwarded by the caller).'
         type: string
         default: chromium
+      review_inline:
+        description: 'In review mode, post findings as a real PR review with inline line-anchored comments (infer-action `review-inline`) instead of a single conversation comment. Sources, ORed: the static per-repo value from repos.yaml, the dispatch checkbox (forwarded by the caller), and a case-insensitive [review-inline] marker in the issue/comment/review body or issue title.'
+        type: boolean
+        default: false
       markdownlint:
         description: 'Install markdownlint-cli and add markdownlint to the bash whitelist'
         type: boolean
@@ -379,6 +383,25 @@ jobs:
           echo "enabled=$enabled" >> "$GITHUB_OUTPUT"
           echo "engine=$engine" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve review-inline mode
+        id: review-inline
+        env:
+          REVIEW_INLINE_INPUT: ${{ inputs.review_inline }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          REVIEW_BODY: ${{ github.event.review.body }}
+        run: |
+          set -euo pipefail
+          enabled=false
+          if [ "$REVIEW_INLINE_INPUT" = "true" ] || printf '%s\n%s\n%s\n%s\n' \
+               "$ISSUE_TITLE" "$ISSUE_BODY" "$COMMENT_BODY" "$REVIEW_BODY" \
+             | grep -qiF '[review-inline]'; then
+            enabled=true
+          fi
+          echo "Review-inline mode enabled: $enabled"
+          echo "enabled=$enabled" >> "$GITHUB_OUTPUT"
+
       - name: Load shared bot instructions
         id: instr
         uses: inference-gateway/.github/.github/actions/bot-instructions@main
@@ -457,6 +480,7 @@ jobs:
           skills: ${{ inputs.skills }}
           plugins: ${{ inputs.plugins }}
           agents: ${{ steps.browser.outputs.enabled == 'true' && format('browser-agent:{0}', steps.browser.outputs.engine) || '' }}
+          review-inline: ${{ steps.review-inline.outputs.enabled }}
           custom-instructions: ${{ steps.custom.outputs.text }}
           bash-allow-append: ${{ steps.whitelist.outputs.patterns }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}

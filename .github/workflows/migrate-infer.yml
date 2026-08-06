@@ -215,9 +215,10 @@ jobs:
 
           static_browser=$(echo "$INFER_JSON" | jq -r 'if .browser == true then "true" else "false" end')
           static_browser_engine=$(echo "$INFER_JSON" | jq -r '.browser_engine // "chromium"')
+          static_review_inline=$(echo "$INFER_JSON" | jq -r 'if .review_inline == true then "true" else "false" end')
 
           with_block=$(echo "$INFER_JSON" | jq -r --arg lang "$LANG" '
-            {language: $lang} + . | del(.browser, .browser_engine)
+            {language: $lang} + . | del(.browser, .browser_engine, .review_inline)
             | to_entries
             | map(if (.value | type) == "string" and (.value | contains("\n"))
                   then "      \(.key): |\n" + (.value | rtrimstr("\n") | split("\n") | map("        " + .) | join("\n"))
@@ -257,6 +258,11 @@ jobs:
                     - webkit
                     - lightpanda
                   default: chromium
+                review_inline:
+                  description: 'Post review-mode findings as inline PR review comments instead of one conversation comment'
+                  required: false
+                  type: boolean
+                  default: false
             issues:
               types:
                 - opened
@@ -298,6 +304,7 @@ jobs:
             d='$'
             echo "      browser: ${d}{{ inputs.browser || ${static_browser} }}"
             echo "      browser_engine: ${d}{{ inputs.browser_engine || '${static_browser_engine}' }}"
+            echo "      review_inline: ${d}{{ inputs.review_inline || ${static_review_inline} }}"
             echo "      prompt: ${d}{{ inputs.prompt }}"
             echo "    secrets: inherit"
           } > .github/workflows/infer.yml
