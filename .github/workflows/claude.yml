@@ -89,7 +89,7 @@ on:
         type: string
         default: ''
       skills:
-        description: 'Newline-separated org skill names to install for the run, mirroring the `skills` input on infer.yml. Each name is resolved through inference-gateway/skills catalog.json (the built form of skills.yaml): its source may be vendored in the skills repo or point at another repo (e.g. adl, opentask), and the skill body is copied into ~/.claude/skills/<name> where Claude Code auto-discovers it as a user-level skill (claude-code-action has no native skills input). Unknown names fail the job. Default none.'
+        description: 'Newline-separated skill names to install for the run, mirroring the `skills` input on infer.yml. Each name is resolved through inference-gateway/skills catalog.json (the built form of skills.yaml): its source may be vendored in the skills repo or point at another repo (e.g. adl, opentask), and the skill body is copied into ~/.claude/skills/<name> where Claude Code auto-discovers it as a user-level skill (claude-code-action has no native skills input). Unknown names fail the job. Default none.'
         type: string
         default: ''
       debug:
