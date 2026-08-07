@@ -89,7 +89,7 @@ on:
         type: string
         default: ''
       skills:
-        description: 'Newline-separated org skill names to install for the run, mirroring the `skills` input on infer.yml. Each name is a directory under skills/ in inference-gateway/skills, copied into ~/.claude/skills/<name> where Claude Code auto-discovers it as a user-level skill (claude-code-action has no native skills input). Unknown names fail the job. Default none.'
+        description: 'Newline-separated org skill names to install for the run, mirroring the `skills` input on infer.yml. Each name is resolved through inference-gateway/skills catalog.json (the built form of skills.yaml): its source may be vendored in the skills repo or point at another repo (e.g. adl, opentask), and the skill body is copied into ~/.claude/skills/<name> where Claude Code auto-discovers it as a user-level skill (claude-code-action has no native skills input). Unknown names fail the job. Default none.'
         type: string
         default: ''
       debug:
@@ -537,21 +537,49 @@ jobs:
         run: |
           set -euo pipefail
 
-          src="$(mktemp -d)"
-          git clone --quiet --depth 1 https://github.com/inference-gateway/skills.git "$src"
+          # Resolve each skill via inference-gateway/skills catalog.json - the
+          # built form of skills.yaml, mapping frontmatter name -> source url.
+          # Vendored skills resolve back into this clone; skills whose source
+          # points at another repo are shallow-cloned on demand.
+          reg="$(mktemp -d)"
+          git clone --quiet --depth 1 https://github.com/inference-gateway/skills.git "$reg"
+          catalog="$reg/catalog.json"
           mkdir -p "$HOME/.claude/skills"
+          declare -A cloned=( ["inference-gateway/skills@main"]="$reg" )
+
           while IFS= read -r line; do
             # Trim surrounding whitespace; skip blanks.
             line="${line#"${line%%[![:space:]]*}"}"
             line="${line%"${line##*[![:space:]]}"}"
             [ -n "$line" ] || continue
-            if [ ! -d "$src/skills/$line" ]; then
-              echo "::error::Skill '$line' not found in inference-gateway/skills (skills/$line missing)"
+
+            source="$(jq -r --arg n "$line" '.skills[]|select(.name==$n)|.source' "$catalog")"
+            if [ -z "$source" ] || [ "$source" = "null" ]; then
+              echo "::error::Skill '$line' not found in inference-gateway/skills catalog.json"
+              exit 1
+            fi
+
+            # source = https://github.com/<owner>/<repo>/tree/<ref>/<path>
+            rest="${source#https://github.com/}"
+            slug="${rest%%/tree/*}"          # owner/repo
+            tail="${rest#*/tree/}"           # ref/path...
+            ref="${tail%%/*}"                # ponytail: first segment; skills.yaml pins tags/main - slashed branch names or bare SHA refs unsupported
+            path="${tail#*/}"
+
+            repo="${cloned[$slug@$ref]:-}"
+            if [ -z "$repo" ]; then
+              repo="$(mktemp -d)"
+              git clone --quiet --depth 1 --branch "$ref" "https://github.com/$slug.git" "$repo"
+              cloned[$slug@$ref]="$repo"
+            fi
+
+            if [ ! -d "$repo/$path" ]; then
+              echo "::error::Skill '$line' source path '$path' missing in $slug@$ref"
               exit 1
             fi
             rm -rf "$HOME/.claude/skills/$line"
-            cp -R "$src/skills/$line" "$HOME/.claude/skills/$line"
-            echo "Installed skill: $line"
+            cp -R "$repo/$path" "$HOME/.claude/skills/$line"
+            echo "Installed skill: $line ($slug@$ref/$path)"
           done <<< "$SKILLS"
 
       - name: Compose plugin inputs
