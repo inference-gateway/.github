@@ -40,9 +40,10 @@
 #                                          (owner/repo) registered + enabled for @claude, mirroring infer:
 #                                          each becomes an extraKnownMarketplaces + enabledPlugins entry in
 #                                          claude-code-action's `settings` (plugin name = repo basename).
-#                                          `skills` (string) Newline-separated org skill names from
-#                                          inference-gateway/skills (dirs under skills/), installed to
-#                                          ~/.claude/skills for the run. Default ''.
+#                                          `skills` (string) Newline-separated skill names resolved
+#                                          via inference-gateway/skills catalog.json (vendored or from
+#                                          another repo), installed to ~/.claude/skills for the run.
+#                                          Default ''.
 #                                          `browser` (bool) enables the browser MCP; `browser_engine`
 #                                          (chromium | firefox | webkit | lightpanda, default chromium)
 #                                          picks the backend. `lightpanda` skips the Playwright browser
