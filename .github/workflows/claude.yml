@@ -537,10 +537,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Resolve each skill via inference-gateway/skills catalog.json - the
-          # built form of skills.yaml, mapping frontmatter name -> source url.
-          # Vendored skills resolve back into this clone; skills whose source
-          # points at another repo are shallow-cloned on demand.
           reg="$(mktemp -d)"
           git clone --quiet --depth 1 https://github.com/inference-gateway/skills.git "$reg"
           catalog="$reg/catalog.json"
@@ -559,11 +555,10 @@ jobs:
               exit 1
             fi
 
-            # source = https://github.com/<owner>/<repo>/tree/<ref>/<path>
             rest="${source#https://github.com/}"
-            slug="${rest%%/tree/*}"          # owner/repo
-            tail="${rest#*/tree/}"           # ref/path...
-            ref="${tail%%/*}"                # ponytail: first segment; skills.yaml pins tags/main - slashed branch names or bare SHA refs unsupported
+            slug="${rest%%/tree/*}"
+            tail="${rest#*/tree/}"
+            ref="${tail%%/*}"
             path="${tail#*/}"
 
             repo="${cloned[$slug@$ref]:-}"
