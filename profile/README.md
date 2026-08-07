@@ -55,7 +55,7 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 |---|---|
 | [**inference-gateway**](https://github.com/inference-gateway/inference-gateway) | The core gateway server |
 | [**operator**](https://github.com/inference-gateway/operator) | Kubernetes Operator for lifecycle management |
-| [**cli**](https://github.com/inference-gateway/cli) | Agentic CLI assistant with project context awareness |
+| [**cli**](https://github.com/inference-gateway/cli) | A Git-first CLI coding agent that turns ideas, issues, and tasks into real code changes |
 | [**desktop**](https://github.com/inference-gateway/desktop) | Desktop App for better UX |
 | [**schemas**](https://github.com/inference-gateway/schemas) | MCP, A2A, and OpenAPI schemas |
 | [**docs**](https://github.com/inference-gateway/docs) | Documentation site |
