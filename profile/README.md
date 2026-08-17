@@ -1,21 +1,23 @@
 <div align="center">
 
-<img src="https://avatars.githubusercontent.com/u/195813097?s=200&v=4" width="100" alt="Inference Gateway Logo" />
+<img src="https://avatars.githubusercontent.com/u/195813097?s=200&v=4" width="96" alt="Inference Gateway Logo" />
 
 # Inference Gateway
 
 **An open-source, cloud-native, high-performance gateway unifying multiple LLM providers**
 
-[![GitHub Stars](https://img.shields.io/github/stars/inference-gateway/inference-gateway?style=flat-square&logo=github)](https://github.com/inference-gateway/inference-gateway/stargazers)
+[![GitHub Stars](https://img.shields.io/github/stars/inference-gateway/inference-gateway?style=flat-square&logo=github&color=7C3AED)](https://github.com/inference-gateway/inference-gateway/stargazers)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=flat-square)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Go](https://img.shields.io/badge/Built%20with-Go-00ADD8?style=flat-square&logo=go)](https://golang.org)
 [![Docs](https://img.shields.io/badge/docs-inference--gateway.com-7C3AED?style=flat-square)](https://docs.inference-gateway.com)
 
 [📖 Documentation](https://docs.inference-gateway.com) · [🚀 Getting Started](https://docs.inference-gateway.com/getting-started) · [💬 Discussions](https://github.com/orgs/inference-gateway/discussions) · [🐛 Issues](https://github.com/inference-gateway/inference-gateway/issues)
 
-</div>
+<br/>
 
----
+<img src="./assets/terminal-api.svg" width="760" alt="curl example: one OpenAI-compatible endpoint for every LLM provider" />
+
+</div>
 
 ## 🌐 What is Inference Gateway?
 
@@ -23,12 +25,16 @@
 
 Stop managing multiple SDKs and API keys. Route all your LLM traffic through a single, production-ready gateway.
 
+<details>
+<summary>📋 Copy the command</summary>
+
 ```bash
-# One endpoint. Every provider.
 curl -X POST http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model": "openai/gpt-5.5", "messages": [{"role": "user", "content": "Hello!"}]}'
 ```
+
+</details>
 
 ---
 
@@ -44,6 +50,34 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 | 📊 **Observability** | OpenTelemetry integration for monitoring and tracing |
 | 🔒 **Privacy First** | Self-hosted, zero data collection, Apache 2.0 licensed |
 | 🌿 **Lightweight** | ~10.8MB binary with minimal resource footprint |
+
+---
+
+## 🚀 Quick Start
+
+<div align="center">
+
+<img src="./assets/terminal-quickstart.svg" width="760" alt="Quick start: run with Docker or install the CLI" />
+
+</div>
+
+<details>
+<summary>📋 Copy the commands</summary>
+
+```bash
+# Run with Docker
+docker run -p 8080:8080 \
+  -e OPENAI_API_KEY=your-key \
+  ghcr.io/inference-gateway/inference-gateway:latest
+
+# Or install the CLI
+curl -fsSL https://raw.githubusercontent.com/inference-gateway/cli/main/install.sh | bash
+infer init && infer chat
+```
+
+</details>
+
+👉 Full setup guide: [docs.inference-gateway.com/getting-started](https://docs.inference-gateway.com/getting-started)
 
 ---
 
@@ -104,23 +138,6 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 
 ---
 
-## 🚀 Quick Start
-
-```bash
-# Run with Docker
-docker run -p 8080:8080 \
-  -e OPENAI_API_KEY=your-key \
-  ghcr.io/inference-gateway/inference-gateway:latest
-
-# Or install the CLI
-curl -fsSL https://raw.githubusercontent.com/inference-gateway/cli/main/install.sh | bash
-infer init && infer chat
-```
-
-👉 Full setup guide: [docs.inference-gateway.com/getting-started](https://docs.inference-gateway.com/getting-started)
-
----
-
 ## 🤝 Contributing
 
 We welcome contributions of all kinds - bug reports, feature requests, documentation improvements, and code!
@@ -129,7 +146,6 @@ We welcome contributions of all kinds - bug reports, feature requests, documenta
 - 🐛 **Report bugs** via [GitHub Issues](https://github.com/inference-gateway/inference-gateway/issues)
 - 💬 **Join discussions** in [GitHub Discussions](https://github.com/orgs/inference-gateway/discussions)
 - 🔧 **Submit PRs** - see `CONTRIBUTING.md` in each repository
-
 
 ---
 

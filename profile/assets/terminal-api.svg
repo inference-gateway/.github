@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="300" viewBox="0 0 760 300" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="14">
+  <defs>
+    <linearGradient id="glow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7C3AED" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#2563EB" stop-opacity="0.15"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="752" height="292" rx="14" fill="url(#glow)"/>
+  <rect x="8" y="8" width="744" height="284" rx="12" fill="#0d1117" stroke="#30363d"/>
+  <path d="M8 20 a12 12 0 0 1 12 -12 h720 a12 12 0 0 1 12 12 v26 h-744 z" fill="#161b22"/>
+  <line x1="8" y1="46" x2="752" y2="46" stroke="#30363d"/>
+  <circle cx="34" cy="27" r="6.5" fill="#ff5f57"/>
+  <circle cx="56" cy="27" r="6.5" fill="#febc2e"/>
+  <circle cx="78" cy="27" r="6.5" fill="#28c840"/>
+  <text x="380" y="32" text-anchor="middle" fill="#8b949e" font-size="12">one endpoint - every provider</text>
+
+  <text x="36" y="84" fill="#8b949e"># One endpoint. Every provider.</text>
+  <text x="36" y="110"><tspan fill="#7ee787">$</tspan><tspan fill="#e6edf3" dx="8">curl -X POST http://localhost:8080/v1/chat/completions \</tspan></text>
+  <text x="60" y="134"><tspan fill="#e6edf3">-H</tspan><tspan fill="#a5d6ff" dx="8">"Content-Type: application/json"</tspan><tspan fill="#e6edf3" dx="8">\</tspan></text>
+  <text x="60" y="158"><tspan fill="#e6edf3">-d</tspan><tspan fill="#a5d6ff" dx="8">'{"model": "openai/gpt-5.5",</tspan></text>
+  <text x="94" y="182" fill="#a5d6ff">"messages": [{"role": "user", "content": "Hello!"}]}'</text>
+
+  <text x="36" y="222"><tspan fill="#7C3AED">&#10003;</tspan><tspan fill="#8b949e" dx="8">swap</tspan><tspan fill="#c9a7ff" dx="8">openai/gpt-5.5</tspan><tspan fill="#8b949e" dx="8">for</tspan><tspan fill="#c9a7ff" dx="8">anthropic/claude-sonnet-5</tspan><tspan fill="#8b949e" dx="8">-</tspan><tspan fill="#8b949e" dx="8">nothing else changes</tspan></text>
+  <text x="36" y="260"><tspan fill="#7ee787">$</tspan><tspan fill="#e6edf3" dx="8"> </tspan></text>
+  <rect x="56" y="248" width="8" height="15" fill="#e6edf3">
+    <animate attributeName="opacity" values="1;1;0;0" dur="1.2s" repeatCount="indefinite"/>
+  </rect>
+</svg>

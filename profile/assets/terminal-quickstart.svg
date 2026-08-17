@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="380" viewBox="0 0 760 380" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="14">
+  <defs>
+    <linearGradient id="glow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7C3AED" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#2563EB" stop-opacity="0.15"/>
+    </linearGradient>
+  </defs>
+  <!-- outer glow frame -->
+  <rect x="4" y="4" width="752" height="372" rx="14" fill="url(#glow)"/>
+  <!-- window -->
+  <rect x="8" y="8" width="744" height="364" rx="12" fill="#0d1117" stroke="#30363d"/>
+  <!-- title bar -->
+  <path d="M8 20 a12 12 0 0 1 12 -12 h720 a12 12 0 0 1 12 12 v26 h-744 z" fill="#161b22"/>
+  <line x1="8" y1="46" x2="752" y2="46" stroke="#30363d"/>
+  <circle cx="34" cy="27" r="6.5" fill="#ff5f57"/>
+  <circle cx="56" cy="27" r="6.5" fill="#febc2e"/>
+  <circle cx="78" cy="27" r="6.5" fill="#28c840"/>
+  <text x="380" y="32" text-anchor="middle" fill="#8b949e" font-size="12">inference-gateway - quick start</text>
+
+  <!-- body -->
+  <text x="36" y="84" fill="#8b949e"># Run with Docker</text>
+  <text x="36" y="110"><tspan fill="#7ee787">$</tspan><tspan fill="#e6edf3" dx="8">docker run -p 8080:8080 \</tspan></text>
+  <text x="60" y="134" fill="#e6edf3">-e OPENAI_API_KEY=your-key \</text>
+  <text x="60" y="158" fill="#e6edf3">ghcr.io/inference-gateway/inference-gateway:latest</text>
+
+  <text x="36" y="198" fill="#8b949e"># Or install the CLI</text>
+  <text x="36" y="224"><tspan fill="#7ee787">$</tspan><tspan fill="#e6edf3" dx="8">curl -fsSL https://raw.githubusercontent.com/\</tspan></text>
+  <text x="60" y="248" fill="#e6edf3">inference-gateway/cli/main/install.sh | bash</text>
+  <text x="36" y="272"><tspan fill="#7ee787">$</tspan><tspan fill="#a5b4fc" dx="8">infer</tspan><tspan fill="#e6edf3" dx="8">init</tspan><tspan fill="#8b949e" dx="8">&amp;&amp;</tspan><tspan fill="#a5b4fc" dx="8">infer</tspan><tspan fill="#e6edf3" dx="8">chat</tspan></text>
+
+  <text x="36" y="306" fill="#7C3AED">&#10003; Gateway listening on :8080</text>
+  <text x="36" y="330" fill="#8b949e">One endpoint. Every provider.</text>
+  <text x="36" y="356"><tspan fill="#7ee787">$</tspan><tspan fill="#e6edf3" dx="8"> </tspan></text>
+  <rect x="56" y="344" width="8" height="15" fill="#e6edf3">
+    <animate attributeName="opacity" values="1;1;0;0" dur="1.2s" repeatCount="indefinite"/>
+  </rect>
+</svg>
