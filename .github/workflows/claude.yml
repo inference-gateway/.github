@@ -604,7 +604,7 @@ jobs:
 
       - name: Run Claude Code
         id: claude
-        uses: anthropics/claude-code-action@v1.0.191
+        uses: anthropics/claude-code-action@v1.0.193
         with:
           github_token: ${{ steps.app-token.outputs.token }}
           settings: ${{ steps.memory-sync-in.outputs.settings }}
