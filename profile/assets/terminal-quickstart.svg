@@ -24,13 +24,14 @@
   <text x="60" y="158" fill="#e6edf3">ghcr.io/inference-gateway/inference-gateway:latest</text>
 
   <text x="36" y="198" fill="#8b949e"># Or install the CLI</text>
-  <text x="36" y="224"><tspan fill="#7ee787">$</tspan><tspan fill="#e6edf3" dx="8">curl -fsSL https://raw.githubusercontent.com/inference-gateway/cli/main/install.sh | bash</tspan></text>
-  <text x="36" y="250"><tspan fill="#7ee787">$</tspan><tspan fill="#a5b4fc" dx="8">infer</tspan><tspan fill="#e6edf3" dx="8">init</tspan><tspan fill="#8b949e" dx="8">&amp;&amp;</tspan><tspan fill="#a5b4fc" dx="8">infer</tspan><tspan fill="#e6edf3" dx="8">chat</tspan></text>
+  <text x="36" y="224"><tspan fill="#7ee787">$</tspan><tspan fill="#e6edf3" dx="8">curl -fsSL https://raw.githubusercontent.com/\</tspan></text>
+  <text x="60" y="248" fill="#e6edf3">inference-gateway/cli/main/install.sh | bash</text>
+  <text x="36" y="272"><tspan fill="#7ee787">$</tspan><tspan fill="#a5b4fc" dx="8">infer</tspan><tspan fill="#e6edf3" dx="8">init</tspan><tspan fill="#8b949e" dx="8">&amp;&amp;</tspan><tspan fill="#a5b4fc" dx="8">infer</tspan><tspan fill="#e6edf3" dx="8">chat</tspan></text>
 
-  <text x="36" y="290" fill="#7C3AED">&#10003; Gateway listening on :8080</text>
-  <text x="36" y="316" fill="#8b949e">One endpoint. Every provider.</text>
-  <text x="36" y="344"><tspan fill="#7ee787">$</tspan><tspan fill="#e6edf3" dx="8"> </tspan></text>
-  <rect x="56" y="332" width="8" height="15" fill="#e6edf3">
+  <text x="36" y="306" fill="#7C3AED">&#10003; Gateway listening on :8080</text>
+  <text x="36" y="330" fill="#8b949e">One endpoint. Every provider.</text>
+  <text x="36" y="356"><tspan fill="#7ee787">$</tspan><tspan fill="#e6edf3" dx="8"> </tspan></text>
+  <rect x="56" y="344" width="8" height="15" fill="#e6edf3">
     <animate attributeName="opacity" values="1;1;0;0" dur="1.2s" repeatCount="indefinite"/>
   </rect>
 </svg>
