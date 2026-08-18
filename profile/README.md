@@ -134,6 +134,7 @@ infer init && infer chat
 | [**registry**](https://github.com/inference-gateway/registry) | Registry for A2A agents and skills |
 | [**agents**](https://github.com/inference-gateway/agents) | Agents repository |
 | [**skills**](https://github.com/inference-gateway/skills) | Skills repository |
+| [**tokenless**](https://github.com/inference-gateway/tokenless) | A E2E testing library for calling AI applications without wasting tokens |
 | [**awesome-a2a**](https://github.com/inference-gateway/awesome-a2a) | Curated list of A2A-compatible agents |
 
 ---
