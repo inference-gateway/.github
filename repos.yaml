@@ -157,12 +157,14 @@ targets:
       claude:
         node: true
         markdownlint: true
+        prettier: true
         extra-tools: "Bash(docker:*)"
         plugins: |
           DietrichGebert/ponytail
           ayghri/i-have-adhd
       infer:
         markdownlint: true
+        prettier: true
         plugins: |
           DietrichGebert/ponytail
           ayghri/i-have-adhd
