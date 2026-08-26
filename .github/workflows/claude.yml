@@ -196,9 +196,6 @@ jobs:
         uses: actions/setup-go@v7.0.0
         with:
           go-version-file: ${{ hashFiles('go.mod') != '' && 'go.mod' || '' }}
-          # A && '' || B always yields B (empty string is falsy), and go-version overrides
-          # go-version-file in setup-go - so the condition must be inverted to keep the
-          # go.mod pin winning when it exists (see #154).
           go-version: ${{ hashFiles('go.mod') == '' && 'stable' || '' }}
           cache: ${{ hashFiles('go.mod') != '' }}
 
