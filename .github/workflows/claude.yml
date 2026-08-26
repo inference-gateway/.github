@@ -196,7 +196,7 @@ jobs:
         uses: actions/setup-go@v7.0.0
         with:
           go-version-file: ${{ hashFiles('go.mod') != '' && 'go.mod' || '' }}
-          go-version: ${{ hashFiles('go.mod') != '' && '' || 'stable' }}
+          go-version: ${{ hashFiles('go.mod') == '' && 'stable' || '' }}
           cache: ${{ hashFiles('go.mod') != '' }}
 
       - name: Install golangci-lint
