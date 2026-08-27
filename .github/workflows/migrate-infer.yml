@@ -157,8 +157,6 @@ jobs:
       - name: Install Flox
         if: inputs.bump_flox
         uses: flox/install-flox-action@v2.6.0
-        with:
-          version: "1.15.0"
 
       - name: Bump infer pin in the target's Flox manifest
         id: bump
@@ -170,21 +168,28 @@ jobs:
         run: |
           set -euo pipefail
           if [ ! -f .flox/env/manifest.toml ]; then
-            echo "::notice::${{ matrix.target.name }} has no Flox env; bootstrapping one pinning infer ${NEW}"
+            echo "::notice::${{ matrix.target.name }} has no Flox env; bootstrapping one"
             flox init
             rm -f .flox/env/manifest.lock
-            SCHEMA=$(grep -oE '^schema-version = "[^"]+"' .flox/env/manifest.toml | head -1 | cut -d'"' -f2 || true)
-            [ -n "$SCHEMA" ] || SCHEMA="1.15.0"
-            printf 'schema-version = "%s"\n\n[install]\ninfer.flake = "github:inference-gateway/cli/%s"\n' "$SCHEMA" "$NEW" > .flox/env/manifest.toml
-            flox activate -- true
-            echo "old=$NEW" >> "$GITHUB_OUTPUT"
-            echo "::notice::${{ matrix.target.name }}: bootstrapped Flox env pinning infer ${NEW}"
-            exit 0
           fi
-          OLD=$(grep -oE 'inference-gateway/cli/v[0-9]+\.[0-9]+\.[0-9]+' .flox/env/manifest.toml | head -1 | sed 's|inference-gateway/cli/||')
+
+          SCHEMA=$(flox --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+          CUR=$(grep -oE '^schema-version = "[^"]+"' .flox/env/manifest.toml | head -1 | cut -d'"' -f2 || true)
+          if [ -z "$CUR" ]; then
+            sed -i "1i schema-version = \"${SCHEMA}\"" .flox/env/manifest.toml
+            echo "::notice::${{ matrix.target.name }}: added schema-version ${SCHEMA}"
+          elif [ "$(printf '%s\n%s\n' "$CUR" "$SCHEMA" | sort -V | tail -1)" != "$CUR" ]; then
+            sed -i "s|^schema-version = \"${CUR}\"|schema-version = \"${SCHEMA}\"|" .flox/env/manifest.toml
+            echo "::notice::${{ matrix.target.name }}: schema-version ${CUR} -> ${SCHEMA}"
+          fi
+
+          grep -q '^\[install\]' .flox/env/manifest.toml || printf '\n[install]\n' >> .flox/env/manifest.toml
+          OLD=$(grep -oE 'inference-gateway/cli/v[0-9]+\.[0-9]+\.[0-9]+' .flox/env/manifest.toml | head -1 | sed 's|inference-gateway/cli/||' || true)
           if [ -z "$OLD" ]; then
-            echo "::error::${{ matrix.target.name }} .flox/env/manifest.toml has no inference-gateway/cli infer pin"
-            exit 1
+            sed -i "/^\[install\]/a infer.flake = \"github:inference-gateway/cli/${NEW}\"" .flox/env/manifest.toml
+            echo "old=$NEW" >> "$GITHUB_OUTPUT"
+            echo "::notice::${{ matrix.target.name }}: added infer pin ${NEW}"
+            exit 0
           fi
           echo "old=$OLD" >> "$GITHUB_OUTPUT"
           if [ "$OLD" = "$NEW" ]; then
@@ -391,6 +396,7 @@ jobs:
 
             Ran in CI (mirrors `migrate-claude.yml`):
             - sed the `inference-gateway/cli` pin in `.flox/env/manifest.toml` to the latest release
+            - reconcile `schema-version` with the flox version this workflow installs (flox never migrates it itself)
             - `flox upgrade infer` + `flox activate -- true` to refresh `.flox/env/manifest.lock` in canonical form
 
             ### Notes
