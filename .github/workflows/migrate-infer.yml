@@ -173,7 +173,6 @@ jobs:
             rm -f .flox/env/manifest.lock
           fi
 
-          # schema-version follows the installed flox (upsert; raise only - a newer one stays)
           SCHEMA=$(flox --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
           CUR=$(grep -oE '^schema-version = "[^"]+"' .flox/env/manifest.toml | head -1 | cut -d'"' -f2 || true)
           if [ -z "$CUR" ]; then
@@ -184,7 +183,6 @@ jobs:
             echo "::notice::${{ matrix.target.name }}: schema-version ${CUR} -> ${SCHEMA}"
           fi
 
-          # infer pin upsert: add when missing (fresh init or un-pinned manifest), retarget when present
           grep -q '^\[install\]' .flox/env/manifest.toml || printf '\n[install]\n' >> .flox/env/manifest.toml
           OLD=$(grep -oE 'inference-gateway/cli/v[0-9]+\.[0-9]+\.[0-9]+' .flox/env/manifest.toml | head -1 | sed 's|inference-gateway/cli/||' || true)
           if [ -z "$OLD" ]; then
