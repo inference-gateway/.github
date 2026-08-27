@@ -181,6 +181,17 @@ jobs:
             echo "::notice::${{ matrix.target.name }}: bootstrapped Flox env pinning infer ${NEW}"
             exit 0
           fi
+
+          # flox never migrates `schema-version` on upgrade/activate - raise it only (newer stays).
+          # ponytail: assumes schema-version == flox --version's; if decoupled, use scratch `flox init`.
+          SCHEMA=$(flox --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
+          [ -n "$SCHEMA" ] || SCHEMA="1.15.0"
+          CUR=$(grep -oE '^schema-version = "[^"]+"' .flox/env/manifest.toml | head -1 | cut -d'"' -f2 || true)
+          if [ -n "$CUR" ] && [ "$(printf '%s\n%s\n' "$CUR" "$SCHEMA" | sort -V | tail -1)" != "$CUR" ]; then
+                sed -i "s|^schema-version = \"${CUR}\"|schema-version = \"${SCHEMA}\"|" .flox/env/manifest.toml
+                echo "::notice::${{ matrix.target.name }}: schema-version ${CUR} -> ${SCHEMA}"
+          fi
+
           OLD=$(grep -oE 'inference-gateway/cli/v[0-9]+\.[0-9]+\.[0-9]+' .flox/env/manifest.toml | head -1 | sed 's|inference-gateway/cli/||')
           if [ -z "$OLD" ]; then
             echo "::error::${{ matrix.target.name }} .flox/env/manifest.toml has no inference-gateway/cli infer pin"
@@ -391,6 +402,7 @@ jobs:
 
             Ran in CI (mirrors `migrate-claude.yml`):
             - sed the `inference-gateway/cli` pin in `.flox/env/manifest.toml` to the latest release
+            - reconcile `schema-version` with the flox version this workflow installs (flox never migrates it itself)
             - `flox upgrade infer` + `flox activate -- true` to refresh `.flox/env/manifest.lock` in canonical form
 
             ### Notes

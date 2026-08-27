@@ -191,6 +191,17 @@ jobs:
             echo "::notice::${{ matrix.target.name }}: bootstrapped Flox env pinning codex ${NEW}"
             exit 0
           fi
+
+          # flox never migrates `schema-version` on upgrade/activate - raise it only (newer stays).
+          # ponytail: assumes schema-version == flox --version's; if decoupled, use scratch `flox init`.
+          SCHEMA=$(flox --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
+          [ -n "$SCHEMA" ] || SCHEMA="1.15.0"
+          CUR=$(grep -oE '^schema-version = "[^"]+"' .flox/env/manifest.toml | head -1 | cut -d'"' -f2 || true)
+          if [ -n "$CUR" ] && [ "$(printf '%s\n%s\n' "$CUR" "$SCHEMA" | sort -V | tail -1)" != "$CUR" ]; then
+                sed -i "s|^schema-version = \"${CUR}\"|schema-version = \"${SCHEMA}\"|" .flox/env/manifest.toml
+                echo "::notice::${{ matrix.target.name }}: schema-version ${CUR} -> ${SCHEMA}"
+          fi
+
           LINE=$(grep -E '^codex\.version' .flox/env/manifest.toml | head -1 || true)
           OLD_PIN=$(printf '%s' "$LINE" | cut -d'"' -f2)
           OLD=$(printf '%s' "$OLD_PIN" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
@@ -379,6 +390,7 @@ jobs:
             Ran in CI:
             - sed the `codex.version` floor in `.flox/env/manifest.toml` to a caret pin at the latest catalog version
             - moved `codex` into its own `pkg-group = "codex"` so its raised floor resolves independently
+            - reconcile `schema-version` with the flox version this workflow installs (flox never migrates it itself)
             - `flox upgrade codex` + `flox activate` to refresh `.flox/env/manifest.lock` in canonical form
 
             > **How `@codex` works:** it is a mention-driven task bot. Mention `@codex` on an issue (or
