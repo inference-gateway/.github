@@ -189,7 +189,7 @@ jobs:
       - name: Install Flox
         uses: flox/install-flox-action@v2.6.0
         with:
-          version: "1.13.0"
+          version: "1.15.0"
 
       - name: Set up Go
         if: inputs.language == 'go'

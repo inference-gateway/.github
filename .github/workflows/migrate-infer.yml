@@ -158,7 +158,7 @@ jobs:
         if: inputs.bump_flox
         uses: flox/install-flox-action@v2.6.0
         with:
-          version: "1.13.0"
+          version: "1.15.0"
 
       - name: Bump infer pin in the target's Flox manifest
         id: bump
@@ -174,7 +174,7 @@ jobs:
             flox init
             rm -f .flox/env/manifest.lock
             SCHEMA=$(grep -oE '^schema-version = "[^"]+"' .flox/env/manifest.toml | head -1 | cut -d'"' -f2 || true)
-            [ -n "$SCHEMA" ] || SCHEMA="1.13.0"
+            [ -n "$SCHEMA" ] || SCHEMA="1.15.0"
             printf 'schema-version = "%s"\n\n[install]\ninfer.flake = "github:inference-gateway/cli/%s"\n' "$SCHEMA" "$NEW" > .flox/env/manifest.toml
             flox activate -- true
             echo "old=$NEW" >> "$GITHUB_OUTPUT"
