@@ -1,1 +1,2 @@
-github: [inference-gateway]
+github:
+  - inference-gateway
