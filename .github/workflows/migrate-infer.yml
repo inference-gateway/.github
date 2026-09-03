@@ -221,9 +221,10 @@ jobs:
           static_browser=$(echo "$INFER_JSON" | jq -r 'if .browser == true then "true" else "false" end')
           static_browser_engine=$(echo "$INFER_JSON" | jq -r '.browser_engine // "chromium"')
           static_review_inline=$(echo "$INFER_JSON" | jq -r 'if .review_inline == true then "true" else "false" end')
+          static_model=$(echo "$INFER_JSON" | jq -r '.model // "ollama_cloud/glm-5.3-flash"')
 
           with_block=$(echo "$INFER_JSON" | jq -r --arg lang "$LANG" '
-            {language: $lang} + . | del(.browser, .browser_engine, .review_inline)
+            {language: $lang} + . | del(.browser, .browser_engine, .review_inline, .model)
             | to_entries
             | map(if (.value | type) == "string" and (.value | contains("\n"))
                   then "      \(.key): |\n" + (.value | rtrimstr("\n") | split("\n") | map("        " + .) | join("\n"))
@@ -268,6 +269,11 @@ jobs:
                   required: false
                   type: boolean
                   default: false
+                model:
+                  description: 'Model as provider/model (empty = this repo default from repos.yaml)'
+                  required: false
+                  type: string
+                  default: ''
             issues:
               types:
                 - opened
@@ -310,6 +316,7 @@ jobs:
             echo "      browser: ${d}{{ inputs.browser || ${static_browser} }}"
             echo "      browser_engine: ${d}{{ inputs.browser_engine || '${static_browser_engine}' }}"
             echo "      review_inline: ${d}{{ inputs.review_inline || ${static_review_inline} }}"
+            echo "      model: ${d}{{ inputs.model || '${static_model}' }}"
             echo "      prompt: ${d}{{ inputs.prompt }}"
             echo "    secrets: inherit"
           } > .github/workflows/infer.yml
@@ -401,10 +408,11 @@ jobs:
 
             ### Notes
             - Triggers on `@infer` mentions in issues / issue comments. Default model
-              `deepseek/deepseek-v4-flash`. The `infer-action` pin lives in the reusable `infer.yml`.
+              `ollama_cloud/glm-5.3-flash` (override per repo via `orchestrators.infer.model` in
+              `repos.yaml`). The `infer-action` pin lives in the reusable `infer.yml`.
             - Also adds a manual `workflow_dispatch` form: from this repo's Actions tab pick **Infer**,
-              type a free-text `prompt`, and the bot works it in that run and opens a PR (no issue
-              needed) - mirroring the `@claude` workflow.
+              type a free-text `prompt` (optionally a `model` as provider/model), and the bot works it
+              in that run and opens a PR (no issue needed) - mirroring the `@claude` workflow.
             - Tools = infer-action's default bash whitelist + the language preset (+ markdownlint where
               set), configured in `repos.yaml` (the entry's `orchestrators.infer` block).
             - Requires the maintainer GitHub App (`INFERENCE_GATEWAY_MAINTAINER_APP_CLIENT_ID` /

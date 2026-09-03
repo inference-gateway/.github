@@ -58,6 +58,9 @@
 #                                          `browser_engine` (chromium | firefox | webkit | lightpanda,
 #                                          default chromium) picks its image tag. Same per-run
 #                                          `[browser]` / `[browser:<engine>]` markers as claude.
+#                                          `model`   (string) provider/model default for this repo; the
+#                                          dispatch form's `model` input overrides it per run. Default
+#                                          ollama_cloud/glm-5.3-flash.
 #                                          `skills`  (string) Newline-separated org skills for infer-action. Default ''.
 #                                          `plugins` (string) Newline-separated org plugins for infer-action. Default ''.
 #                                codex  -> migrate-codex.yml operates on every `orchestrators.codex != null`
