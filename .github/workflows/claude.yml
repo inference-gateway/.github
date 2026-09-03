@@ -449,6 +449,9 @@ jobs:
           esac
 
           common="$(cat <<'RULES'
+          **EXECUTION RULES:**
+          - Do NOT spawn subagents (Task/Agent tool) - work in a single process; a runner bug kills the main process when subagents launch
+
           **COMMIT RULES:**
           - Do NOT add "Co-authored-by" lines to commits
           - Do NOT add "Generated with Claude Code" or similar attributions
@@ -621,6 +624,7 @@ jobs:
             --effort ${{ steps.agent.outputs.effort }}
             --model ${{ steps.agent.outputs.model }}
             --allowedTools "${{ steps.args.outputs.tools }}"
+            --disallowedTools "Task"
             ${{ steps.args.outputs.mcp_arg }}
             ${{ inputs.debug && '--debug' || '' }}
           prompt: ${{ steps.prompt.outputs.text }}
