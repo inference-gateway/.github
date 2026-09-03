@@ -457,6 +457,10 @@ jobs:
           - Do NOT add "Generated with Claude Code" or similar attributions
           - Keep commits clean and professional
 
+          **AGENT RULES:**
+          - Do NOT create sub agents (no Task/Agent tool, no parallel agents). Do all the work yourself
+            in this single session.
+
           **OUTPUT RULES:**
 
           ## Commit Message Requirements (max 72 chars)
