@@ -331,7 +331,7 @@ jobs:
           [ "$PRETTIER" = "true" ] && patterns="$patterns,^prettier( .*)?$"
           [ "$ESLINT" = "true" ] && patterns="$patterns,^eslint( .*)?$"
           [ "$K3D" = "true" ] && patterns="$patterns,^k3d( .*)?$,^kubectl( .*)?$,^helm( .*)?$"
-          patterns="$patterns,^gh issue create( .*)?$,^gh issue edit( .*)?$,^gh issue comment( .*)?$,^gh pr create( .*)?$,^gh project (item-add|item-edit)( .*)?$"
+          patterns="$patterns,^gh issue create( .*)?$,^gh issue edit( .*)?$,^gh issue comment( .*)?$,^gh pr create( .*)?$,^gh project (item-add|item-edit)( .*)?$,^flox update( .*)?$,^flox upgrade( .*)?$,^flox activate( -- true)?$"
           gql='^gh api graphql -f query='\''mutation\(\$id:ID!\x2c\$t:ID!\)\{updateIssueIssueType\(input:\{issueId:\$id\x2cissueTypeId:\$t\}\)\{issue\{number issueType\{name\}\}\}\}'\'' -f id="[^"]+" -f t="IT_[A-Za-z0-9_-]+"$'
           patterns="$patterns,$gql"
           if [ -n "$EXTRA" ]; then

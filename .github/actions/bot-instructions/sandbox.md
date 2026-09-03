@@ -6,3 +6,5 @@ rejected. Write multi-line text (issue or PR bodies, comments) to a file with th
 pass `--body-file <path>`. For `git commit`, stay on one line and use multiple `-m` flags - each
 becomes its own paragraph.
 `gofmt` is not allow-listed; run `go fmt ./...` or `task fmt` instead.
+To refresh `.flox/env/manifest.lock` after editing `.flox/env/manifest.toml`: run `flox update` or `flox upgrade <pkg>`, then
+`flox activate -- true` (bare no-op that writes the canonical lock). Never hand-edit the lock file.
