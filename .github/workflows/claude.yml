@@ -451,6 +451,7 @@ jobs:
           common="$(cat <<'RULES'
           **EXECUTION RULES:**
           - Do NOT spawn subagents (Task/Agent tool) - work in a single process; a runner bug kills the main process when subagents launch
+          - Do NOT run Bash commands in the background (never set run_in_background) - this headless session exits as soon as your turn ends and the background command and everything after it is lost; run long commands in the foreground with a larger timeout instead
 
           **COMMIT RULES:**
           - Do NOT add "Co-authored-by" lines to commits
