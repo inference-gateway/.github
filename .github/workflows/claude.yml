@@ -354,9 +354,6 @@ jobs:
             install_skill "$line" || { echo "::error::Static skill '$line' failed to install"; exit 1; }
           done <<< "$SKILLS"
 
-          # Prompt-derived list: catalog members only. A name the checkout already ships in .claude/skills is
-          # left alone (a ~/.claude copy would shadow it: personal beats project in Claude Code) but still counts
-          # as active. Capped, then installed best-effort: a flaky third-party skill repo never reddens the task.
           active=() derived=()
           for name in $wanted; do
             jq -e --arg n "$name" '.skills[]|select(.name==$n)' "$catalog" >/dev/null || continue
