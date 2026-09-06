@@ -88,9 +88,9 @@ on:
         type: boolean
         default: false
       markdownlint:
-        description: 'Install markdownlint-cli and add markdownlint to the bash whitelist'
+        description: 'Install markdownlint-cli and add markdownlint to the bash whitelist (on by default - every repo ships markdown; set `markdownlint: false` in repos.yaml to opt out)'
         type: boolean
-        default: false
+        default: true
       prettier:
         description: 'Install prettier and add prettier to the bash whitelist'
         type: boolean
