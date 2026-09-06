@@ -72,8 +72,9 @@
 #                                          `skills`/`plugins` accepted for forward-compat but unused.
 #                              The migrate workflows prepend the top-level `language` to each bot's
 #                              `with:` block, so the sub-blocks carry ONLY non-language inputs
-#                              (markdownlint, node, precommit, browser, allowed-tools, extra-tools,
-#                              debug, ...). `debug: true` is supported by all three bots (claude / infer /
+#                              (node, precommit, browser, allowed-tools, extra-tools, debug, ...;
+#                              `markdownlint` is ON by default in all three bots - only `markdownlint: false`
+#                              belongs here, to opt a repo out). `debug: true` is supported by all three bots (claude / infer /
 #                              codex) and surfaces verbose agent logs in the Actions run log - keep it to
 #                              PRIVATE repos, since debug/transcript output can include sensitive values.
 #                              A repo that needs no extra inputs uses an explicit empty map
@@ -105,15 +106,12 @@ targets:
     language: typescript
     orchestrators:
       claude:
-        markdownlint: true
         plugins: |
           DietrichGebert/ponytail
       infer:
-        markdownlint: true
         plugins: |
           DietrichGebert/ponytail
-      codex:
-        markdownlint: true
+      codex: {}
   - name: rust-sdk
     kind: sdk
     language: rust
@@ -145,15 +143,12 @@ targets:
     language: bun
     orchestrators:
       claude:
-        markdownlint: true
         plugins: |
           DietrichGebert/ponytail
       infer:
-        markdownlint: true
         plugins: |
           DietrichGebert/ponytail
-      codex:
-        markdownlint: true
+      codex: {}
 
   # --- ADKs (sync-adks.yml; all have centralized claude + infer + codex callers) ---
   - name: adk
@@ -162,20 +157,17 @@ targets:
     orchestrators:
       claude:
         node: true
-        markdownlint: true
         prettier: true
         extra-tools: "Bash(docker:*)"
         plugins: |
           DietrichGebert/ponytail
           ayghri/i-have-adhd
       infer:
-        markdownlint: true
         prettier: true
         plugins: |
           DietrichGebert/ponytail
           ayghri/i-have-adhd
-      codex:
-        markdownlint: true
+      codex: {}
   - name: rust-adk
     kind: adk
     language: rust
@@ -192,16 +184,13 @@ targets:
     language: typescript
     orchestrators:
       claude:
-        markdownlint: true
         allowed-tools: "Bash(task:*),Bash(node:*),Bash(npm:*),Bash(pnpm:*)"
         plugins: |
           DietrichGebert/ponytail
       infer:
-        markdownlint: true
         plugins: |
           DietrichGebert/ponytail
-      codex:
-        markdownlint: true
+      codex: {}
 
   # --- Agents (bump-adl / refresh-agent-manifest / trigger-cd).  ---
   - name: browser-agent
@@ -231,19 +220,16 @@ targets:
     language: go
     orchestrators:
       claude:
-        markdownlint: true
         precommit: true
         plugins: |
           DietrichGebert/ponytail
       infer:
-        markdownlint: true
         precommit: true
         k3d: true
         review_inline: true
         plugins: |
           DietrichGebert/ponytail
       codex:
-        markdownlint: true
         precommit: true
   - name: a2a-debugger
     kind: none
@@ -334,15 +320,12 @@ targets:
     language: typescript
     orchestrators:
       claude:
-        markdownlint: true
         plugins: |
           DietrichGebert/ponytail
       infer:
-        markdownlint: true
         plugins: |
           DietrichGebert/ponytail
-      codex:
-        markdownlint: true
+      codex: {}
   - name: schemas
     kind: none
     language: bun
@@ -359,15 +342,12 @@ targets:
     language: node
     orchestrators:
       claude:
-        markdownlint: true
         plugins: |
           DietrichGebert/ponytail
       infer:
-        markdownlint: true
         plugins: |
           DietrichGebert/ponytail
-      codex:
-        markdownlint: true
+      codex: {}
   - name: agents
     kind: none
     language: node

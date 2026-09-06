@@ -56,9 +56,9 @@ on:
         type: boolean
         default: false
       markdownlint:
-        description: 'Set up Node and install markdownlint-cli'
+        description: 'Set up Node and install markdownlint-cli (on by default - every repo ships markdown; set `markdownlint: false` in repos.yaml to opt out)'
         type: boolean
-        default: false
+        default: true
       prettier:
         description: 'Set up Node and install prettier'
         type: boolean
