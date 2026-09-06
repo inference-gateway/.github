@@ -292,6 +292,7 @@ targets:
         prettier: true
         node: true
         extra-tools: "Bash(helm:*)"
+        debug: true
         plugins: |
           DietrichGebert/ponytail
       infer:
