@@ -307,11 +307,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Prompt-referenced skills, resolved the way the infer CLI does (matchSkillTriggers): every
-          # whitespace-delimited "/<name>" field keeps the leading [a-z0-9-]+ run after the slash (so "/go",
-          # "/go." and "/go/src" all name "go"), plus "use [the] <name> skill"; lowercased, backticks dropped
-          # (so `/go` and "use the `go` skill" count), deduped. Only names in the org catalog count, so paths,
-          # URLs and retired names ("/maintainer") are ignored, never errors.
           text="$(printf '%s\n%s\n%s\n%s\n%s\n' \
                    "$USER_PROMPT" "$ISSUE_TITLE" "$ISSUE_BODY" "$COMMENT_BODY" "$REVIEW_BODY" | tr -d '`' | tr '[:upper:]' '[:lower:]')"
           wanted="$({ printf '%s\n' "$text" | tr -s '[:space:]' '\n' | grep -oE '^/[a-z0-9-]+' | cut -c2-
