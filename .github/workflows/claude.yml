@@ -89,7 +89,7 @@ on:
         type: string
         default: ''
       skills:
-        description: 'Newline-separated skill names to install for the run, mirroring the `skills` input on infer.yml. Each name is resolved through inference-gateway/skills catalog.json (the built form of skills.yaml): its source may be vendored in the skills repo or point at another repo (e.g. adl, opentask), and the skill body is copied into ~/.claude/skills/<name> where Claude Code auto-discovers it as a user-level skill (claude-code-action has no native skills input). Unknown names fail the job. Default none.'
+        description: 'Newline-separated skill names to install for the run, mirroring the `skills` input on infer.yml. Each name is resolved through inference-gateway/skills catalog.json (the built form of skills.yaml): its source may be vendored in the skills repo or point at another repo (e.g. adl, opentask), and the skill body is copied into ~/.claude/skills/<name> where Claude Code auto-discovers it as a user-level skill (claude-code-action has no native skills input). Unknown names fail the job. Independently of this list, the run also scans the prompt text (dispatch prompt, issue title/body, comment/review body) for `/<name>` tokens and "use the <name> skill" phrases that name a catalog skill and installs those the same way, best-effort and capped at MAX_SKILLS per run - the same dynamic resolution the infer CLI does. Default none.'
         type: string
         default: ''
       debug:
@@ -293,6 +293,84 @@ jobs:
           echo "effort=$effort" >> "$GITHUB_OUTPUT"
           echo "model=$model" >> "$GITHUB_OUTPUT"
 
+      - name: Install skills
+        id: skills
+        env:
+          SKILLS: ${{ inputs.skills }}
+          USER_PROMPT: ${{ inputs.prompt }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          REVIEW_BODY: ${{ github.event.review.body }}
+          MAX_SKILLS: '10'
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+
+          text="$(printf '%s\n%s\n%s\n%s\n%s\n' \
+                   "$USER_PROMPT" "$ISSUE_TITLE" "$ISSUE_BODY" "$COMMENT_BODY" "$REVIEW_BODY" | tr -d '`' | tr '[:upper:]' '[:lower:]')"
+          wanted="$({ printf '%s\n' "$text" | tr -s '[:space:]' '\n' | grep -oE '^/[a-z0-9-]+' | cut -c2-
+                      printf '%s\n' "$text" | grep -oE '\buse (the )?[a-z0-9-]+ skill\b' | awk '{print $(NF-1)}'
+                    } | awk 'NF && !seen[$0]++' || true)"
+
+          if [ -z "$SKILLS" ] && [ -z "$wanted" ]; then
+            echo "No skills requested (no static list, no /<name> reference in the prompt)."
+            echo "active=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          clone() { timeout 120 git -c advice.detachedHead=false clone --quiet --depth 1 --branch "$1" --filter=blob:none --sparse "https://github.com/$2.git" "$3" </dev/null; }
+          reg="$(mktemp -d)"
+          clone main inference-gateway/skills "$reg"
+          catalog="$reg/catalog.json"
+          mkdir -p "$HOME/.claude/skills"
+          declare -A cloned=( ["inference-gateway/skills@main"]="$reg" )
+
+          install_skill() {  # $1 = catalog name; returns non-zero on any failure, the caller decides strict vs best-effort
+            local name="$1" source rest slug tail ref path repo
+            source="$(jq -r --arg n "$name" '.skills[]|select(.name==$n)|.source' "$catalog")"
+            case "$source" in
+              https://github.com/*/*/tree/*/*) ;;
+              *) echo "Skill '$name' has no usable source in inference-gateway/skills catalog.json (got '${source:-none}')"; return 1 ;;
+            esac
+            rest="${source#https://github.com/}"; slug="${rest%%/tree/*}"; tail="${rest#*/tree/}"; ref="${tail%%/*}"; path="${tail#*/}"
+            repo="${cloned[$slug@$ref]:-}"
+            if [ "$repo" = FAILED ]; then echo "Skipping '$name': $slug@$ref already failed to clone"; return 1; fi
+            if [ -z "$repo" ]; then
+              repo="$(mktemp -d)"
+              clone "$ref" "$slug" "$repo" || { cloned[$slug@$ref]=FAILED; echo "Clone of $slug@$ref failed or timed out"; return 1; }
+              cloned[$slug@$ref]="$repo"
+            fi
+            timeout 120 git -C "$repo" sparse-checkout add "$path" </dev/null || { echo "Sparse checkout of $path in $slug@$ref failed"; return 1; }
+            [ -d "$repo/$path" ] || { echo "Skill '$name' source path '$path' missing in $slug@$ref"; return 1; }
+            rm -rf "$HOME/.claude/skills/$name"
+            cp -R "$repo/$path" "$HOME/.claude/skills/$name" || { echo "Copy of $path into ~/.claude/skills/$name failed"; return 1; }
+            echo "Installed skill: $name ($slug@$ref/$path)"
+          }
+
+          while IFS= read -r line; do
+            line="${line#"${line%%[![:space:]]*}"}"; line="${line%"${line##*[![:space:]]}"}"
+            [ -n "$line" ] || continue
+            install_skill "$line" || { echo "::error::Static skill '$line' failed to install"; exit 1; }
+          done <<< "$SKILLS"
+
+          active=() derived=()
+          for name in $wanted; do
+            jq -e --arg n "$name" '.skills[]|select(.name==$n)' "$catalog" >/dev/null || continue
+            if [ -f ".claude/skills/$name/SKILL.md" ]; then echo "Skill '$name' is provided by this repo's .claude/skills"; active+=("$name"); continue; fi
+            derived+=("$name")
+          done
+          if [ "${#derived[@]}" -gt "$MAX_SKILLS" ]; then
+            echo "::warning::hit MAX_SKILLS=${MAX_SKILLS} cap; ${#derived[@]} prompt-referenced skills matched, skipping: ${derived[*]:MAX_SKILLS}"
+            echo "- skills capped at: \`${MAX_SKILLS}\` (skipped: ${derived[*]:MAX_SKILLS})" >> "$GITHUB_STEP_SUMMARY"
+            derived=("${derived[@]:0:MAX_SKILLS}")
+          fi
+          for name in "${derived[@]}"; do
+            if install_skill "$name"; then active+=("$name"); else echo "::warning::Skipping prompt-referenced skill /$name (install failed)"; fi
+          done
+          echo "active=${active[*]}" >> "$GITHUB_OUTPUT"
+          echo "Prompt-referenced skills active this run: ${active[*]:-<none>}"
+
       - name: Set up Node.js
         if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint || inputs.prettier || inputs.eslint || steps.browser.outputs.enabled == 'true'
         uses: actions/setup-node@v7.0.0
@@ -438,6 +516,7 @@ jobs:
           ESCALATION: ${{ steps.instr.outputs.escalation }}
           BROWSER: ${{ steps.browser.outputs.enabled }}
           BROWSER_ENGINE: ${{ steps.browser.outputs.engine }}
+          SKILLS: ${{ steps.skills.outputs.active }}
         run: |
           set -euo pipefail
 
@@ -475,6 +554,10 @@ jobs:
             else
               note="**BROWSER:** A headless $BROWSER_ENGINE browser MCP server (mcp__playwright) is available this run - use it to navigate, inspect, screenshot, or verify live web pages when the task calls for a real browser."
             fi
+            common="$(printf '%s\n\n%s' "$common" "$note")"
+          fi
+          if [ -n "$SKILLS" ]; then
+            note="**SKILLS:** The request references these skills, available this run: $(printf '/%s ' $SKILLS)- invoke the ones relevant to the task with the Skill tool before starting the related work."
             common="$(printf '%s\n\n%s' "$common" "$note")"
           fi
 
@@ -535,53 +618,6 @@ jobs:
           settings="$(jq -cn --arg d "$MEM_DIR" '{autoMemoryDirectory: $d}')"
           { echo "settings=$settings"; echo "dir=$MEM_DIR"; } >> "$GITHUB_OUTPUT"
           echo "Auto-memory relocated to: $MEM_DIR"
-
-      - name: Install skills
-        if: inputs.skills != ''
-        env:
-          SKILLS: ${{ inputs.skills }}
-        run: |
-          set -euo pipefail
-
-          reg="$(mktemp -d)"
-          git clone --quiet --depth 1 https://github.com/inference-gateway/skills.git "$reg"
-          catalog="$reg/catalog.json"
-          mkdir -p "$HOME/.claude/skills"
-          declare -A cloned=( ["inference-gateway/skills@main"]="$reg" )
-
-          while IFS= read -r line; do
-            # Trim surrounding whitespace; skip blanks.
-            line="${line#"${line%%[![:space:]]*}"}"
-            line="${line%"${line##*[![:space:]]}"}"
-            [ -n "$line" ] || continue
-
-            source="$(jq -r --arg n "$line" '.skills[]|select(.name==$n)|.source' "$catalog")"
-            if [ -z "$source" ] || [ "$source" = "null" ]; then
-              echo "::error::Skill '$line' not found in inference-gateway/skills catalog.json"
-              exit 1
-            fi
-
-            rest="${source#https://github.com/}"
-            slug="${rest%%/tree/*}"
-            tail="${rest#*/tree/}"
-            ref="${tail%%/*}"
-            path="${tail#*/}"
-
-            repo="${cloned[$slug@$ref]:-}"
-            if [ -z "$repo" ]; then
-              repo="$(mktemp -d)"
-              git clone --quiet --depth 1 --branch "$ref" "https://github.com/$slug.git" "$repo"
-              cloned[$slug@$ref]="$repo"
-            fi
-
-            if [ ! -d "$repo/$path" ]; then
-              echo "::error::Skill '$line' source path '$path' missing in $slug@$ref"
-              exit 1
-            fi
-            rm -rf "$HOME/.claude/skills/$line"
-            cp -R "$repo/$path" "$HOME/.claude/skills/$line"
-            echo "Installed skill: $line ($slug@$ref/$path)"
-          done <<< "$SKILLS"
 
       - name: Compose plugin inputs
         id: settings
