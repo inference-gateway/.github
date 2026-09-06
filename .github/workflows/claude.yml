@@ -302,8 +302,8 @@ jobs:
           ISSUE_BODY: ${{ github.event.issue.body }}
           COMMENT_BODY: ${{ github.event.comment.body }}
           REVIEW_BODY: ${{ github.event.review.body }}
-          MAX_SKILLS: '10' # ponytail: cap on prompt-referenced skills per run (cockpit missions name up to 7); static repos.yaml skills are uncapped
-          GIT_TERMINAL_PROMPT: '0' # a private or renamed skill source fails at once instead of hanging on a credential prompt
+          MAX_SKILLS: '10'
+          GIT_TERMINAL_PROMPT: '0'
         run: |
           set -euo pipefail
 
