@@ -319,9 +319,6 @@ jobs:
             exit 0
           fi
 
-          # Sparse, blob-less, depth-1 clones: only the skill's own path is ever fetched (catalog.json sits at
-          # the repo root, so the catalog clone stays usable). `timeout` + GIT_TERMINAL_PROMPT=0 bound a slow or
-          # private upstream, and a failed clone is cached so a dead repo costs one attempt, not one per name.
           clone() { timeout 120 git -c advice.detachedHead=false clone --quiet --depth 1 --branch "$1" --filter=blob:none --sparse "https://github.com/$2.git" "$3" </dev/null; }
           reg="$(mktemp -d)"
           clone main inference-gateway/skills "$reg"
