@@ -348,7 +348,6 @@ jobs:
             echo "Installed skill: $name ($slug@$ref/$path)"
           }
 
-          # Static list (repos.yaml): trusted config, so a bad name still fails the job (unchanged contract).
           while IFS= read -r line; do
             line="${line#"${line%%[![:space:]]*}"}"; line="${line%"${line##*[![:space:]]}"}"
             [ -n "$line" ] || continue
