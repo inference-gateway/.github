@@ -557,7 +557,6 @@ jobs:
             common="$(printf '%s\n\n%s' "$common" "$note")"
           fi
           if [ -n "$SKILLS" ]; then
-            # shellcheck disable=SC2086 # SKILLS is a space-separated list of [a-z0-9-]+ names; splitting is intended
             note="**SKILLS:** The request references these skills, available this run: $(printf '/%s ' $SKILLS)- invoke the ones relevant to the task with the Skill tool before starting the related work."
             common="$(printf '%s\n\n%s' "$common" "$note")"
           fi
