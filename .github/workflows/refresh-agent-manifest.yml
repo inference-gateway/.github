@@ -205,6 +205,19 @@ jobs:
             echo "::notice::Migrated scm.app_id_secret RELEASER_APP_ID -> RELEASER_APP_CLIENT_ID"
           fi
 
+      - name: Ensure CI GitHub App secret names (maintainer App)
+        working-directory: target
+        run: |
+          set -euo pipefail
+          if [ "$(yq -r '.spec.scm.github_app' agent.yaml)" = "true" ] \
+            && [ "$(yq -r '.spec.scm.ci_app_id_secret // ""' agent.yaml)" = "" ]; then
+            yq -i '
+              .spec.scm.ci_app_id_secret = "INFERENCE_GATEWAY_MAINTAINER_APP_CLIENT_ID"
+              | .spec.scm.ci_app_private_key_secret = "INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY"
+            ' agent.yaml
+            echo "::notice::Set scm.ci_app_id_secret/ci_app_private_key_secret to INFERENCE_GATEWAY_MAINTAINER_APP_*"
+          fi
+
       - name: Additive deep merge (existing wins, new keys added)
         run: |
           set -euo pipefail
