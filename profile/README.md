@@ -91,8 +91,8 @@ infer init && infer chat
 | [**operator**](https://github.com/inference-gateway/operator) | Kubernetes Operator for lifecycle management |
 | [**cli**](https://github.com/inference-gateway/cli) | A Git-first CLI coding agent that turns ideas, issues, and tasks into real code changes |
 | [**infer-action**](https://github.com/inference-gateway/infer-action) | GitHub Action for long-horizon tasks |
-| [**desktop**](https://github.com/inference-gateway/desktop) | Desktop App for better UX and computer-use |
-| [**opentask**](https://github.com/inference-gateway/opentask) | Browser extension for better UX and browser-use |
+| [**desktop**](https://github.com/inference-gateway/desktop) | Desktop App for computer-use |
+| [**opentask**](https://github.com/inference-gateway/opentask) | Browser extension for browser-use |
 | [**schemas**](https://github.com/inference-gateway/schemas) | MCP, A2A, and OpenAPI schemas |
 | [**docs**](https://github.com/inference-gateway/docs) | Documentation site |
 
