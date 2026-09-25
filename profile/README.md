@@ -42,14 +42,28 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 
 | Feature | Description |
 |---|---|
-| 🔀 **Unified API** | One OpenAI-compatible endpoint for all LLM providers |
-| 🔌 **MCP Integration** | Native [Model Context Protocol](https://docs.inference-gateway.com/mcp) support for automatic tool discovery |
+| 🔀 **Unified API** | One OpenAI-compatible endpoint for 16 LLM providers, plus Anthropic Messages and OpenAI Responses compatibility |
+| 🔧 **Tool-use Support** | Function calling across supported providers with a unified API |
+| 🔌 **MCP Integration** | Native [Model Context Protocol](https://docs.inference-gateway.com/mcp) support for automatic tool discovery, and the gateway itself as an MCP server on `POST /mcp` |
+| 🚦 **Guardrails** | OPA/Rego policies, secret and PII detection, and an optional external guardrail service - applied to requests, responses and MCP tool calls |
 | 🤖 **A2A Protocol** | [Agent-to-Agent](https://docs.inference-gateway.com/a2a) coordination across specialized agents |
 | 🌊 **Streaming** | Real-time token streaming from all supported providers |
+| 🖼️ **Multimodal** | Vision input plus image, speech, sound effect, music and video generation endpoints |
+| 🛡️ **Enterprise Ready** | [OIDC authentication](https://docs.inference-gateway.com/authentication), configurable timeouts, and TLS support |
 | ☸️ **Kubernetes Ready** | First-class K8s support with Operator and HPA scaling |
-| 📊 **Observability** | OpenTelemetry integration for monitoring and tracing |
+| 📊 **Observability** | [OpenTelemetry](https://docs.inference-gateway.com/observability) Prometheus metrics following the GenAI semantic conventions, tracing, and an OTLP push endpoint |
 | 🔒 **Privacy First** | Self-hosted, zero data collection, Apache 2.0 licensed |
 | 🌿 **Lightweight** | ~10.8MB binary with minimal resource footprint |
+
+---
+
+## 🗺️ Architecture
+
+<div align="center">
+
+<img src="https://raw.githubusercontent.com/inference-gateway/inference-gateway/main/assets/architecture.svg" width="950" alt="Requests flow from clients through OIDC auth, guardrails, MCP middleware and the provider router to 16 LLM providers, with tokens streaming back. MCP tool calls and the POST /mcp server endpoint reach MCP servers through guardrails, while OpenTelemetry collects metrics, traces and OTLP pushes from clients" />
+
+</div>
 
 ---
 
