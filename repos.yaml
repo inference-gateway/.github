@@ -277,7 +277,8 @@ targets:
       claude:
         prettier: true
         node: true
-        extra-tools: "Bash(helm:*)"
+        kubernetes: true
+        extra-tools: "Bash(helm:*),Bash(kubectl:*),Bash(k3d:*),Bash(ctlptl:*),Bash(docker:*),Bash(curl:*)"
         debug: true
         plugins: |
           DietrichGebert/ponytail

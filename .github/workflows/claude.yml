@@ -80,6 +80,10 @@ on:
         description: 'Install pre-commit and run `task precommit:install`'
         type: boolean
         default: false
+      kubernetes:
+        description: 'Install k3d + ctlptl so the run can create a local k3d cluster (the runner already ships docker, kubectl and helm). Allow the binaries via extra-tools, e.g. "Bash(kubectl:*),Bash(k3d:*),Bash(ctlptl:*),Bash(docker:*)".'
+        type: boolean
+        default: false
       extra-mcp-servers:
         description: 'JSON object of additional mcpServers merged into --mcp-config'
         type: string
@@ -188,6 +192,21 @@ jobs:
 
       - name: Install Flox
         uses: flox/install-flox-action@v2.6.0
+
+      # ponytail: pinned linux-amd64 release binaries; bump by hand alongside the repos' Flox pins.
+      - name: Install k3d and ctlptl
+        if: inputs.kubernetes
+        env:
+          K3D_VERSION: v5.9.0
+          CTLPTL_VERSION: 0.9.6
+        run: |
+          set -euo pipefail
+          sudo curl -fsSL -o /usr/local/bin/k3d "https://github.com/k3d-io/k3d/releases/download/${K3D_VERSION}/k3d-linux-amd64"
+          sudo chmod +x /usr/local/bin/k3d
+          curl -fsSL "https://github.com/tilt-dev/ctlptl/releases/download/v${CTLPTL_VERSION}/ctlptl.${CTLPTL_VERSION}.linux.x86_64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin ctlptl
+          k3d version
+          ctlptl version
 
       - name: Set up Go
         if: inputs.language == 'go'
