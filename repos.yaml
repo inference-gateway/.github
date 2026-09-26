@@ -360,3 +360,26 @@ targets:
         plugins: |
           DietrichGebert/ponytail
       codex: {}
+  # --- Apps (kind: none) ---
+  - name: desktop
+    kind: none
+    language: bun
+    orchestrators:
+      claude:
+        extra-tools: "Bash(cargo:*),Bash(rustup:*),Bash(rustc:*)"
+        plugins: |
+          DietrichGebert/ponytail
+      infer:
+        extra-bash-commands: "cargo,rustup,rustc"
+        plugins: |
+          DietrichGebert/ponytail
+  - name: opentask
+    kind: none
+    language: bun
+    orchestrators:
+      claude:
+        plugins: |
+          DietrichGebert/ponytail
+      infer:
+        plugins: |
+          DietrichGebert/ponytail
