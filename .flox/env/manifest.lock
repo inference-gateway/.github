@@ -8,11 +8,6 @@
         "pkg-group": "claude-code",
         "version": "^2.1.280"
       },
-      "codex": {
-        "pkg-path": "codex",
-        "pkg-group": "codex",
-        "version": "0.156.1"
-      },
       "infer": {
         "flake": "github:inference-gateway/cli/v0.208.2"
       }
@@ -105,93 +100,6 @@
       },
       "system": "x86_64-linux",
       "group": "claude-code",
-      "priority": 5
-    },
-    {
-      "attr_path": "codex",
-      "broken": false,
-      "derivation": "/nix/store/396k9w876b16772s2d28m4759fgnsxmh-codex-0.156.1.drv",
-      "description": "Lightweight coding agent that runs in your terminal",
-      "install_id": "codex",
-      "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=e94cb152ed51bd6e24eb4a41f1460252beb52cd2",
-      "name": "codex-0.156.1",
-      "pname": "codex",
-      "rev": "e94cb152ed51bd6e24eb4a41f1460252beb52cd2",
-      "rev_count": 1079315,
-      "rev_date": "2026-09-25T08:03:29Z",
-      "scrape_date": "2026-09-26T04:58:19.947603Z",
-      "stabilities": [
-        "unstable"
-      ],
-      "unfree": false,
-      "version": "0.156.1",
-      "outputs_to_install": [
-        "out"
-      ],
-      "outputs": {
-        "out": "/nix/store/7csw8sp72dlbgf8hlpkx35rrwlb67363-codex-0.156.1"
-      },
-      "system": "aarch64-darwin",
-      "group": "codex",
-      "priority": 5
-    },
-    {
-      "attr_path": "codex",
-      "broken": false,
-      "derivation": "/nix/store/l87dkz4wz2jmk42r5qz5p9pdwhsgcj9q-codex-0.156.1.drv",
-      "description": "Lightweight coding agent that runs in your terminal",
-      "install_id": "codex",
-      "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=e94cb152ed51bd6e24eb4a41f1460252beb52cd2",
-      "name": "codex-0.156.1",
-      "pname": "codex",
-      "rev": "e94cb152ed51bd6e24eb4a41f1460252beb52cd2",
-      "rev_count": 1079315,
-      "rev_date": "2026-09-25T08:03:29Z",
-      "scrape_date": "2026-09-26T05:29:38.481618Z",
-      "stabilities": [
-        "unstable"
-      ],
-      "unfree": false,
-      "version": "0.156.1",
-      "outputs_to_install": [
-        "out"
-      ],
-      "outputs": {
-        "out": "/nix/store/lzmk4yn90k6pkm89j8p3zmpgms5ywr9s-codex-0.156.1"
-      },
-      "system": "aarch64-linux",
-      "group": "codex",
-      "priority": 5
-    },
-    {
-      "attr_path": "codex",
-      "broken": false,
-      "derivation": "/nix/store/1rxybg4gffmkw4pzzcmy8yhzccwfbn05-codex-0.156.1.drv",
-      "description": "Lightweight coding agent that runs in your terminal",
-      "install_id": "codex",
-      "license": "Apache-2.0",
-      "locked_url": "https://github.com/flox/nixpkgs?rev=e94cb152ed51bd6e24eb4a41f1460252beb52cd2",
-      "name": "codex-0.156.1",
-      "pname": "codex",
-      "rev": "e94cb152ed51bd6e24eb4a41f1460252beb52cd2",
-      "rev_count": 1079315,
-      "rev_date": "2026-09-25T08:03:29Z",
-      "scrape_date": "2026-09-26T06:05:30.240007Z",
-      "stabilities": [
-        "unstable"
-      ],
-      "unfree": false,
-      "version": "0.156.1",
-      "outputs_to_install": [
-        "out"
-      ],
-      "outputs": {
-        "out": "/nix/store/938cs7afvdcb8f5rqz8k1a950v4i6js4-codex-0.156.1"
-      },
-      "system": "x86_64-linux",
-      "group": "codex",
       "priority": 5
     },
     {
