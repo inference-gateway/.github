@@ -34,7 +34,6 @@ runs:
         repositories: .sessions
         permission-contents: write
 
-    # ponytail: transcripts are saved unredacted; .sessions is private and admin-only. Add redaction if its access ever widens.
     - name: Upload transcripts
       shell: bash
       env:
