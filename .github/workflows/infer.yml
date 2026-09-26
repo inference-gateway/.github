@@ -154,7 +154,6 @@ jobs:
             ${{ github.event.repository.name }}
             .github
             .memory
-            .sessions
             inference-gateway
             operator
             cli
@@ -484,4 +483,5 @@ jobs:
         with:
           orchestrator: infer
           source: .infer/projects
-          token: ${{ steps.app-token.outputs.token }}
+          app-client-id: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_CLIENT_ID }}
+          app-private-key: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY }}

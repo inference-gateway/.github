@@ -2,8 +2,9 @@ name: Save sessions
 description: >
   Upload a bot run's session transcripts (every *.jsonl under `source`, relative to $HOME) to the
   private inference-gateway/.sessions repo at `<orchestrator>/<same relative path>` on main, where
-  the weekly insights workflow collects and then resets them. Best-effort: retries conflicts, warns
-  on failure, and never fails the calling job.
+  the weekly insights workflow collects and then resets them. Mints its own token scoped to
+  .sessions after the agent has finished, so the agent's token never reaches the transcripts.
+  Best-effort: retries conflicts, warns on failure, and never fails the calling job.
 
 inputs:
   orchestrator:
@@ -12,17 +13,32 @@ inputs:
   source:
     description: 'Directory holding the transcripts, relative to $HOME (e.g. .claude/projects)'
     required: true
-  token:
-    description: 'GitHub App token with contents:write on inference-gateway/.sessions'
+  app-client-id:
+    description: 'Maintainer App client ID, used to mint a token scoped to .sessions only'
+    required: true
+  app-private-key:
+    description: 'Maintainer App private key, used to mint a token scoped to .sessions only'
     required: true
 
 runs:
   using: composite
   steps:
+    - name: Mint .sessions token
+      id: token
+      continue-on-error: true
+      uses: actions/create-github-app-token@v3.2.0
+      with:
+        client-id: ${{ inputs.app-client-id }}
+        private-key: ${{ inputs.app-private-key }}
+        owner: inference-gateway
+        repositories: .sessions
+        permission-contents: write
+
+    # ponytail: transcripts are saved unredacted; .sessions is private and admin-only. Add redaction if its access ever widens.
     - name: Upload transcripts
       shell: bash
       env:
-        GH_TOKEN: ${{ inputs.token }}
+        GH_TOKEN: ${{ steps.token.outputs.token }}
         ORCHESTRATOR: ${{ inputs.orchestrator }}
         SOURCE: ${{ inputs.source }}
         MESSAGE: '${{ inputs.orchestrator }}: ${{ github.repository }} run ${{ github.run_id }}'
@@ -31,6 +47,10 @@ runs:
         root="$HOME/$SOURCE"
         if [ ! -d "$root" ]; then
           echo "No $root on this runner; nothing to save."
+          exit 0
+        fi
+        if [ -z "$GH_TOKEN" ]; then
+          echo "::warning::Could not mint a .sessions token; sessions not saved"
           exit 0
         fi
         body="$(mktemp)"
@@ -50,5 +70,6 @@ runs:
           failed=$((failed + 1))
           echo "::warning::Could not save session $dest to .sessions"
         done < <(find "$root" -type f -name '*.jsonl' -print0)
+        rm -f "$body"
         echo "Saved $saved session file(s) to .sessions/$ORCHESTRATOR ($failed failed)" | tee -a "$GITHUB_STEP_SUMMARY"
         exit 0
