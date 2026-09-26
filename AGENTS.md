@@ -28,7 +28,7 @@ Use the `yq` command after editing `repos.yaml`; valid kinds are `adk`, `agent`,
 
 ## Coding Style & Naming Conventions
 
-Use two-space indentation for YAML. Keep Markdown concise, with descriptive headings and relative links when possible. Preserve existing workflow names and job names. Matrix selection is centralized in the `.github/actions/resolve-targets` composite action — pass it a jq `select` expression (e.g. `'.kind == "agent"'`, `'.orchestrators.claude != null'`, `'.orchestrators.infer != null'`) rather than reintroducing per-workflow `yq` filters. In sync workflow prompts, issue titles are idempotency keys; do not rename them casually.
+Use two-space indentation for YAML. Keep code comments short (one line where possible) and never reference issue or PR numbers in them - that context belongs in the PR, not the code. Keep Markdown concise, with descriptive headings and relative links when possible. Preserve existing workflow names and job names. Matrix selection is centralized in the `.github/actions/resolve-targets` composite action — pass it a jq `select` expression (e.g. `'.kind == "agent"'`, `'.orchestrators.claude != null'`, `'.orchestrators.infer != null'`) rather than reintroducing per-workflow `yq` filters. In sync workflow prompts, issue titles are idempotency keys; do not rename them casually.
 
 ## Testing Guidelines
 
