@@ -134,6 +134,7 @@ jobs:
             ${{ github.event.repository.name }}
             .github
             .memory
+            .sessions
             inference-gateway
             operator
             cli
@@ -710,6 +711,14 @@ jobs:
             echo "Memory: push failed (best-effort), not persisted this run." >> "$GITHUB_STEP_SUMMARY"
           fi
           exit 0
+
+      - name: Save session (to .sessions)
+        if: always() && steps.claude.outcome != 'skipped'
+        uses: inference-gateway/.github/.github/actions/save-sessions@main
+        with:
+          orchestrator: claude
+          source: .claude/projects
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Preserve work-in-progress on cancel or failure
         if: cancelled() || failure()
