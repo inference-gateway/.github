@@ -690,6 +690,20 @@ jobs:
           prompt: ${{ steps.prompt.outputs.text }}
           track_progress: ${{ github.event_name != 'workflow_dispatch' }}
 
+      # ponytail: Bash denials report only the command's first word, keeping full commands out of public logs.
+      - name: Report permission denials
+        if: always() && steps.claude.outcome != 'skipped'
+        env:
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        run: |
+          set -uo pipefail
+          file="${EXECUTION_FILE:-$RUNNER_TEMP/claude-execution-output.json}"
+          [ -s "$file" ] || exit 0
+          denials="$(jq -r '.[] | select(.type == "result") | .permission_denials[]? | if .tool_name == "Bash" then "Bash(\((.tool_input.command // "") | split(" ")[0] // "?"))" else .tool_name end' "$file" | sort | uniq -c | sort -rn)"
+          [ -n "$denials" ] || exit 0
+          echo "::warning::Claude was denied tools: $(awk '{print $2}' <<< "$denials" | paste -sd, -)"
+          { echo '### Permission denials'; echo; echo '```'; echo "$denials"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Sync memory out (persist to .memory@claude)
         if: ${{ always() && inputs.memory }}
         run: |
