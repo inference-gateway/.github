@@ -72,7 +72,7 @@ on:
         type: string
         default: '50'
       debug:
-        description: 'Enable infer-action debug logging AND mirror the agent stdout transcript to the run log (mirror-agent-logs). Defaults false; turn on per-repo via repos.yaml for verbose agent logs (private repos only - the mirrored transcript can include sensitive values).'
+        description: 'Enable infer-action debug logging AND mirror the agent stdout transcript to the run log (mirror-agent-logs). Defaults true; turn off per-repo via repos.yaml (`debug: false`). Known secrets are redacted, but the mirrored transcript is public on public repos.'
         type: boolean
         default: true
       browser:
@@ -460,7 +460,7 @@ jobs:
           echo "model=$model" >> "$GITHUB_OUTPUT"
 
       - name: Run Infer Agent
-        uses: inference-gateway/infer-action@v0.51.12
+        uses: inference-gateway/infer-action@v0.51.13
         with:
           version: ${{ inputs.cli-version }}
           memory-repo: https://github.com/inference-gateway/.memory
