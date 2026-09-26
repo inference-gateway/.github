@@ -207,6 +207,8 @@ jobs:
         run: |
           flox upgrade infer
           flox activate -- true
+          # the target's on-activate hook may set core.hooksPath; its hooks can't run outside flox
+          git config --unset core.hooksPath || true
 
       - name: Render thin caller
         working-directory: target
