@@ -154,35 +154,35 @@ jobs:
             ${{ github.event.repository.name }}
             .github
             .memory
-            python-sdk
+            inference-gateway
+            operator
+            cli
+            infer-action
+            desktop
+            opentask
+            schemas
+            docs
+            sdk
             typescript-sdk
             rust-sdk
-            sdk
-            docs
+            python-sdk
             adk
-            rust-adk
             typescript-adk
+            rust-adk
+            google-calendar-agent
             browser-agent
             documentation-agent
-            google-calendar-agent
             grafana-agent
-            mock-agent
             n8n-agent
-            cli
-            a2a-debugger
-            adl-cli
+            mock-agent
             adl
-            inference-gateway
-            infer-action
-            operator
+            adl-cli
+            a2a-debugger
             registry
-            schemas
-            skills
             agents
-            opentask
-            binaries
-            desktop
+            skills
             tokenless
+            binaries
 
       - name: Get GitHub App User ID
         id: get-user-id

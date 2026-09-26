@@ -82,12 +82,111 @@
 # "Validate repos.yaml".
 
 targets:
-  # --- SDKs (deterministic schemas-sync callers; all have centralized claude + infer callers) ---
-  - name: python-sdk
-    kind: sdk
-    language: python
+  # --- Core ---
+  - name: inference-gateway
+    kind: none
+    language: go
     orchestrators:
       claude:
+        prettier: true
+        node: true
+        kubernetes: true
+        extra-tools: "Bash(helm:*),Bash(kubectl:*),Bash(k3d:*),Bash(ctlptl:*),Bash(docker:*),Bash(curl:*)"
+        debug: true
+        plugins: |
+          DietrichGebert/ponytail
+      infer:
+        prettier: true
+        mockgen: true
+        plugins: |
+          DietrichGebert/ponytail
+  - name: operator
+    kind: none
+    language: go
+    orchestrators:
+      claude:
+        prettier: true
+        plugins: |
+          DietrichGebert/ponytail
+      infer:
+        prettier: true
+        k3d: true
+        plugins: |
+          DietrichGebert/ponytail
+  - name: cli
+    kind: none
+    language: go
+    orchestrators:
+      claude:
+        precommit: true
+        plugins: |
+          DietrichGebert/ponytail
+      infer:
+        precommit: true
+        k3d: true
+        review_inline: true
+        plugins: |
+          DietrichGebert/ponytail
+  - name: infer-action
+    kind: none
+    language: bun
+    orchestrators:
+      claude:
+        plugins: |
+          DietrichGebert/ponytail
+      infer:
+        plugins: |
+          DietrichGebert/ponytail
+  - name: desktop
+    kind: none
+    language: bun
+    orchestrators:
+      claude:
+        extra-tools: "Bash(cargo:*),Bash(rustup:*),Bash(rustc:*)"
+        plugins: |
+          DietrichGebert/ponytail
+      infer:
+        extra-bash-commands: "cargo,rustup,rustc"
+        plugins: |
+          DietrichGebert/ponytail
+  - name: opentask
+    kind: none
+    language: bun
+    orchestrators:
+      claude:
+        plugins: |
+          DietrichGebert/ponytail
+      infer:
+        plugins: |
+          DietrichGebert/ponytail
+  - name: schemas
+    kind: none
+    language: bun
+    orchestrators:
+      claude:
+        plugins: |
+          DietrichGebert/ponytail
+      infer:
+        plugins: |
+          DietrichGebert/ponytail
+  - name: docs
+    kind: docs
+    language: bun
+    orchestrators:
+      claude:
+        plugins: |
+          DietrichGebert/ponytail
+      infer:
+        plugins: |
+          DietrichGebert/ponytail
+
+  # --- SDKs ---
+  - name: sdk
+    kind: sdk
+    language: go
+    orchestrators:
+      claude:
+        node: true
         plugins: |
           DietrichGebert/ponytail
       infer:
@@ -113,22 +212,9 @@ targets:
       infer:
         plugins: |
           DietrichGebert/ponytail
-  - name: sdk
+  - name: python-sdk
     kind: sdk
-    language: go
-    orchestrators:
-      claude:
-        node: true
-        plugins: |
-          DietrichGebert/ponytail
-      infer:
-        plugins: |
-          DietrichGebert/ponytail
-
-  # --- Docs site (sync-docs.yml drift class E; centralized claude + infer callers) ---
-  - name: docs
-    kind: docs
-    language: bun
+    language: python
     orchestrators:
       claude:
         plugins: |
@@ -137,7 +223,7 @@ targets:
         plugins: |
           DietrichGebert/ponytail
 
-  # --- ADKs (sync-adks.yml; all have centralized claude + infer callers) ---
+  # --- Agent Development ---
   - name: adk
     kind: adk
     language: go
@@ -154,16 +240,6 @@ targets:
         plugins: |
           DietrichGebert/ponytail
           ayghri/i-have-adhd
-  - name: rust-adk
-    kind: adk
-    language: rust
-    orchestrators:
-      claude:
-        plugins: |
-          DietrichGebert/ponytail
-      infer:
-        plugins: |
-          DietrichGebert/ponytail
   - name: typescript-adk
     kind: adk
     language: typescript
@@ -175,66 +251,38 @@ targets:
       infer:
         plugins: |
           DietrichGebert/ponytail
+  - name: rust-adk
+    kind: adk
+    language: rust
+    orchestrators:
+      claude:
+        plugins: |
+          DietrichGebert/ponytail
+      infer:
+        plugins: |
+          DietrichGebert/ponytail
 
-  # --- Agents (bump-adl / refresh-agent-manifest / trigger-cd).  ---
+  # --- A2A Agents ---
+  - name: google-calendar-agent
+    kind: agent
+    language: go
   - name: browser-agent
     kind: agent
     language: go
   - name: documentation-agent
     kind: agent
     language: go
-  - name: google-calendar-agent
-    kind: agent
-    language: go
   - name: grafana-agent
-    kind: agent
-    language: go
-  - name: mock-agent
     kind: agent
     language: go
   - name: n8n-agent
     kind: agent
     language: go
+  - name: mock-agent
+    kind: agent
+    language: go
 
-  # --- Infra/tooling repos (kind: none). Have centralized claude + infer callers (migrate-claude /
-  #     migrate-infer). NOT swept by stale (select(.kind != "none")), but ARE swept by
-  #     cleanup-runs (select(true) - all registered targets). ---
-  - name: cli
-    kind: none
-    language: go
-    orchestrators:
-      claude:
-        precommit: true
-        plugins: |
-          DietrichGebert/ponytail
-      infer:
-        precommit: true
-        k3d: true
-        review_inline: true
-        plugins: |
-          DietrichGebert/ponytail
-  - name: a2a-debugger
-    kind: none
-    language: go
-    orchestrators:
-      claude:
-        allowed-tools: "Bash(task:*),Bash(go:*)"
-        plugins: |
-          DietrichGebert/ponytail
-      infer:
-        plugins: |
-          DietrichGebert/ponytail
-  - name: adl-cli
-    kind: none
-    language: go
-    orchestrators:
-      claude:
-        node: true
-        plugins: |
-          DietrichGebert/ponytail
-      infer:
-        plugins: |
-          DietrichGebert/ponytail
+  # --- Tools & Community ---
   - name: adl
     kind: none
     language: node
@@ -248,69 +296,31 @@ targets:
         prettier: true
         plugins: |
           DietrichGebert/ponytail
-  - name: inference-gateway
+  - name: adl-cli
     kind: none
     language: go
     orchestrators:
       claude:
-        prettier: true
         node: true
-        kubernetes: true
-        extra-tools: "Bash(helm:*),Bash(kubectl:*),Bash(k3d:*),Bash(ctlptl:*),Bash(docker:*),Bash(curl:*)"
-        debug: true
-        plugins: |
-          DietrichGebert/ponytail
-      infer:
-        prettier: true
-        mockgen: true
-        plugins: |
-          DietrichGebert/ponytail
-  - name: infer-action
-    kind: none
-    language: bun
-    orchestrators:
-      claude:
         plugins: |
           DietrichGebert/ponytail
       infer:
         plugins: |
           DietrichGebert/ponytail
-  - name: operator
+  - name: a2a-debugger
     kind: none
     language: go
     orchestrators:
       claude:
-        prettier: true
+        allowed-tools: "Bash(task:*),Bash(go:*)"
         plugins: |
           DietrichGebert/ponytail
       infer:
-        prettier: true
-        k3d: true
         plugins: |
           DietrichGebert/ponytail
   - name: registry
     kind: none
     language: typescript
-    orchestrators:
-      claude:
-        plugins: |
-          DietrichGebert/ponytail
-      infer:
-        plugins: |
-          DietrichGebert/ponytail
-  - name: schemas
-    kind: none
-    language: bun
-    orchestrators:
-      claude:
-        plugins: |
-          DietrichGebert/ponytail
-      infer:
-        plugins: |
-          DietrichGebert/ponytail
-  - name: skills
-    kind: none
-    language: node
     orchestrators:
       claude:
         plugins: |
@@ -328,22 +338,9 @@ targets:
       infer:
         plugins: |
           DietrichGebert/ponytail
-  # --- Apps (kind: none) ---
-  - name: desktop
+  - name: skills
     kind: none
-    language: bun
-    orchestrators:
-      claude:
-        extra-tools: "Bash(cargo:*),Bash(rustup:*),Bash(rustc:*)"
-        plugins: |
-          DietrichGebert/ponytail
-      infer:
-        extra-bash-commands: "cargo,rustup,rustc"
-        plugins: |
-          DietrichGebert/ponytail
-  - name: opentask
-    kind: none
-    language: bun
+    language: node
     orchestrators:
       claude:
         plugins: |
