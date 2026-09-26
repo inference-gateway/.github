@@ -360,7 +360,7 @@ targets:
         plugins: |
           DietrichGebert/ponytail
       codex: {}
-  # --- Apps (kind: none). No codex: being retired. ---
+  # --- Apps (kind: none) ---
   - name: desktop
     kind: none
     language: bun
