@@ -711,6 +711,15 @@ jobs:
           fi
           exit 0
 
+      - name: Save session (to .sessions)
+        if: always() && steps.claude.outcome != 'skipped'
+        uses: inference-gateway/.github/.github/actions/save-sessions@main
+        with:
+          orchestrator: claude
+          source: .claude/projects
+          app-client-id: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_CLIENT_ID }}
+          app-private-key: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY }}
+
       - name: Preserve work-in-progress on cancel or failure
         if: cancelled() || failure()
         env:

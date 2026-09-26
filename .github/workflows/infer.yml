@@ -441,6 +441,7 @@ jobs:
           echo "model=$model" >> "$GITHUB_OUTPUT"
 
       - name: Run Infer Agent
+        id: infer
         uses: inference-gateway/infer-action@v0.52.0
         with:
           version: ${{ inputs.cli-version }}
@@ -475,3 +476,12 @@ jobs:
           minimax-api-key: ${{ secrets.MINIMAX_API_KEY }}
           nvidia-api-key: ${{ secrets.NVIDIA_API_KEY }}
           zai-api-key: ${{ secrets.ZAI_API_KEY }}
+
+      - name: Save session (to .sessions)
+        if: always() && steps.infer.outcome != 'skipped'
+        uses: inference-gateway/.github/.github/actions/save-sessions@main
+        with:
+          orchestrator: infer
+          source: .infer/projects
+          app-client-id: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_CLIENT_ID }}
+          app-private-key: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY }}

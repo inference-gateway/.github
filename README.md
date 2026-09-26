@@ -259,6 +259,7 @@ gh workflow run backfill-roadmap.yml --repo inference-gateway/.github -f dry_run
   actions/
     resolve-targets/          # composite action: repos.yaml + jq select -> matrix
     bot-instructions/         # composite action: shared @claude/@infer board-tracking + release-policy + sandbox + escalation prompt
+    save-sessions/            # composite action: upload a bot run's session transcripts to the private .sessions repo
   ISSUE_TEMPLATE/             # org-default issue templates (feature, refactor, bug, documentation)
   workflows/
     sync-docs.yml             # docs coverage audit against OpenAPI (kind: docs)
