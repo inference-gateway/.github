@@ -245,7 +245,7 @@ targets:
     language: typescript
     orchestrators:
       claude:
-        allowed-tools: "Bash(task:*),Bash(node:*),Bash(npm:*),Bash(pnpm:*)"
+        extra-tools: "Bash(pnpm:*)"
         plugins: |
           DietrichGebert/ponytail
       infer:
@@ -312,7 +312,6 @@ targets:
     language: go
     orchestrators:
       claude:
-        allowed-tools: "Bash(task:*),Bash(go:*)"
         plugins: |
           DietrichGebert/ponytail
       infer:
