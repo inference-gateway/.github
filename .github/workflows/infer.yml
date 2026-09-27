@@ -463,7 +463,7 @@ jobs:
 
       - name: Run Infer Agent
         id: infer
-        uses: inference-gateway/infer-action@v0.53.1
+        uses: inference-gateway/infer-action@v0.53.2
         with:
           version: ${{ inputs.cli-version }}
           memory-repo: https://github.com/inference-gateway/.memory
