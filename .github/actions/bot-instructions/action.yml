@@ -19,7 +19,7 @@ outputs:
     description: 'Docs + downstream-impact follow-up issue instructions (applies to issue work).'
     value: ${{ steps.emit.outputs.followups }}
   style:
-    description: 'Writing-style rule: no em/en dash, use a hyphen (applies in all contexts).'
+    description: 'Writing-style rules: no em/en dash (use a hyphen), no hard-wrapped PR/issue/comment bodies (applies in all contexts).'
     value: ${{ steps.emit.outputs.style }}
   releases:
     description: 'Release-automation policy: semantic-release owns versions, changelogs, tags, and publishing (applies in all contexts).'
