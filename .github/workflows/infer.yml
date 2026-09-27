@@ -37,6 +37,7 @@ name: Infer (reusable)
 # with `tmux send-keys`, which is an unrestricted shell holding the App token, and the caller's gate
 # does not check who commented. So "Resolve demo recording" turns `record-demo` on only when the
 # triggering user has write access to the repo, and it fails closed on any lookup error.
+# `computer-use` (the CLI Computer tool, which can type into that same shell) sits behind the same gate.
 
 on:
   workflow_call:
@@ -129,6 +130,14 @@ on:
         description: 'Comma-separated Go regex patterns appended to the bash allow list (maps to infer-action bash-allow-append). Prefix-anchored against the full command, e.g. "^gh issue create( .*)?$".'
         type: string
         default: ''
+      apt:
+        description: 'Space-separated apt packages installed before the agent runs (infer-action `apt`), e.g. the system libraries a native build links against'
+        type: string
+        default: ''
+      computer-use:
+        description: 'Give the agent the CLI Computer tool on the demo display so it can drive a desktop GUI app (infer-action `computer-use`). Gated like demo recording: only when the triggering user has write access'
+        type: boolean
+        default: false
     secrets:
       INFERENCE_GATEWAY_MAINTAINER_APP_CLIENT_ID:
         description: 'Client ID of the @infer bot GitHub App (callers use `secrets: inherit`)'
@@ -484,6 +493,8 @@ jobs:
           agents: ${{ steps.browser.outputs.enabled == 'true' && format('browser-agent:{0}', steps.browser.outputs.engine) || '' }}
           review-inline: true
           record-demo: ${{ steps.demo.outputs.enabled }}
+          computer-use: ${{ inputs.computer-use && steps.demo.outputs.enabled == 'true' }}
+          apt: ${{ inputs.apt }}
           custom-instructions: ${{ steps.custom.outputs.text }}
           bash-allow-append: ${{ steps.whitelist.outputs.patterns }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
