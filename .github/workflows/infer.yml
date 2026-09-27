@@ -143,7 +143,7 @@ permissions:
 jobs:
   infer:
     runs-on: ${{ inputs.runner }}
-    timeout-minutes: 25
+    timeout-minutes: 40
     permissions:
       contents: write
       pull-requests: write
