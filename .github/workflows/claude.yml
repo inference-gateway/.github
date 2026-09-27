@@ -582,14 +582,13 @@ jobs:
 
           if [ "$context" = "issue" ]; then
           pr_block="$(cat <<'ISSUE'
-          Implement the change and commit it, then open the pull request:
+          Implement the change, then open the pull request:
+          - The local checkout stays on main even though the commit instructions above name the issue branch. Commit only with mcp__github_file_ops__commit_files, which pushes to that issue branch. Never run git checkout, git commit or git push.
+          - Write the PR body with the Write tool to pr-body.md in the working directory and never commit that file. Include a summary of changes AND "Closes #__N__".
+          - Open the pull request from the issue branch in one command:
           ```
-          gh pr create --title "Your descriptive title" --body "## Summary
-          Your summary of what was implemented.
-
-          Closes #__N__"
+          gh pr create --head <issue-branch> --base main --title "Your descriptive title" --body-file pr-body.md
           ```
-          Always include a summary of changes AND "Closes #__N__" in the body.
           ISSUE
           )"
           body="$(printf '%s\n\n%s\n\n%s' "$BOARD" "$FOLLOWUPS" "$pr_block")"
