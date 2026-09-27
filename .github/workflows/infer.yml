@@ -476,6 +476,7 @@ jobs:
           image-model: openai/gpt-image-2
           direct-prompt: ${{ inputs.prompt }}
           compact-auto-at: ${{ inputs.compact-auto-at }}
+          max-turns: "240"
           debug: ${{ inputs.debug }}
           mirror-agent-logs: ${{ inputs.debug }}
           skills: ${{ inputs.skills }}
