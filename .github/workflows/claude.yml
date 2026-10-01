@@ -560,6 +560,13 @@ jobs:
           - Do NOT create sub agents (no Task/Agent tool, no parallel agents). Do all the work yourself
             in this single session.
 
+          **SHELL & SCRATCH RULES:**
+          - Your scratch area is /tmp (readable and writable this run; the repo checkout is the only other allowed area). Clone another org repo with `gh repo clone inference-gateway/<repo> /tmp/<repo> -- --depth 1` and read it with Read/Grep/Glob or `git -C /tmp/<repo> ...`. Never put `cd` before `git` - it prompts for approval regardless of directory.
+          - Every piece of a compound Bash command (`&&`, `;`, `|`) must be allow-listed on its own; prefer one simple command per Bash call with literal paths - shell variables and `$(...)` are rejected.
+          - Create files under /tmp only with the Write tool, never shell redirection (`>` needs approval). Multi-line issue/PR bodies: Write them to /tmp/body.md and pass `--body-file /tmp/body.md`.
+          - Read a failed CI job log with the Read tool on `${{ runner.temp }}/github-ci-logs/<job>.log` - no `cd`, `tail` or `cat`.
+          - Fetch a file from another repo raw: `gh api repos/<owner>/<repo>/contents/<path> -H "Accept: application/vnd.github.raw"` (no `-q .content | base64 -d` - `base64` is not allow-listed).
+
           **OUTPUT RULES:**
 
           ## Commit Message Requirements (max 72 chars)
@@ -684,6 +691,8 @@ jobs:
             --model ${{ steps.agent.outputs.model }}
             --allowedTools "${{ steps.args.outputs.tools }}"
             --disallowedTools "Task"
+            --add-dir /tmp
+            --add-dir ${{ runner.temp }}
             ${{ steps.args.outputs.mcp_arg }}
             ${{ inputs.debug && '--debug' || '' }}
           prompt: ${{ steps.prompt.outputs.text }}
