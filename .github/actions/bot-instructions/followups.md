@@ -3,7 +3,7 @@ PR (on a `gh` permission failure follow the "IF A GITHUB PERMISSION IS MISSING" 
 carry on). Never write `@claude`/`@infer` in anything you file.
 
 Before creating ANY issue, fetch the matching org template from
-`inference-gateway/.github` (`gh api repos/inference-gateway/.github/contents/.github/ISSUE_TEMPLATE/<file> -q .content | base64 -d`;
+`inference-gateway/.github` (`gh api repos/inference-gateway/.github/contents/.github/ISSUE_TEMPLATE/<file> -H "Accept: application/vnd.github.raw"`;
 files: `bug_report.md`, `feature_request.md`, `documentation_request.md`, `refactor_request.md`)
 and structure the issue body after it - `gh issue create` does not apply templates on its own.
 
