@@ -15,7 +15,7 @@
 
 <br/>
 
-<img src="./assets/terminal-api.svg" width="760" alt="curl example: one OpenAI-compatible endpoint for every LLM provider" />
+<img src="./assets/cli-subagents.gif" alt="infer chat in plan mode fans out 5 read-only subagents to search the inference-gateway repo for docs gaps and drift, then opens each running subagent's live transcript from the list under the composer" />
 
 </div>
 
