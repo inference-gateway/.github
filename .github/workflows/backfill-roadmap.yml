@@ -4,7 +4,7 @@ name: Backfill Roadmap 2026
 # Daily sweep across EVERY repos.yaml target (select(true), all kinds incl.
 # kind: none and kind: agent). For each repo, finds OPEN issues AND OPEN PRs on
 # NO GitHub Project board and adds them to the org Roadmap 2026 board (project
-# #7), then sets their Status to Todo. Backfills work filed/edited outside the
+# #8), then sets their Status to Todo. Backfills work filed/edited outside the
 # normal @claude/@infer flow (or before board tracking existed) so planned work
 # is never lost off the roadmap.
 #
@@ -19,20 +19,20 @@ name: Backfill Roadmap 2026
 # across 2024-2025 and always returns empty now, so ProjectsV2 membership is the
 # whole story; we do NOT check projectCards.
 #
-# Semantics: "not on ANY project", not "not on #7". An issue/PR already tracked
+# Semantics: "not on ANY project", not "not on #8". An issue/PR already tracked
 # on some OTHER org board is left alone. The primary filter is projectItems
 # (which the maintainer App's org-level Projects: read grant lets it see across
-# ALL org boards), NOT a prefetch of project #7's items.
+# ALL org boards), NOT a prefetch of project #8's items.
 #
 # Auth: per-target scoped App token via inference-gateway-maintainer-bot. The
 # App holds ORG-LEVEL Projects: read & write; org permissions are NOT narrowed
 # by the `repositories:` scope, so a repo-scoped token still reaches org project
-# #7 - exactly how claude.yml / infer.yml write to #7 from repo-scoped tokens.
+# #8 - exactly how claude.yml / infer.yml write to #8 from repo-scoped tokens.
 # Listing issues uses the App's installation-wide issues: read (the sync/stale
 # workflows already rely on it). The default GITHUB_TOKEN is scoped to .github
 # only and cannot read issues or write the board on other repos.
 #
-# Idempotent: `gh project item-add 7` on an item already on #7 just reports it
+# Idempotent: `gh project item-add 8` on an item already on #8 just reports it
 # exists and returns the existing item id (exit 0), so re-runs are no-ops on
 # already-tracked issues/PRs. A MAX_ADDS cap bounds a single run and logs a
 # warning with the leftover count; the next run (or cron) resumes - safe because
@@ -111,10 +111,10 @@ jobs:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           GH_REPO: inference-gateway/${{ matrix.target.name }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
-          PROJECT_NUMBER: '7'
+          PROJECT_NUMBER: '8'
           PROJECT_OWNER: inference-gateway
-          PROJECT_ID: PVT_kwDOC6ve6c4BNnSt
-          STATUS_FIELD_ID: PVTSSF_lADOC6ve6c4BNnStzg8jqxU
+          PROJECT_ID: PVT_kwDOC6ve6c4BljlM
+          STATUS_FIELD_ID: PVTSSF_lADOC6ve6c4BljlMzhkP_8Y
           STATUS_TODO_ID: f75ad846
           SLEEP_BETWEEN_ADDS: '1'
           MAX_ADDS: '500'
