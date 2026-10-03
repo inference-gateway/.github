@@ -215,7 +215,7 @@ gh workflow run cleanup-runs.yml --repo inference-gateway/.github -f dry_run=fal
 ### `backfill-roadmap.yml` - add orphan issues and PRs to the Roadmap 2026 board across `repos.yaml`
 
 ```
-cron: '30 4 * * *'  (daily, disabled until validated; manual via workflow_dispatch, dry_run previews)
+cron: '30 10 * * *'  (daily, live; manual via workflow_dispatch, dry_run previews)
    │
    ▼
 .github/workflows/backfill-roadmap.yml
@@ -241,7 +241,7 @@ Distinct from the other lifecycle orchestrators:
 - **"On no board" = empty `projectItems`, not "not on #8".** The filter is the item's ProjectsV2 membership (`gh issue list --json projectItems` and `gh pr list --json projectItems,isDraft`, keep length 0 - both `gh` subcommands expose the field). The maintainer App's org-level Projects: read grant lets `projectItems` see every org board, so an item already on #8 *or any other org board* is left alone. There is deliberately no prefetch of #8's items (that would answer the narrower "not on #8" and re-add items tracked elsewhere). Classic Projects (`projectCards`, shut down 2024-2025) is always empty now and is not checked.
 - **Broad matrix, like `cleanup-runs.yml`.** Resolves `select(true)` - every registered `repos.yaml` target, including the `kind: none` infra and `kind: agent` repos (orphan issues and PRs can live anywhere). Private repos and repos absent from `repos.yaml` (`.github`, `agents`, `awesome-a2a`, `tools`) are untouched. Open issues and open PRs only.
 - **Idempotent, so safe to rerun.** `gh project item-add 8` on an item already on #8 returns the existing item id (exit 0); re-runs are no-ops and the `projectItems` filter shrinks the candidate set each run. A per-target `MAX_ADDS` cap bounds one run and logs a `::warning::` with the leftover count (next run continues). Both the issue and PR listings are rate-limit aware and **fail the job** on a 403 rather than reporting a false `found 0`.
-- **`dry_run` defaults to `true` on manual dispatch.** `-f dry_run=false` adds for real; the `schedule:` block (cron `30 4 * * *`, staggered off `stale.yml` and `cleanup-runs.yml` to share the 5,000-req/hr bucket) ships commented out until validated on one repo.
+- **`dry_run` defaults to `true` on manual dispatch.** `-f dry_run=false` adds for real; the daily cron (`30 10 * * *`, staggered off `stale.yml` and `cleanup-runs.yml` to share the 5,000-req/hr bucket) is live and backfills for real.
 
 Testing on one repo: the `repository` input narrows the matrix to a single target so the backfill can be validated before it runs fleet-wide:
 
