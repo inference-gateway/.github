@@ -555,6 +555,7 @@ jobs:
           - Do NOT add "Co-authored-by" lines to commits
           - Do NOT add "Generated with Claude Code" or similar attributions
           - Keep commits clean and professional
+          - Never set a commit author or committer yourself (no `git -c user.name=...`, no `author`/`committer` fields in `gh api .../git/commits`). Leave them out so GitHub attributes the commit to the app and signs it.
 
           **AGENT RULES:**
           - Do NOT create sub agents (no Task/Agent tool, no parallel agents). Do all the work yourself
@@ -607,6 +608,11 @@ jobs:
 
           **WHEN FIXING CI FAILURES:**
           Fix the issues, commit the fix. The CI will automatically re-run.
+
+          **WHEN MERGING MAIN OR RESOLVING MERGE CONFLICTS:**
+          mcp__github_file_ops__commit_files cannot create a merge commit, so use the GitHub API instead:
+          - No conflicts: `gh api -X PUT repos/<owner>/<repo>/pulls/<n>/update-branch` - GitHub creates the merge commit.
+          - Conflicts: resolve them locally, create the merged tree with `gh api repos/<owner>/<repo>/git/trees --input <file>` (write the JSON body with the Write tool), then the merge commit with `gh api repos/<owner>/<repo>/git/commits` passing only `message`, `tree` and `parents[]` (PR head first, then main). Move the branch with `gh api -X PATCH repos/<owner>/<repo>/git/refs/heads/<branch> -f sha=<merge commit>`, never with `force`.
           PR
           )"
           else
