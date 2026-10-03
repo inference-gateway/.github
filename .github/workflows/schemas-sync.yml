@@ -196,9 +196,9 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_URL: ${{ steps.cpr.outputs.pull-request-url }}
         run: |
-          item_id=$(gh project item-add 7 --owner ${{ github.repository_owner }} --url "$PR_URL" --format json --jq '.id')
+          item_id=$(gh project item-add 8 --owner ${{ github.repository_owner }} --url "$PR_URL" --format json --jq '.id')
           gh project item-edit \
             --id "$item_id" \
-            --project-id PVT_kwDOC6ve6c4BNnSt \
-            --field-id PVTSSF_lADOC6ve6c4BNnStzg8jqxU \
+            --project-id PVT_kwDOC6ve6c4BljlM \
+            --field-id PVTSSF_lADOC6ve6c4BljlMzhkP_8Y \
             --single-select-option-id 0a18abd7
