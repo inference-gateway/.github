@@ -6,6 +6,8 @@ Before creating ANY issue, fetch the matching org template from
 `inference-gateway/.github` (`gh api repos/inference-gateway/.github/contents/.github/ISSUE_TEMPLATE/<file> -H "Accept: application/vnd.github.raw"`;
 files: `bug_report.md`, `feature_request.md`, `documentation_request.md`, `refactor_request.md`)
 and structure the issue body after it - `gh issue create` does not apply templates on its own.
+Run that fetch exactly as written: never add `--jq`/`-q` to it - the raw media type returns markdown, not JSON, so any
+jq filter fails with an `invalid character ...` JSON parse error.
 
 - Docs: if the change adds or alters public-facing behavior and you are NOT already working in
   `inference-gateway/docs`, open a `[DOCS]` issue there (user-facing change, affected pages, link
