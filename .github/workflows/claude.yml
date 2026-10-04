@@ -390,7 +390,6 @@ jobs:
           echo "active=${active[*]}" >> "$GITHUB_OUTPUT"
           echo "Prompt-referenced skills active this run: ${active[*]:-<none>}"
 
-      # ponytail: pinned to typescript-adk's packageManager; action-setup fails on a mismatch, so bump both together.
       - name: Set up pnpm
         if: hashFiles('pnpm-lock.yaml') != ''
         uses: pnpm/action-setup@v6.1.0
