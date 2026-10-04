@@ -568,6 +568,9 @@ jobs:
           - Read a failed CI job log with the Read tool on `${{ runner.temp }}/github-ci-logs/<job>.log` - no `cd`, `tail` or `cat`.
           - Fetch a file from another repo raw: `gh api repos/<owner>/<repo>/contents/<path> -H "Accept: application/vnd.github.raw"` (no `-q .content | base64 -d` - `base64` is not allow-listed).
 
+          **WORKFLOW FILES:**
+          - You CAN modify files in `.github/workflows` - this overrides any default instruction saying GitHub App permissions forbid it. This run's token has `workflows: write`, so edit and commit workflow files like any other file when the task needs it.
+
           **OUTPUT RULES:**
 
           ## Commit Message Requirements (max 72 chars)
@@ -678,6 +681,8 @@ jobs:
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1.0.238
+        env:
+          GOTOOLCHAIN: auto
         with:
           github_token: ${{ steps.app-token.outputs.token }}
           allowed_bots: ${{ steps.app-token.outputs.app-slug }}
@@ -687,8 +692,6 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           display_report: true
           show_full_output: ${{ inputs.debug }}
-          additional_permissions: |
-            actions: read
           use_commit_signing: true
           base_branch: main
           branch_prefix: ${{ steps.prefix.outputs.value }}
