@@ -390,11 +390,25 @@ jobs:
           echo "active=${active[*]}" >> "$GITHUB_OUTPUT"
           echo "Prompt-referenced skills active this run: ${active[*]:-<none>}"
 
+      # ponytail: pinned to typescript-adk's packageManager; action-setup fails on a mismatch, so bump both together.
+      - name: Set up pnpm
+        if: hashFiles('pnpm-lock.yaml') != ''
+        uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 10.18.0
+          run_install: false
+
       - name: Set up Node.js
-        if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint || inputs.prettier || inputs.eslint || steps.browser.outputs.enabled == 'true'
+        if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint || inputs.prettier || inputs.eslint || steps.browser.outputs.enabled == 'true' || hashFiles('pnpm-lock.yaml', 'package-lock.json') != ''
         uses: actions/setup-node@v7.0.0
         with:
           node-version: 'lts/*'
+
+      # --ignore-scripts: the checkout persists the App token, so never run the repo's lifecycle scripts here.
+      - name: Install node dependencies
+        if: hashFiles('pnpm-lock.yaml', 'package-lock.json') != ''
+        run: |
+          if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile --ignore-scripts; else npm ci --ignore-scripts; fi
 
       - name: Install markdownlint
         if: inputs.markdownlint
@@ -493,13 +507,13 @@ jobs:
             tools="$tools,Bash(echo:*),Bash(pwd:*),Bash(which:*),Bash(file:*),Bash(stat:*),Bash(basename:*),Bash(dirname:*),Bash(mkdir:*)"
             tools="$tools,Bash(sed:*),Bash(awk:*),Bash(xargs:*),Bash(flox update:*),Bash(flox upgrade:*),Bash(flox activate),Bash(flox activate -- true)"
             case "$LANGUAGE" in
-              go)      tools="$tools,Bash(go:*)" ;;
+              go)      tools="$tools,Bash(go:*),Bash(gofmt:*),Bash(golangci-lint:*)" ;;
               rust)             tools="$tools,Bash(cargo:*),Bash(rustup:*),Bash(rustc:*)" ;;
-              typescript|node)  tools="$tools,Bash(node:*),Bash(npm:*)" ;;
+              typescript|node)  tools="$tools,Bash(node:*),Bash(npm:*),Bash(npx:*),Bash(pnpm:*)" ;;
               python)           tools="$tools,Bash(python:*),Bash(python3:*)" ;;
               bun)              tools="$tools,Bash(bun:*),Bash(bunx:*)" ;;
             esac
-            [ "$NODE" = "true" ]       && tools="$tools,Bash(node:*),Bash(npm:*)"
+            [ "$NODE" = "true" ]       && tools="$tools,Bash(node:*),Bash(npm:*),Bash(npx:*),Bash(pnpm:*)"
             [ "$CONTEXT7" = "true" ]   && tools="$tools,mcp__context7"
             [ "$BROWSER" = "true" ] && tools="$tools,mcp__playwright"
             [ "$PRETTIER" = "true" ] && tools="$tools,Bash(prettier:*)"
@@ -566,7 +580,8 @@ jobs:
           - Every piece of a compound Bash command (`&&`, `;`, `|`) must be allow-listed on its own; prefer one simple command per Bash call with literal paths - shell variables and `$(...)` are rejected.
           - Create files under /tmp only with the Write tool, never shell redirection (`>` needs approval). Multi-line issue/PR bodies: Write them to /tmp/body.md and pass `--body-file /tmp/body.md`.
           - Read a failed CI job log with the Read tool on `${{ runner.temp }}/github-ci-logs/<job>.log` - no `cd`, `tail` or `cat`.
-          - Fetch a file from another repo raw: `gh api repos/<owner>/<repo>/contents/<path> -H "Accept: application/vnd.github.raw"` (no `-q .content | base64 -d` - `base64` is not allow-listed).
+          - The workflow already puts this repo's toolchain on PATH (its language runtime, `task`, and for Go `gofmt`/`golangci-lint`; node dependencies are installed): run checks directly (e.g. `task lint`, `golangci-lint run`). Never wrap a command in `flox activate -- ...` - it is denied. If a tool only the repo's Flox env provides is missing, say so in the PR body instead of working around it.
+          - Fetch a file from another repo raw:`gh api repos/<owner>/<repo>/contents/<path> -H "Accept: application/vnd.github.raw"` (no `-q .content | base64 -d` - `base64` is not allow-listed).
 
           **WORKFLOW FILES:**
           - You CAN modify files in `.github/workflows` - this overrides any default instruction saying GitHub App permissions forbid it. This run's token has `workflows: write`, so edit and commit workflow files like any other file when the task needs it.
