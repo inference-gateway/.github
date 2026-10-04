@@ -180,7 +180,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
         with:
-          fetch-depth: 1
+          fetch-depth: 0
           persist-credentials: true
           token: ${{ steps.app-token.outputs.token }}
 

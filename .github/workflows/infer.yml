@@ -215,6 +215,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
         with:
+          fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Checkout PR head branch
@@ -473,6 +474,8 @@ jobs:
       - name: Run Infer Agent
         id: infer
         uses: inference-gateway/infer-action@v0.55.5
+        env:
+          GOTOOLCHAIN: auto
         with:
           version: ${{ inputs.cli-version }}
           memory-repo: https://github.com/inference-gateway/.memory
