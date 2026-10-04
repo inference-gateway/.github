@@ -4,7 +4,8 @@ name: Bump ADL CLI across agents
 # Manual fan-out across every kind=agent target in repos.yaml.
 # For each agent, mints a scoped GitHub App token, updates the ADL CLI pin
 # in .flox/env/manifest.toml, refreshes the Flox lock, regenerates the
-# project with the new CLI, then force-updates one PR on bot/bump-adl-cli. Deliberate
+# project with the new CLI, then updates one PR on bot/bump-adl-cli, keeping commits
+# added to it by hand unless overwrite is set. Deliberate
 # deviation from the sync-* workflows: this one opens PRs (not issues)
 # because version bumps are mechanical and reviewable.
 
@@ -26,6 +27,11 @@ on:
         required: false
         type: boolean
         default: true
+      overwrite:
+        description: 'Rebuild the bump PR from main, dropping commits added to it by hand'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -83,6 +89,8 @@ jobs:
       cancel-in-progress: false
     env:
       ADL_VERSION: ${{ needs.matrix.outputs.adl_version }}
+      PR_BRANCH: bot/bump-adl-cli
+      BUMP_SUBJECT: 'chore(deps): bump ADL CLI'
     steps:
       - name: Mint GitHub App token (scoped to ${{ matrix.target.name }})
         id: token
@@ -100,6 +108,7 @@ jobs:
           repository: inference-gateway/${{ matrix.target.name }}
           path: target
           token: ${{ steps.token.outputs.token }}
+          fetch-depth: 0
 
       - name: Install Flox
         uses: flox/install-flox-action@v2.6.0
@@ -122,6 +131,32 @@ jobs:
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
             echo "::notice::${{ matrix.target.name }}: ${OLD} -> ${NEW}"
+          fi
+
+      - name: Carry over commits added to the open bump PR
+        if: steps.current.outputs.skip != 'true' && !inputs.overwrite
+        working-directory: target
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "$(gh pr list --head "$PR_BRANCH" --state open --json number --jq '.[].number')" ]; then
+            echo "No open bump PR; nothing to carry over."
+            exit 0
+          fi
+          git fetch origin "$PR_BRANCH"
+          mapfile -t commits < <(git log --reverse --no-merges --format='%H %s' "HEAD..origin/$PR_BRANCH" \
+            | grep -vF " ${BUMP_SUBJECT} " | cut -d' ' -f1)
+          if [ "${#commits[@]}" -eq 0 ]; then
+            echo "The bump PR has no commits added by hand."
+            exit 0
+          fi
+          git log --no-walk --format='Carrying over %h %s' "${commits[@]}"
+          if ! git -c user.name='github-actions[bot]' \
+            -c user.email='41898828+github-actions[bot]@users.noreply.github.com' \
+            cherry-pick --empty=drop "${commits[@]}"; then
+            echo "::error::Commits added to the bump PR do not apply to main; fix them on the PR or rerun with overwrite"
+            exit 1
           fi
 
       - name: Bump manifest.toml pin
@@ -200,11 +235,11 @@ jobs:
         with:
           token: ${{ steps.token.outputs.token }}
           path: target
-          branch: bot/bump-adl-cli
+          branch: ${{ env.PR_BRANCH }}
           base: main
           sign-commits: true
           delete-branch: true
-          commit-message: "chore(deps): bump ADL CLI ${{ steps.current.outputs.old }} -> ${{ env.ADL_VERSION }}"
+          commit-message: "${{ env.BUMP_SUBJECT }} ${{ steps.current.outputs.old }} -> ${{ env.ADL_VERSION }}"
           title: "chore(deps): bump ADL CLI to ${{ env.ADL_VERSION }}"
           body: |
             ## Summary

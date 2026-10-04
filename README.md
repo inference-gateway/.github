@@ -117,9 +117,10 @@ per-agent job (one per agent):
    │  runs `flox upgrade adl` + `flox activate -- task generate`,
    │  patches headers in .adl-ignore'd files, asserts agent.yaml is unchanged
    ▼
-peter-evans/create-pull-request opens (or force-updates) a PR titled
-`chore(deps): bump ADL CLI to vX.Y.Z` on the fixed branch `bot/bump-adl-cli`,
-so every run - a re-run or a newer version - overwrites the previous bump PR
+peter-evans/create-pull-request opens (or updates) a PR titled
+`chore(deps): bump ADL CLI to vX.Y.Z` on the fixed branch `bot/bump-adl-cli`.
+Each run rebuilds the bump from main; commits added to the open PR by hand are
+cherry-picked back on top unless `-f overwrite=true`, which drops them
    │
    ▼
 maintainer reviews each PR and merges
