@@ -580,7 +580,7 @@ jobs:
           - Create files under /tmp only with the Write tool, never shell redirection (`>` needs approval). Multi-line issue/PR bodies: Write them to /tmp/body.md and pass `--body-file /tmp/body.md`.
           - Read a failed CI job log with the Read tool on `${{ runner.temp }}/github-ci-logs/<job>.log` - no `cd`, `tail` or `cat`.
           - The workflow already puts this repo's toolchain on PATH (its language runtime, `task`, and for Go `gofmt`/`golangci-lint`; node dependencies are installed): run checks directly (e.g. `task lint`, `golangci-lint run`). Never wrap a command in `flox activate -- ...` - it is denied. If a tool only the repo's Flox env provides is missing, say so in the PR body instead of working around it.
-          - Fetch a file from another repo raw:`gh api repos/<owner>/<repo>/contents/<path> -H "Accept: application/vnd.github.raw"` (no `-q .content | base64 -d` - `base64` is not allow-listed).
+          - Fetch a file from another repo raw: `gh api repos/<owner>/<repo>/contents/<path> -H "Accept: application/vnd.github.raw"` (no `-q .content | base64 -d` - `base64` is not allow-listed). Never add `--jq`/`-q` to a raw fetch - the output is the file itself, not JSON, so any jq filter fails.
 
           **WORKFLOW FILES:**
           - You CAN modify files in `.github/workflows` - this overrides any default instruction saying GitHub App permissions forbid it. This run's token has `workflows: write`, so edit and commit workflow files like any other file when the task needs it.
