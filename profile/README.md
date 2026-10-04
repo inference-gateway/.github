@@ -47,8 +47,8 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 | 🤖 **A2A** | [Agent-to-Agent](https://docs.inference-gateway.com/a2a) coordination across specialized agents |
 | 🌊 **Streaming** | Real-time token streaming from all supported providers |
 | 🖼️ **Multimodal** | Vision input plus image, speech, sound effect, music and video generation endpoints |
-| 🛡️ **Enterprise Ready** | [OIDC authentication](https://docs.inference-gateway.com/authentication), configurable timeouts, and TLS support |
-| ☸️ **Kubernetes Ready** | First-class K8s support with Operator and HPA scaling |
+| 🛡️ **Enterprise** | [OIDC authentication](https://docs.inference-gateway.com/authentication), configurable timeouts, and TLS support |
+| ☸️ **Kubernetes** | First-class K8s support with Operator and HPA scaling |
 | 📊 **Observability** | [OpenTelemetry](https://docs.inference-gateway.com/observability) Prometheus metrics following the GenAI semantic conventions, tracing, and an OTLP push endpoint |
 | 🔒 **Privacy First** | Self-hosted, zero data collection, Apache 2.0 licensed |
 | 🌿 **Lightweight** | ~13MB binary with minimal resource footprint |
