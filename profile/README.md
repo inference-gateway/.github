@@ -69,7 +69,7 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 
 <div align="center">
 
-<img src="./assets/terminal-quickstart.svg" width="760" alt="Quick start: run with Docker or install the CLI" />
+<img src="./assets/terminal-quickstart.svg" width="950" alt="Quick start: run the gateway with Docker, then install the CLI and chat" />
 
 </div>
 
