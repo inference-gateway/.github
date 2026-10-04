@@ -290,17 +290,23 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Set up pnpm
-        if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint || inputs.prettier || inputs.eslint
+        if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint || inputs.prettier || inputs.eslint || hashFiles('pnpm-lock.yaml') != ''
         uses: pnpm/action-setup@v6.1.0
         with:
           version: 10.18.0
           run_install: false
 
       - name: Set up Node.js
-        if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint || inputs.prettier || inputs.eslint
+        if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint || inputs.prettier || inputs.eslint || hashFiles('pnpm-lock.yaml', 'package-lock.json') != ''
         uses: actions/setup-node@v7.0.0
         with:
           node-version: 'lts/*'
+
+      # --ignore-scripts: PR-comment runs install from the PR head and the checkout persists the App token.
+      - name: Install node dependencies
+        if: hashFiles('pnpm-lock.yaml', 'package-lock.json') != ''
+        run: |
+          if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile --ignore-scripts; else npm ci --ignore-scripts; fi
 
       - name: Install markdownlint
         if: inputs.markdownlint
@@ -336,7 +342,7 @@ jobs:
           set -euo pipefail
           patterns='^task( .*)?$'
           case "$LANGUAGE" in
-            go)               patterns="$patterns,^go( .*)?$" ;;
+            go)               patterns="$patterns,^go( .*)?$,^gofmt( .*)?$,^golangci-lint( .*)?$" ;;
             rust)             patterns="$patterns,^cargo( .*)?$,^rustup( .*)?$,^rustc( .*)?$" ;;
             python)           patterns="$patterns,^python( .*)?$,^python3( .*)?$" ;;
             typescript|node)  patterns="$patterns,^node( .*)?$,^npm( .*)?$,^pnpm( .*)?$,^npx( .*)?$,^prettier( .*)?$" ;;
