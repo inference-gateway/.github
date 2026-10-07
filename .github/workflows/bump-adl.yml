@@ -111,7 +111,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install Flox
-        uses: flox/install-flox-action@v2.6.0
+        uses: flox/install-flox-action@v2.7.0
 
       - name: Detect current ADL version
         id: current
