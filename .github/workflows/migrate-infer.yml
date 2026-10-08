@@ -156,7 +156,7 @@ jobs:
 
       - name: Install Flox
         if: inputs.bump_flox
-        uses: flox/install-flox-action@v2.6.0
+        uses: flox/install-flox-action@v2.7.0
 
       - name: Bump infer pin in the target's Flox manifest
         id: bump
