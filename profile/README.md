@@ -51,7 +51,7 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 | ☸️ **Kubernetes** | First-class K8s support with Operator and HPA scaling |
 | 📊 **Observability** | [OpenTelemetry](https://docs.inference-gateway.com/observability) Prometheus metrics following the GenAI semantic conventions, tracing, and an OTLP push endpoint |
 | 🔒 **Privacy First** | Self-hosted, zero data collection, Apache 2.0 licensed |
-| 🌿 **Lightweight** | ~13MB binary with minimal resource footprint |
+| 🌿 **Lightweight** | ~10MB binary with minimal resource footprint |
 
 ---
 
