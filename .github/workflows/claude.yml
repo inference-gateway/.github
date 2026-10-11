@@ -566,8 +566,6 @@ jobs:
 
           **COMMIT RULES:**
           - Do NOT add "Co-authored-by" lines to commits
-          - Do NOT add "Generated with Claude Code" or similar attributions
-          - Keep commits clean and professional
           - Never set a commit author or committer yourself (no `git -c user.name=...`, no `author`/`committer` fields in `gh api .../git/commits`). Leave them out so GitHub attributes the commit to the app and signs it.
 
           **AGENT RULES:**
@@ -663,16 +661,21 @@ jobs:
             git -C "$MEM_DIR" init -q -b claude
             git -C "$MEM_DIR" remote add origin "$remote"
           fi
-          settings="$(jq -cn --arg d "$MEM_DIR" '{autoMemoryDirectory: $d}')"
-          { echo "settings=$settings"; echo "dir=$MEM_DIR"; } >> "$GITHUB_OUTPUT"
+          echo "dir=$MEM_DIR" >> "$GITHUB_OUTPUT"
           echo "Auto-memory relocated to: $MEM_DIR"
 
-      - name: Compose plugin inputs
+      - name: Compose settings and plugin inputs
         id: settings
         env:
           PLUGINS: ${{ inputs.plugins }}
+          MEM_DIR: ${{ steps.memory-sync-in.outputs.dir }}
         run: |
           set -euo pipefail
+
+          # Empty attribution drops Claude's Co-Authored-By trailer and PR footer.
+          settings="$(jq -cn --arg d "$MEM_DIR" '{attribution: {commit: "", pr: ""}} + if $d == "" then {} else {autoMemoryDirectory: $d} end')"
+          echo "settings=$settings" >> "$GITHUB_OUTPUT"
+          echo "Settings: $settings"
 
           marketplaces=''
           plugins=''
@@ -700,7 +703,7 @@ jobs:
         with:
           github_token: ${{ steps.app-token.outputs.token }}
           allowed_bots: ${{ steps.app-token.outputs.app-slug }}
-          settings: ${{ steps.memory-sync-in.outputs.settings }}
+          settings: ${{ steps.settings.outputs.settings }}
           plugins: ${{ steps.settings.outputs.plugins }}
           plugin_marketplaces: ${{ steps.settings.outputs.marketplaces }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
