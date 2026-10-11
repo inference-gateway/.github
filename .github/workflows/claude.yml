@@ -671,7 +671,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Empty attribution drops Claude's Co-Authored-By trailer and PR footer.
           settings="$(jq -cn --arg d "$MEM_DIR" '{attribution: {commit: "", pr: ""}} + if $d == "" then {} else {autoMemoryDirectory: $d} end')"
           echo "settings=$settings" >> "$GITHUB_OUTPUT"
           echo "Settings: $settings"
