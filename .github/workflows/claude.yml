@@ -565,7 +565,6 @@ jobs:
           - Do NOT run Bash commands in the background (never set run_in_background) - this headless session exits as soon as your turn ends and the background command and everything after it is lost; run long commands in the foreground with a larger timeout instead
 
           **COMMIT RULES:**
-          - Do NOT add "Co-authored-by" lines to commits
           - Never set a commit author or committer yourself (no `git -c user.name=...`, no `author`/`committer` fields in `gh api .../git/commits`). Leave them out so GitHub attributes the commit to the app and signs it.
 
           **AGENT RULES:**
