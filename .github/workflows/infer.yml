@@ -482,7 +482,7 @@ jobs:
 
       - name: Run Infer Agent
         id: infer
-        uses: inference-gateway/infer-action@v0.56.0
+        uses: inference-gateway/infer-action@v0.56.1
         env:
           GOTOOLCHAIN: auto
         with:
