@@ -399,7 +399,7 @@ jobs:
 
       - name: Set up Node.js
         if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint || inputs.prettier || inputs.eslint || steps.browser.outputs.enabled == 'true' || hashFiles('pnpm-lock.yaml', 'package-lock.json') != ''
-        uses: actions/setup-node@v7.0.0
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: 'lts/*'
 
@@ -695,7 +695,7 @@ jobs:
 
       - name: Run Claude Code
         id: claude
-        uses: anthropics/claude-code-action@v1.0.245
+        uses: anthropics/claude-code-action@v1.0.248
         env:
           GOTOOLCHAIN: auto
         with:
