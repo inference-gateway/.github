@@ -96,7 +96,6 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "${DRY_RUN}" != "true" ]; then
-            # Idempotent: --force updates the label if it already exists.
             gh label create "${STALE_LABEL}" --color ededed \
               --description "No activity for ${STALE_DAYS} days" --force
           fi
