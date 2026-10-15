@@ -179,6 +179,15 @@ jobs:
         working-directory: target
         run: flox activate -- task generate
 
+      - name: Re-lock after regeneration
+        if: steps.current.outputs.skip != 'true'
+        working-directory: target
+        env:
+          NIX_CONFIG: "access-tokens = github.com=${{ steps.token.outputs.token }}"
+        # task generate rewrites manifest.toml with the pins the new CLI ships
+        # (claude-code, infer, ...), so the lock refreshed above is already stale.
+        run: flox activate -- true
+
       - name: Patch headers in .adl-ignore'd / hand-maintained files
         if: steps.current.outputs.skip != 'true'
         working-directory: target
@@ -248,6 +257,7 @@ jobs:
             Ran in CI:
             - `flox upgrade adl` - refreshed `.flox/env/manifest.lock` to the new flake commit
             - `flox activate -- task generate` - regenerated Dockerfile, Taskfile.yml, `.releaserc.yaml`, `.github/workflows/{ci,cd}.yml`, `CLAUDE.md`, `.well-known/agent-card.json`, and tool stubs
+            - `flox activate -- true` - re-locked `.flox/env/manifest.lock` against the regenerated `manifest.toml` pins
             - Targeted sed pass for `.adl-ignore`'d files (Dockerfile / Taskfile.yml / main.go where customized) and hand-maintained workflows (e.g. `claude.yml`) that the generator does not rewrite
 
             `agent.yaml` and `CHANGELOG.md` are intentionally untouched.
