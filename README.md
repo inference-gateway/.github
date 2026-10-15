@@ -12,8 +12,8 @@ Org-level repo holding:
     - `bump-adl.yml` bumps every agent's ADL CLI pin to a given version, regenerates, and opens one PR per agent.
     - `refresh-agent-manifest.yml` additively merges new `adl init` defaults into each agent's `agent.yaml` (one PR per agent).
     - `trigger-cd.yml` dispatches each agent's own `cd.yml` to cut releases (fire-and-forget).
-  - **Lifecycle orchestrators** - cross-repo maintenance across `repos.yaml` targets (`stale.yml` sweeps every target except the `kind: none` infra repos, `select(.kind != "none")`; `cleanup-runs.yml` and `backfill-roadmap.yml` sweep every registered target, `select(true)`, including `kind: none`):
-    - `stale.yml` marks issues with no activity for 30 days as `stale` and closes them 7 days later.
+  - **Lifecycle orchestrators** - cross-repo maintenance across `repos.yaml` targets (all three sweep every registered target, `select(true)`, including `kind: none`):
+    - `stale.yml` marks issues and PRs with no activity for 30 days as `stale` and closes them 14 days later. Any activity, including removing the label, restarts the clock.
     - `cleanup-runs.yml` prunes completed workflow runs by conclusion (default `skipped` - the noise `infer-action` / `claude-code-action` leave on every issue event; `skipped,failure` also drops failed-run logs), with an optional `keep_last` per-repo retention floor, from each target's Actions tab, daily.
     - `backfill-roadmap.yml` adds open issues **and open PRs** that are on no project board to the org Roadmap 2026 board (project #8) at Status `Todo`, so work filed outside the `@claude` / `@infer` flow is not lost off the roadmap. PRs are added from any author (humans and bots); only draft PRs are skipped.
   - **Migration (one-shot)** - `migrate-claude.yml` rewrites each repo's `.github/workflows/claude.yml` into a thin caller of the org [reusable `claude.yml`](./.github/workflows/claude.yml), reading its inputs from that entry's `orchestrators.claude` block (`select(.orchestrators.claude != null)`), and in the same PR also bumps the target's own Flox `claude-code` pin (`.flox/env/manifest.toml`) to the latest flox catalog version, isolates `claude-code` in its own `pkg-group = "claude-code"` (so the bumped floor resolves independently of `codex` - a shared `ai` group made the constraints unsatisfiable), and refreshes the lock - note `claude-code` is a flox catalog package (`claude-code.version = "^X.Y.Z"`), not a GitHub release, so the latest comes from `flox show claude-code` (never npm, which can be ahead of the catalog), and there is no config-regen step - so `flox activate -- true` runs explicitly after `flox upgrade claude-code` purely to write `manifest.lock` in its canonical form. Its PR title names the moves - `chore(deps): bump claude-code X -> Y, claude-code-action vA -> vB` (claude-code-action read from the reusable `claude.yml` at the caller's old vs. new ref) - falling back to `ci: centralize claude.yml via reusable workflow`. The generated caller also exposes a `browser` boolean dispatch checkbox (forwarded as `browser: ${{ inputs.browser || <static> }}`); that, a per-repo `repos.yaml` `browser: true`, and a case-insensitive `[browser]` marker in an issue/comment/review all enable the reusable workflow's browser MCP (`@playwright/mcp`) for that run. The backend is picked with `browser_engine` (`chromium` default, `firefox`, `webkit`, or `lightpanda`) - per repo in `repos.yaml`, per run via the generated caller's `browser_engine` choice, or with a `[browser:<engine>]` marker (which also enables the browser). `lightpanda` skips the Playwright browser install and drives the `lightpanda/browser` container over CDP: much faster startup, but only partial Web API coverage, so pages that need a full browser should stay on `chromium`. The infer caller carries the same `browser` checkbox and `browser_engine` choice, wired to the reusable `infer.yml`'s browser-agent A2A container (`browser-agent:<engine>` image tag) instead of an MCP server. Review-mode infer runs always submit a real PR review with inline line-anchored comments (infer-action `review-inline`); the caller's `review_inline` checkbox and `repos.yaml` `review_inline` are ignored and kept only so existing callers validate. `migrate-infer.yml` does the same for `.github/workflows/infer.yml` against the org [reusable `infer.yml`](./.github/workflows/infer.yml), reading that entry's `orchestrators.infer` block (`select(.orchestrators.infer != null)`), and in the same PR also bumps the target's own Flox `infer` pin (`.flox/env/manifest.toml`) to the latest `inference-gateway/cli` release and refreshes the lock - mirroring how `migrate-claude.yml` bumps each repo's `claude-code` pin (`flox upgrade infer` then a bare `flox activate -- true` to canonicalize `manifest.lock`). The migrate-infer PR title names the actual version moves - `chore(deps): bump infer CLI vX -> vY, infer-action vA -> vB` - listing only the component(s) that changed (infer-action is read from the reusable `infer.yml` at the caller's old vs. new ref), and falls back to `ci(infer): centralize infer.yml via reusable workflow` when no version moved. Both migrations operate on every repo that defines the matching block. Each bump step is a single upsert path: it adds-or-raises the target manifest's `schema-version` to the flox version the workflow installs (sed in place; a newer `schema-version` is left alone - flox itself never migrates `schema-version` on `upgrade`/`activate`) and adds-or-retargets the bot's own CLI pin (`infer` / `claude-code`), so both a target with **no** Flox env (`.flox/env/manifest.toml` absent, e.g. a freshly registered repo - `flox init` runs first and the PR adds the bootstrapped `.flox/`) and a manifest merely missing the pin migrate cleanly. The workflows install flox unpinned (latest), so manifests automatically track the current flox schema - no hand-managed flox version.
@@ -147,32 +147,35 @@ Fire-and-forget: this orchestrator does **not** wait for the dispatched releases
 
 ## How the lifecycle orchestrators work
 
-### `stale.yml` - mark and close inactive issues across `repos.yaml`
+### `stale.yml` - mark and close inactive issues and PRs across `repos.yaml`
 
 ```
 cron: '15 3 * * *'  (daily, manual via workflow_dispatch with -f dry_run=true)
    │
    ▼
 .github/workflows/stale.yml
-   │  reads repos.yaml (select(.kind != "none")), fans out matrix
+   │  reads repos.yaml (select(true)), fans out matrix
    ▼
 per-target job:
-   │  mints a per-target scoped App token
-   │  step 1: gh issue list updated:<30d -label:stale (minus exempt) → add `stale` label + warning comment
-   │  step 2: gh issue list label:stale updated:<7d → close with comment
+   │  mints a per-target scoped App token (comments/labels/closes are authored by the maintainer bot)
+   │  for kind in issue, pr:
+   │    step 1: gh <kind> list updated:<30d -label:stale (minus exempt) → add `stale` label + warning comment
+   │    step 2: gh <kind> list label:stale updated:<14d → close with inactivity comment
    ▼
-issues across every target in repos.yaml
+issues and PRs across every target in repos.yaml
 ```
 
 Distinct from the sync/agent orchestrators:
 
-- **Filter is `select(.kind != "none")`.** Every product target (`sdk`/`docs`/`adk`/`agent`) is swept; the infra/tooling repos (`kind: none` - `cli`, `operator`, `registry`, `inference-gateway`, `adl`, ...) are intentionally excluded so their issues are not auto-staled. Adding or removing a product target from the sweep = the same single PR to `repos.yaml` that already routes it to its sync or agent workflow.
-- **Cannot use `actions/stale` directly** - that action is hard-coded to operate on `github.context.repo` (the runner's own repo) and has no foreign-repo input. The orchestrator does the equivalent with `gh issue` calls against the matrix target.
+- **Filter is `select(true)`.** Every registered target is swept, including the `kind: none` infra repos (`cli`, `operator`, `registry`, `inference-gateway`, `adl`, ...). Adding or removing a repo from the sweep = the same single PR to `repos.yaml` that registers it.
+- **Cannot use `actions/stale` directly** - that action is hard-coded to operate on `github.context.repo` (the runner's own repo) and has no foreign-repo input. The orchestrator does the equivalent with `gh issue` / `gh pr` calls against the matrix target (same `list`/`edit`/`comment`/`close` flags; `--search` auto-scopes to `is:issue` / `is:pr`).
 - **Exempt labels:** `pinned`, `security` (human override), and `sdk-drift`, `adk-drift`, `docs-coverage` (long-lived drift trackers filed by the sync orchestrators - they may legitimately sit open while a maintainer triages).
 - **Dry-run support:** defaults to `dry_run: true` on manual dispatch (prints the planned mark/close set per repo without modifying anything); the daily cron sweeps for real. `-f repository=<name>` narrows to one target.
-- **Issues only.** PRs are intentionally left alone.
+- **Issues and PRs.** Both get the same 30 d → `stale` → 14 d → close policy. Draft PRs are not exempt.
+- **Reset on any activity.** Both passes filter on `updated:<cutoff>`, so a comment, a push, or removing the `stale` label bumps `updatedAt`, drops the item out of the close pass, and restarts the 30-day clock. No extra state.
+- **Label bootstrap.** Each real run does `gh label create stale --force` first, so a freshly registered repo needs no manual label setup.
 
-Out-of-scope repos (`kind: none` entries, plus anything not in `repos.yaml` such as `awesome-a2a`) are not swept by this workflow.
+Repos not in `repos.yaml` (`.github`, `awesome-a2a`, `tools`, ...) are not swept by this workflow.
 
 ### `cleanup-runs.yml` - prune completed workflow runs across `repos.yaml`
 
@@ -194,14 +197,14 @@ each target's Actions tab is pruned per the active filters
 
 Why these runs exist: `inference-gateway/infer-action` (`@infer`) and `anthropics/claude-code-action` (`@claude`) trigger on every `issues` / `issue_comment` event, then their job hits a job-level `if:` guard and skips when the trigger phrase is absent. GitHub records each as `status: completed, conclusion: skipped` and has no native auto-prune, so they pile up and bury meaningful runs in every Actions tab.
 
-Distinct from `stale.yml` (the other lifecycle orchestrator):
+Distinct from `stale.yml`:
 
 - **Acts on workflow runs, not issues.** Deletes completed runs whose `conclusion` is in the `conclusions` input (default `skipped`; e.g. `skipped,failure` to also drop failed-run logs and shrink the secret-leak surface; `all` for any conclusion). `keep_last` protects the newest N runs **across the repo** (regardless of workflow), so a recent tail survives while the rest is pruned. Lists `?status=completed` so `keep_last` can rank every run, then filters in jq; a per-run re-check re-confirms `status: completed` and `conclusion ∈ set` before each delete.
 - **`keep_last` only protects *live* workflows.** The step first lists `actions/workflows` (the IDs whose file still exists) and applies the retention floor only to those. Runs of a **deleted or renamed workflow** (a `workflow_id` no longer backed by a file) are pruned in **full** - otherwise a retired pipeline's history would sit behind `keep_last` forever.
 - **Fails loud, resumes idempotently.** All matrix jobs mint from **one** App installation (a single 5,000-req/hr bucket), so a large `conclusions=all` purge across many repos can exhaust it mid-sweep. A rate-limit 403 on the run/workflow listing used to surface as a false `found 0` and a green check (the `mapfile < <(...)` process substitution hid the non-zero exit from `set -e`); it now **fails the job** with an `::error::` and the leftover count. Because deletes are idempotent, just rerun (or wait for the daily cron) to continue - and prefer `-f repository=<name>` to purge one repo at a time within the shared budget.
-- **Broader matrix than `stale.yml`.** Resolves `select(true)` - every registered `repos.yaml` target, including the `kind: none` infra repos (`inference-gateway`, `cli`, `operator`, `registry`, ...), which accumulate the same skipped `@claude`/`@infer` runs. This intentionally diverges from `stale.yml` (which exempts `kind: none` so infra issue trackers are not auto-staled). Private repos are never registered in `repos.yaml`, so they are excluded by construction; repos absent from `repos.yaml` (`.github`, `agents`, `awesome-a2a`, `tools`) are untouched.
+- **Same matrix as `stale.yml`.** Resolves `select(true)` - every registered `repos.yaml` target, including the `kind: none` infra repos (`inference-gateway`, `cli`, `operator`, `registry`, ...), which accumulate the same skipped `@claude`/`@infer` runs. Private repos are never registered in `repos.yaml`, so they are excluded by construction; repos absent from `repos.yaml` (`.github`, `agents`, `awesome-a2a`, `tools`) are untouched.
 - **Destructive, so `dry_run` defaults to `true` on manual dispatch.** `gh workflow run cleanup-runs.yml -f dry_run=false` actually deletes; the daily cron deletes by design. A per-target `MAX_DELETES` cap bounds one run and logs a `::warning::` with the leftover count when reached (leftovers handled on the next run).
-- **Schedule disabled on landing.** The `schedule:` block ships commented out (as `stale.yml` did); enable it once validated on one repo.
+- **Schedule disabled on landing.** The `schedule:` block ships commented out; enable it once validated on one repo.
 
 Testing on one repo (AC#3): the `repository` input narrows the matrix to a single target so the sweep can be validated on one Actions tab first:
 
@@ -271,7 +274,7 @@ gh workflow run backfill-roadmap.yml --repo inference-gateway/.github -f dry_run
     trigger-cd.yml            # release fan-out (kind: agent)
     migrate-claude.yml        # write claude.yml thin caller + bump claude-code Flox pin (select(.orchestrators.claude != null))
     migrate-infer.yml         # write infer.yml thin caller + bump infer Flox pin (select(.orchestrators.infer != null))
-    stale.yml                 # stale-issue sweep (select(.kind != "none"))
+    stale.yml                 # stale issue + PR sweep (select(true) - all registered targets, incl. kind: none)
     cleanup-runs.yml          # prune completed runs by conclusion/retention (select(true) - all registered targets, incl. kind: none)
     backfill-roadmap.yml      # add orphan open issues + non-draft PRs (any author) to Roadmap 2026 / project #8 at Status Todo (select(true))
     claude.yml                # reusable @claude workflow (workflow_call)
@@ -339,7 +342,7 @@ Before the orchestrators can run end-to-end, the following pieces need to land s
    - `trigger-cd.yml`: `actions: write` on every `kind: agent` target (to call `gh workflow run cd.yml`).
    - `migrate-claude.yml`: `contents: write`, `pull-requests: write`, and `workflows: write` (it writes `.github/workflows/claude.yml`) on every target with an `orchestrators.claude` block. Bumping the Flox `claude-code` pin needs only `contents: write` - already covered, no new scope.
    - `migrate-infer.yml`: `contents: write`, `pull-requests: write`, and `workflows: write` (it writes `.github/workflows/infer.yml`) on every target with an `orchestrators.infer` block. Regenerating `.infer/` needs only `contents: write` - already covered, no new scope.
-   - `stale.yml`: `issues: write` (label, comment, close) on every swept target (`select(.kind != "none")`). No new scope beyond what the sync workflows already require.
+   - `stale.yml`: `issues: write` and `pull-requests: write` (label, comment, close) on every swept target (`select(true)` - every registered target, incl. `kind: none`). Both are already granted installation-wide.
    - `cleanup-runs.yml`: `actions: write` on every swept target (`select(true)` - every registered target, **including the `kind: none` infra repos** `cli`, `operator`, `inference-gateway`, `registry`, `schemas`, `skills`, `adl`, `adl-cli`, `a2a-debugger`, `infer-action`, `desktop`, `opentask`) to delete workflow runs (deleting skipped, failed, or any conclusion needs no broader scope). The maintainer App is already installed on these repos (the `migrate-*` workflows mint tokens for them) and its `actions: write` permission is installation-wide; `trigger-cd.yml` relies on the same scope on agent targets.
    - `backfill-roadmap.yml`: `issues: read` **and `pull-requests: read`** on every swept target (`select(true)` - every registered target, incl. `kind: none` and `kind: agent`) to list issues and PRs and read their `projectItems`, **plus the org-level Projects: Read and write** grant to add them to project #8 and set Status. All are already provisioned - `issues` access is installation-wide (the sync/stale workflows use it), `pull-requests` is the same grant `claude.yml` / `infer.yml` use to open PRs (write subsumes read), and the org-Projects grant is the same one the bots use - so no new scope and no new secret.
 3. **Dispatch workflows in `inference-gateway/schemas`**:
