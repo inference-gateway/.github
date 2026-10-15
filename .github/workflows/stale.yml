@@ -101,8 +101,6 @@ jobs:
               --description "No activity for ${STALE_DAYS} days" --force
           fi
 
-          # sweep <issue|pr>: gh issue and gh pr share list/edit/comment/close
-          # flags, and `--search` auto-scopes to is:issue / is:pr.
           sweep() {
             local kind=$1 noun
             case "$kind" in
