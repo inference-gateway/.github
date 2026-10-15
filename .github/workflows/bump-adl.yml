@@ -184,8 +184,6 @@ jobs:
         working-directory: target
         env:
           NIX_CONFIG: "access-tokens = github.com=${{ steps.token.outputs.token }}"
-        # task generate rewrites manifest.toml with the pins the new CLI ships
-        # (claude-code, infer, ...), so the lock refreshed above is already stale.
         run: flox activate -- true
 
       - name: Patch headers in .adl-ignore'd / hand-maintained files
