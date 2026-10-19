@@ -70,7 +70,7 @@ on:
       cli-version:
         description: 'infer CLI version installed by infer-action (must be a release with published binaries)'
         type: string
-        default: v0.230.2
+        default: v0.231.1
       trigger-phrase:
         description: 'Mention that activates the bot'
         type: string
@@ -482,7 +482,7 @@ jobs:
 
       - name: Run Infer Agent
         id: infer
-        uses: inference-gateway/infer-action@v0.56.2
+        uses: inference-gateway/infer-action@v0.57.0
         env:
           GOTOOLCHAIN: auto
         with:
