@@ -185,7 +185,9 @@ jobs:
             rm -f .flox/env/manifest.lock
           fi
 
-          SCHEMA=$(flox --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+          # schema-version is the manifest schema flox writes, not the binary version
+          # (flox 1.18.2 writes "1.18.0" and rejects "1.18.2"), so read it from a scratch `flox init`.
+          SCHEMA=$(cd "$(mktemp -d)" && flox init >/dev/null 2>&1 && grep -oE '^schema-version = "[^"]+"' .flox/env/manifest.toml | cut -d'"' -f2)
           CUR=$(grep -oE '^schema-version = "[^"]+"' .flox/env/manifest.toml | head -1 | cut -d'"' -f2 || true)
           if [ -z "$CUR" ]; then
             sed -i "1i schema-version = \"${SCHEMA}\"" .flox/env/manifest.toml
@@ -440,7 +442,7 @@ jobs:
 
             Ran in CI:
             - sed the `claude-code.version` floor in `.flox/env/manifest.toml` to the latest catalog version
-            - reconcile `schema-version` with the flox version this workflow installs (flox never migrates it itself)
+            - reconcile `schema-version` with the manifest schema the installed flox writes (flox never migrates it itself)
             - `flox upgrade claude-code` + `flox activate` to refresh `.flox/env/manifest.lock` in canonical form
 
             > **Note:** `claude-code` is a flox catalog package (nixpkgs mirror), not a GitHub release,
