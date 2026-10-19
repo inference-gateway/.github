@@ -186,13 +186,14 @@ jobs:
           fi
 
           # schema-version is the manifest schema flox writes, not the binary version
-          # (flox 1.18.2 writes "1.18.0" and rejects "1.18.2"), so read it from a scratch `flox init`.
+          # (flox 1.18.2 writes "1.18.0" and rejects "1.18.2"). The installed flox is always
+          # latest, so whatever its `flox init` writes is the latest schema: always set it.
           SCHEMA=$(cd "$(mktemp -d)" && flox init >/dev/null 2>&1 && grep -oE '^schema-version = "[^"]+"' .flox/env/manifest.toml | cut -d'"' -f2)
           CUR=$(grep -oE '^schema-version = "[^"]+"' .flox/env/manifest.toml | head -1 | cut -d'"' -f2 || true)
           if [ -z "$CUR" ]; then
             sed -i "1i schema-version = \"${SCHEMA}\"" .flox/env/manifest.toml
             echo "::notice::${{ matrix.target.name }}: added schema-version ${SCHEMA}"
-          elif [ "$(printf '%s\n%s\n' "$CUR" "$SCHEMA" | sort -V | tail -1)" != "$CUR" ]; then
+          elif [ "$CUR" != "$SCHEMA" ]; then
             sed -i "s|^schema-version = \"${CUR}\"|schema-version = \"${SCHEMA}\"|" .flox/env/manifest.toml
             echo "::notice::${{ matrix.target.name }}: schema-version ${CUR} -> ${SCHEMA}"
           fi
