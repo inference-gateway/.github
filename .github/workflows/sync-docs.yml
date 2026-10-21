@@ -57,7 +57,7 @@ jobs:
 
       - name: Mint GitHub App token
         id: token
-        uses: actions/create-github-app-token@v3.2.0
+        uses: actions/create-github-app-token@v3.3.0
         with:
           client-id: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_CLIENT_ID }}
           private-key: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY }}
@@ -89,7 +89,7 @@ jobs:
           test -s openapi.yaml
 
       - name: Audit target against spec and file drift issues
-        uses: anthropics/claude-code-action@v1.0.248
+        uses: anthropics/claude-code-action@v1.0.253
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
