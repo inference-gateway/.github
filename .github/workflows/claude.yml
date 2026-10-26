@@ -108,6 +108,9 @@ on:
       CLAUDE_CODE_OAUTH_TOKEN:
         description: 'OAuth token for anthropics/claude-code-action (callers use `secrets: inherit`)'
         required: true
+      FLOXHUB_TOKEN:
+        description: 'FloxHub service-account token; Flox catalog resolution requires login since 1.19.0 (2026-10-20). Callers use `secrets: inherit`'
+        required: false
 
 permissions:
   contents: read
@@ -192,6 +195,8 @@ jobs:
 
       - name: Install Flox
         uses: flox/install-flox-action@v2.7.0
+        with:
+          floxhub-token: ${{ secrets.FLOXHUB_TOKEN }}
 
       # ponytail: pinned linux-amd64 release binaries; bump by hand alongside the repos' Flox pins.
       - name: Install k3d and ctlptl

@@ -146,6 +146,9 @@ on:
       INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY:
         description: 'Private key of the @infer bot GitHub App (callers use `secrets: inherit`)'
         required: true
+      FLOXHUB_TOKEN:
+        description: 'FloxHub service-account token; Flox catalog resolution requires login since 1.19.0 (2026-10-20). Callers use `secrets: inherit`'
+        required: false
 
 permissions:
   contents: read
@@ -246,6 +249,8 @@ jobs:
 
       - name: Install Flox
         uses: flox/install-flox-action@v2.7.0
+        with:
+          floxhub-token: ${{ secrets.FLOXHUB_TOKEN }}
 
       - name: Install k3d
         if: inputs.k3d
