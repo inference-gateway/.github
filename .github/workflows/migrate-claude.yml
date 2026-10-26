@@ -134,7 +134,7 @@ jobs:
     steps:
       - name: Mint GitHub App token (scoped to ${{ matrix.target.name }})
         id: token
-        uses: actions/create-github-app-token@v3.2.0
+        uses: actions/create-github-app-token@v3.3.0
         with:
           client-id: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_CLIENT_ID }}
           private-key: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY }}
