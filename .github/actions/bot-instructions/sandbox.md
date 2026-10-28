@@ -10,3 +10,6 @@ node dependencies are installed): run checks directly. Never wrap a command in `
 tool only the repo's Flox env provides is missing, say so in the PR body instead of working around it.
 To refresh `.flox/env/manifest.lock` after editing `.flox/env/manifest.toml`: run `flox update` or `flox upgrade <pkg>`, then
 `flox activate -- true` (bare no-op that writes the canonical lock). Never hand-edit the lock file.
+Long builds and tests (a cold `go build`, `cargo test`, `task precommit:run`) can outlive the Bash timeout: run them
+with `detached: true` and poll with `Wait` - `BashOutput` needs an approval nobody can give in CI, so never call it.
+Never add `--jq`/`-q` to a `gh api .../contents/<path>` fetch with the raw media type - the output is the file, not JSON.
