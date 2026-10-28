@@ -490,7 +490,6 @@ jobs:
         uses: inference-gateway/infer-action@v0.59.1
         env:
           GOTOOLCHAIN: auto
-          # A cold go build or cargo test on the runner outlives the CLI's 120s default.
           INFER_TOOLS_BASH_TIMEOUT: "600"
         with:
           version: ${{ inputs.cli-version }}
