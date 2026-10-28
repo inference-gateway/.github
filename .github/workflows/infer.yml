@@ -490,6 +490,8 @@ jobs:
         uses: inference-gateway/infer-action@v0.59.1
         env:
           GOTOOLCHAIN: auto
+          # A cold go build or cargo test on the runner outlives the CLI's 120s default.
+          INFER_TOOLS_BASH_TIMEOUT: "600"
         with:
           version: ${{ inputs.cli-version }}
           memory-repo: https://github.com/inference-gateway/.memory
@@ -514,6 +516,7 @@ jobs:
           computer-use: ${{ inputs.computer-use && steps.demo.outputs.enabled == 'true' }}
           apt: ${{ inputs.apt }}
           custom-instructions: ${{ steps.custom.outputs.text }}
+          web-fetch-domains: github.com,raw.githubusercontent.com,api.github.com,private-user-images.githubusercontent.com,objects.githubusercontent.com,user-images.githubusercontent.com,docs.rs,crates.io,pkg.go.dev,go.dev,npmjs.com,developer.mozilla.org
           bash-allow-append: ${{ steps.whitelist.outputs.patterns }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}

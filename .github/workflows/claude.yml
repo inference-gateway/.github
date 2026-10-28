@@ -526,7 +526,7 @@ jobs:
           fi
 
           if [ "$EVENT" = "workflow_dispatch" ]; then
-            tools="$tools,Edit,Write,MultiEdit"
+            tools="$tools,Edit,Write,MultiEdit,WebSearch,WebFetch"
           fi
 
           echo "tools=$tools" >> "$GITHUB_OUTPUT"
@@ -582,6 +582,7 @@ jobs:
           - Create files under /tmp only with the Write tool, never shell redirection (`>` needs approval). Multi-line issue/PR bodies: Write them to /tmp/body.md and pass `--body-file /tmp/body.md`.
           - Read a failed CI job log with the Read tool on `${{ runner.temp }}/github-ci-logs/<job>.log` - no `cd`, `tail` or `cat`.
           - The workflow already puts this repo's toolchain on PATH (its language runtime, `task`, and for Go `gofmt`/`golangci-lint`; node dependencies are installed): run checks directly (e.g. `task lint`, `golangci-lint run`). Never wrap a command in `flox activate -- ...` - it is denied. If a tool only the repo's Flox env provides is missing, say so in the PR body instead of working around it.
+          - Dependency source is readable under ~/go/pkg/mod and ~/.cargo/registry/src (read them, never edit them).
           - Fetch a file from another repo raw: `gh api repos/<owner>/<repo>/contents/<path> -H "Accept: application/vnd.github.raw"` (no `-q .content | base64 -d` - `base64` is not allow-listed). Never add `--jq`/`-q` to a raw fetch - the output is the file itself, not JSON, so any jq filter fails.
 
           **WORKFLOW FILES:**
@@ -698,6 +699,13 @@ jobs:
           echo "Plugin marketplaces: ${marketplaces:-<none>}"
           echo "Plugins: ${plugins:-<none>}"
 
+      - name: Resolve the module cache paths
+        id: caches
+        run: |
+          mkdir -p "$HOME/go/pkg/mod" "$HOME/.cargo/registry/src"
+          echo "gomod=$HOME/go/pkg/mod" >> "$GITHUB_OUTPUT"
+          echo "cargo=$HOME/.cargo/registry/src" >> "$GITHUB_OUTPUT"
+
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1.0.261
@@ -722,6 +730,8 @@ jobs:
             --disallowedTools "Task"
             --add-dir /tmp
             --add-dir ${{ runner.temp }}
+            --add-dir ${{ steps.caches.outputs.gomod }}
+            --add-dir ${{ steps.caches.outputs.cargo }}
             ${{ steps.args.outputs.mcp_arg }}
             ${{ inputs.debug && '--debug' || '' }}
           prompt: ${{ steps.prompt.outputs.text }}
