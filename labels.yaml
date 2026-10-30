@@ -15,12 +15,6 @@ labels:
   - name: tbd
     color: b93f9c
     description: To be decided
-  - name: sdk-drift
-    color: fbca04
-    description: Drift detected by the inference-gateway sync orchestrator
-  - name: adk-drift
-    color: fbca04
-    description: Drift detected by the inference-gateway sync orchestrator
   - name: stale
     color: ededed
     description: No activity for 30 days
@@ -36,18 +30,6 @@ labels:
   - name: dependencies
     color: 0366d6
     description: Pull requests that update a dependency file
-  - name: adl-cli
-    color: ededed
-    description: ADL CLI version or generated code
-  - name: manifest-refresh
-    color: ededed
-    description: agent.yaml defaults refresh
-  - name: schema
-    color: ededed
-    description: Generated types synced from inference-gateway/schemas
-  - name: sync
-    color: ededed
-    description: Opened by an org sync workflow
   - name: released
     color: ededed
     description: Shipped in a release

@@ -88,6 +88,13 @@ jobs:
             -o openapi.yaml
           test -s openapi.yaml
 
+      - name: Ensure the sdk-drift label exists
+        if: ${{ inputs.dry_run != true }}
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          GH_REPO: inference-gateway/${{ matrix.target.name }}
+        run: gh label create sdk-drift --color fbca04 --description "Drift detected by the inference-gateway sync orchestrator" --force
+
       - name: Audit target against spec and file drift issues
         uses: anthropics/claude-code-action@v1.0.262
         env:

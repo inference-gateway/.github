@@ -92,6 +92,13 @@ jobs:
           cp target/schema.yaml schema.yaml
           test -s schema.yaml
 
+      - name: Ensure the adk-drift label exists
+        if: ${{ inputs.dry_run != true }}
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          GH_REPO: inference-gateway/${{ matrix.target.name }}
+        run: gh label create adk-drift --color fbca04 --description "Drift detected by the inference-gateway sync orchestrator" --force
+
       - name: Audit target against A2A schema and file drift issues
         uses: anthropics/claude-code-action@v1.0.262
         env:
