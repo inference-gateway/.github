@@ -12,6 +12,9 @@ labels:
   - name: refactor
     color: fbca04
     description: Refactoring task
+  - name: tbd
+    color: b93f9c
+    description: To be decided
   - name: sdk-drift
     color: fbca04
     description: Drift detected by the inference-gateway sync orchestrator
