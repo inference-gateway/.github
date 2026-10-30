@@ -1,0 +1,101 @@
+name: Sync labels
+
+# Applies labels.yaml to EVERY target in repos.yaml (select(true), all kinds
+# including kind: none) and deletes labels that are neither in labels.yaml nor
+# on any issue or PR, so each repo keeps only the labels the org actually uses.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - labels.yaml
+  schedule:
+    - cron: '45 4 * * 1'
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: 'Single repos.yaml target to sync (omit = all targets). Use to test on one repo.'
+        required: false
+        type: string
+        default: ''
+      dry_run:
+        description: 'Print planned label changes without applying them (manual runs preview by default; push and cron sync for real)'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  matrix:
+    runs-on: ubuntu-24.04
+    outputs:
+      targets: ${{ steps.read.outputs.targets }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - id: read
+        uses: ./.github/actions/resolve-targets
+        with:
+          select: 'true'
+          repository: ${{ inputs.repository }}
+
+  sync:
+    needs: matrix
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        target: ${{ fromJSON(needs.matrix.outputs.targets) }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Mint App token (scoped to ${{ matrix.target.name }})
+        id: token
+        uses: actions/create-github-app-token@v3.3.0
+        with:
+          client-id: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_CLIENT_ID }}
+          private-key: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY }}
+          owner: inference-gateway
+          repositories: |
+            ${{ matrix.target.name }}
+
+      - name: Sync labels in inference-gateway/${{ matrix.target.name }}
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          GH_REPO: inference-gateway/${{ matrix.target.name }}
+          TARGET: ${{ matrix.target.name }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          LABEL_USAGE_QUERY: 'query($owner: String!, $repo: String!) { repository(owner: $owner, name: $repo) { labels(first: 100) { nodes { name issues { totalCount } pullRequests { totalCount } } } } }'
+        run: |
+          set -euo pipefail
+
+          apply() {
+            echo "  - $*" >> "$GITHUB_STEP_SUMMARY"
+            if [ "${DRY_RUN}" = "true" ]; then
+              echo "[DRY] $*"
+            else
+              "$@"
+            fi
+          }
+
+          echo "### ${GH_REPO} (dry run: \`${DRY_RUN}\`)" >> "$GITHUB_STEP_SUMMARY"
+
+          yq -o=json -I=0 '.labels[]' labels.yaml | while read -r label; do
+            apply gh label create "$(jq -r .name <<<"$label")" \
+              --color "$(jq -r .color <<<"$label")" \
+              --description "$(jq -r .description <<<"$label")" \
+              --force
+          done
+
+          gh api graphql \
+            -f owner=inference-gateway \
+            -f repo="${TARGET}" \
+            -f query="${LABEL_USAGE_QUERY}" \
+            --jq '.data.repository.labels.nodes[] | select(.issues.totalCount + .pullRequests.totalCount == 0) | .name' |
+          while read -r name; do
+            NAME="$name" yq -e '.labels[] | select(.name == strenv(NAME))' labels.yaml >/dev/null 2>&1 && continue
+            apply gh label delete "$name" --yes
+          done

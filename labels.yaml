@@ -1,0 +1,38 @@
+# Org-wide labels: sync-labels.yml applies them to every repos.yaml target.
+labels:
+  - name: bug
+    color: d73a4a
+    description: Something isn't working
+  - name: enhancement
+    color: a2eeef
+    description: New feature or request
+  - name: documentation
+    color: 0075ca
+    description: Improvements or additions to documentation
+  - name: refactor
+    color: fbca04
+    description: Refactoring task
+  - name: tbd
+    color: b93f9c
+    description: To be decided
+  - name: stale
+    color: ededed
+    description: No activity for 30 days
+  - name: security
+    color: b60205
+    description: Security hardening / audit findings
+  - name: ci
+    color: ededed
+    description: CI and workflow changes
+  - name: bot
+    color: ededed
+    description: Opened by an org automation
+  - name: dependencies
+    color: 0366d6
+    description: Pull requests that update a dependency file
+  - name: released
+    color: ededed
+    description: Shipped in a release
+  - name: rc
+    color: ededed
+    description: Shipped in a release candidate

@@ -7,8 +7,9 @@ This is the org-level `.github` repository for `inference-gateway`. It contains 
 - `README.md` documents workflow behavior and should stay authoritative.
 - `profile/README.md` renders on the GitHub organization profile.
 - `.github/ISSUE_TEMPLATE/` holds default issue templates inherited by repos without local templates.
-- `.github/workflows/` contains cross-repo orchestrators such as `sync-docs.yml`, `sync-adks.yml`, `bump-adl.yml`, `refresh-agent-manifest.yml`, `trigger-cd.yml`, `migrate-claude.yml`, `migrate-infer.yml`, `stale.yml`, and `cleanup-runs.yml`, plus the reusable (`workflow_call`) workflows: the `claude.yml` / `infer.yml` bot workflows and `schemas-sync.yml`, the deterministic OpenAPI type sync each schemas consumer repo calls from its own thin caller.
+- `.github/workflows/` contains cross-repo orchestrators such as `sync-docs.yml`, `sync-adks.yml`, `bump-adl.yml`, `refresh-agent-manifest.yml`, `trigger-cd.yml`, `migrate-claude.yml`, `migrate-infer.yml`, `stale.yml`, `cleanup-runs.yml`, and `sync-labels.yml`, plus the reusable (`workflow_call`) workflows: the `claude.yml` / `infer.yml` bot workflows and `schemas-sync.yml`, the deterministic OpenAPI type sync each schemas consumer repo calls from its own thin caller.
 - `.github/actions/resolve-targets/` is the shared composite action that turns `repos.yaml` + a `select` expression into a fan-out matrix.
+- `labels.yaml` is the org label set that `sync-labels.yml` applies to every target.
 - `repos.yaml` is the single downstream registry used by every workflow matrix (one `targets` list; each entry may carry a nested `orchestrators:` block with `claude` and/or `infer` sub-blocks).
 - `assets/` stores org profile assets, including star history SVGs.
 
