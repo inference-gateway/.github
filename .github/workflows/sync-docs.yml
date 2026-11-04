@@ -96,7 +96,7 @@ jobs:
         run: gh label create sdk-drift --color fbca04 --description "Drift detected by the inference-gateway sync orchestrator" --force
 
       - name: Audit target against spec and file drift issues
-        uses: anthropics/claude-code-action@v1.0.262
+        uses: anthropics/claude-code-action@v1.0.266
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
