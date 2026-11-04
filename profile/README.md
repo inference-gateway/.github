@@ -47,6 +47,7 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 | 🤖 **A2A** | [Agent-to-Agent](https://docs.inference-gateway.com/a2a) coordination across specialized agents |
 | 🌊 **Streaming** | Real-time token streaming from all supported providers |
 | 🖼️ **Multimodal** | Vision input plus image, speech, sound effect, music and video generation endpoints |
+| 🎯 **Decisions** | OpenAI Decisions API compatibility on `POST /v1/decisions`: typed questions answered with native probabilities by decision models, relayed to OpenAI and translated for Ollama, Ollama Cloud and llama.cpp |
 | 🛡️ **Enterprise** | [OIDC authentication](https://docs.inference-gateway.com/authentication), configurable timeouts, and TLS support |
 | ☸️ **Kubernetes** | First-class K8s support with Operator and HPA scaling |
 | 📊 **Observability** | [OpenTelemetry](https://docs.inference-gateway.com/observability) Prometheus metrics following the GenAI semantic conventions, tracing, and an OTLP push endpoint |
