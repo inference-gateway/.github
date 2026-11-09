@@ -708,7 +708,7 @@ jobs:
 
       - name: Run Claude Code
         id: claude
-        uses: anthropics/claude-code-action@v1.0.269
+        uses: anthropics/claude-code-action@v1.0.270
         env:
           GOTOOLCHAIN: auto
         with:
