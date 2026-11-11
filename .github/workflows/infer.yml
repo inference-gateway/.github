@@ -277,7 +277,7 @@ jobs:
 
       - name: Set up Rust
         if: inputs.language == 'rust'
-        uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+        uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
         with:
           components: clippy, rustfmt
 
@@ -297,7 +297,7 @@ jobs:
 
       - name: Set up pnpm
         if: inputs.language == 'typescript' || inputs.language == 'node' || inputs.node || inputs.markdownlint || inputs.prettier || inputs.eslint || hashFiles('pnpm-lock.yaml') != ''
-        uses: pnpm/action-setup@v6.1.0
+        uses: pnpm/action-setup@v6.1.1
         with:
           version: 10.18.0
           run_install: false
