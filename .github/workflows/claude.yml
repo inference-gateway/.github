@@ -230,7 +230,7 @@ jobs:
 
       - name: Set up Rust
         if: inputs.language == 'rust'
-        uses: actions-rust-lang/setup-rust-toolchain@v2.0.0
+        uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
         with:
           components: clippy, rustfmt
 
@@ -397,7 +397,7 @@ jobs:
 
       - name: Set up pnpm
         if: hashFiles('pnpm-lock.yaml') != ''
-        uses: pnpm/action-setup@v6.1.0
+        uses: pnpm/action-setup@v6.1.1
         with:
           version: 10.18.0
           run_install: false
@@ -708,7 +708,7 @@ jobs:
 
       - name: Run Claude Code
         id: claude
-        uses: anthropics/claude-code-action@v1.0.270
+        uses: anthropics/claude-code-action@v1.0.269
         env:
           GOTOOLCHAIN: auto
         with:
