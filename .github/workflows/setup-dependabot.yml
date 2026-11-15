@@ -67,7 +67,7 @@ jobs:
       TARGET: ${{ matrix.target.name }}
       DAY: monday
       TIME: '05:00'
-      TIMEZONE: Etc/UTC
+      TIMEZONE: Europe/Berlin
     steps:
       - name: Mint GitHub App token (scoped to ${{ matrix.target.name }})
         id: token
