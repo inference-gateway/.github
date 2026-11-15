@@ -19,7 +19,7 @@ jobs:
   bump:
     runs-on: ubuntu-24.04
     env:
-      CLAUDE: .github/workflows/*.yml # glob, expanded unquoted: every workflow that pins claude-code-action
+      CLAUDE: .github/workflows/claude.yml .github/workflows/sync-adks.yml .github/workflows/sync-docs.yml
       INFER: .github/workflows/infer.yml
     steps:
       - name: Mint GitHub App token
@@ -54,11 +54,12 @@ jobs:
             exit 1
           fi
 
-          CA_OLD=$(grep -ohE 'anthropics/claude-code-action@v[0-9.]+' $CLAUDE | cut -d@ -f2 | sort -V | head -1)
+          read -ra claude_files <<< "$CLAUDE"
+          CA_OLD=$(grep -ohE 'anthropics/claude-code-action@v[0-9.]+' "${claude_files[@]}" | cut -d@ -f2 | sort -V | head -1)
           IA_OLD=$(grep -oE 'inference-gateway/infer-action@v[0-9.]+' "$INFER" | head -1 | cut -d@ -f2)
           CLI_OLD=$(sed -nE '/^      cli-version:/,/default:/ s/^ *default: (v[0-9.]+).*/\1/p' "$INFER")
 
-          sed -i -E "s|(anthropics/claude-code-action@)v[0-9.]+|\\1${CA_NEW}|g" $CLAUDE
+          sed -i -E "s|(anthropics/claude-code-action@)v[0-9.]+|\\1${CA_NEW}|g" "${claude_files[@]}"
           sed -i "s|inference-gateway/infer-action@${IA_OLD}|inference-gateway/infer-action@${IA_NEW}|g" "$INFER"
           sed -i -E "/^      cli-version:/,/default:/ s/(default: )${CLI_OLD}/\1${CLI_NEW}/" "$INFER"
 
