@@ -1,0 +1,178 @@
+---
+name: Setup dependabot
+
+# Fan-out over every non-agent repos.yaml target plus this repo that keeps each
+# .github/dependabot.yml on the org standard, so Dependabot updates every repo at the same
+# time instead of on per-repo schedules: every entry runs on the same weekly day, time and
+# timezone, a grouped github-actions entry exists (one PR for all actions), and
+# /.github/actions/* is scanned where composite actions live. Everything else in the file
+# (ecosystems, ignores, other groups, commit-message) is left alone. Opens or updates ONE
+# PR per repo whose config drifted. kind: agent repos get their config from adl-cli.
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: 'Single non-agent repos.yaml target or .github to set up (omit = all).'
+        required: false
+        type: string
+        default: ''
+      dry_run:
+        description: 'Print the config diff but skip PR creation (manual runs preview by default)'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  matrix:
+    runs-on: ubuntu-24.04
+    outputs:
+      targets: ${{ steps.all.outputs.targets }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - id: read
+        if: inputs.repository != '.github'
+        uses: ./.github/actions/resolve-targets
+        with:
+          select: '.kind != "agent"'
+          repository: ${{ inputs.repository }}
+      - id: all
+        env:
+          TARGETS: ${{ steps.read.outputs.targets }}
+          ONLY: ${{ inputs.repository }}
+        run: |
+          set -euo pipefail
+          targets=${TARGETS:-[]}
+          if [ -z "$ONLY" ] || [ "$ONLY" = ".github" ]; then
+            targets=$(jq -c '. + [{"name": ".github"}]' <<<"$targets")
+          fi
+          echo "targets=$targets" >> "$GITHUB_OUTPUT"
+
+  setup:
+    needs: matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.matrix.outputs.targets) }}
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: setup-dependabot-${{ matrix.target.name }}
+      cancel-in-progress: false
+    env:
+      TARGET: ${{ matrix.target.name }}
+      DAY: monday
+      TIME: '05:00'
+      TIMEZONE: Etc/UTC
+    steps:
+      - name: Mint GitHub App token (scoped to ${{ matrix.target.name }})
+        id: token
+        uses: actions/create-github-app-token@v3.3.0
+        with:
+          client-id: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_CLIENT_ID }}
+          private-key: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY }}
+          owner: inference-gateway
+          repositories: |
+            ${{ matrix.target.name }}
+
+      - name: Checkout target
+        uses: actions/checkout@v7.0.1
+        with:
+          repository: inference-gateway/${{ matrix.target.name }}
+          path: target
+          token: ${{ steps.token.outputs.token }}
+
+      - name: Align .github/dependabot.yml
+        working-directory: target
+        run: |
+          set -euo pipefail
+          cfg=.github/dependabot.yml
+          [ -f .github/dependabot.yaml ] && cfg=.github/dependabot.yaml
+          if [ ! -f "$cfg" ]; then
+            mkdir -p .github
+            printf 'version: 2\nupdates: []\n' > "$cfg"
+          fi
+          # yq drops blank lines, so keep them as marker comments while editing
+          sed -i 's/^$/#blank-line#/' "$cfg"
+          if ! yq -e '.updates[] | select(.["package-ecosystem"] == "github-actions")' "$cfg" >/dev/null 2>&1; then
+            yq -i '.updates += [{"package-ecosystem": "github-actions", "directory": "/", "schedule": {"interval": "weekly"}}]' "$cfg"
+          fi
+          yq -i '(.updates[] | select(.["package-ecosystem"] == "github-actions" and .groups == null) | .groups) = {"github-actions": {"patterns": ["*"]}}' "$cfg"
+          if [ -d .github/actions ]; then
+            yq -i '(.updates[] | select(.["package-ecosystem"] == "github-actions")) |= (.directories = ((.directories // [.directory // "/"]) + ["/.github/actions/*"] | unique) | del(.directory))' "$cfg"
+          fi
+          yq -i '
+            (.updates[] | select(.schedule.interval == "weekly") | .schedule.day) = strenv(DAY) |
+            (.updates[].schedule.time) = strenv(TIME) |
+            (.updates[].schedule.time) style="double" |
+            (.updates[].schedule.timezone) = strenv(TIMEZONE)
+          ' "$cfg"
+          sed -i -E 's/^[[:space:]]*#blank-line#$//' "$cfg"
+
+      - name: Skip check
+        id: skip
+        working-directory: target
+        run: |
+          set -euo pipefail
+          git add -- .github
+          if git diff --cached --quiet; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::${TARGET}: dependabot config already on the org standard; skipping"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Show diff
+        if: steps.skip.outputs.skip != 'true'
+        working-directory: target
+        run: git -c color.ui=always diff --cached
+
+      - name: Create or update pull request
+        if: steps.skip.outputs.skip != 'true' && !inputs.dry_run
+        id: pr
+        uses: peter-evans/create-pull-request@v8.1.2
+        with:
+          token: ${{ steps.token.outputs.token }}
+          path: target
+          branch: bot/setup-dependabot
+          base: main
+          sign-commits: true
+          delete-branch: true
+          commit-message: 'ci: align Dependabot schedule and grouping'
+          title: 'ci: align Dependabot schedule and grouping'
+          body: |
+            ## Summary
+            Puts this repo's `.github/dependabot.yml` on the org standard so Dependabot updates every repo at the same time:
+
+            - every update entry runs `weekly` on `${{ env.DAY }}` at `${{ env.TIME }}` `${{ env.TIMEZONE }}` (the same slot in every repo)
+            - a `github-actions` entry exists and groups all actions into one PR
+            - `/.github/actions/*` is scanned where composite actions live
+
+            Everything else (ecosystems, `ignore`, other groups, `commit-message`) is unchanged. Merging also makes Dependabot re-check right away, since it runs when `dependabot.yml` changes.
+
+            Filed by [setup-dependabot.yml](https://github.com/inference-gateway/.github/blob/main/.github/workflows/setup-dependabot.yml).
+          labels: |
+            ci
+            dependencies
+
+      - name: Report PR outcome
+        if: steps.pr.outputs.pull-request-number != ''
+        run: |
+          {
+            echo "### ${TARGET}"
+            echo "- Operation: \`${{ steps.pr.outputs.pull-request-operation }}\`"
+            echo "- PR: ${{ steps.pr.outputs.pull-request-url }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dry-run summary
+        if: steps.skip.outputs.skip != 'true' && inputs.dry_run
+        working-directory: target
+        run: |
+          {
+            echo "## Dry-run: ${TARGET}"
+            echo '```diff'
+            git diff --cached
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
