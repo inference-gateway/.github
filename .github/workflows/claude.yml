@@ -706,8 +706,6 @@ jobs:
           echo "gomod=$HOME/go/pkg/mod" >> "$GITHUB_OUTPUT"
           echo "cargo=$HOME/.cargo/registry/src" >> "$GITHUB_OUTPUT"
 
-      # claude-code-action never trusts a bot-authored PR, so its untrusted-PR deny list blocks go/cargo/task on the PRs
-      # this app opens. Lift it only for those: authored by this app from a branch in this repo. Fails closed.
       - name: Resolve PR trust
         id: trust
         env:
