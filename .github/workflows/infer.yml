@@ -27,8 +27,7 @@ name: Infer (reusable)
 # `gh issue create`) per repo. This workflow ALSO appends, unconditionally, the GitHub writes the
 # bot's board-tracking + permission-escalation flow always needs (`gh issue create/edit/comment`,
 # `gh project item-add/item-edit`, `gh pr create`, plus one tightly scoped `gh api graphql` entry that
-# allows ONLY the `updateIssueIssueType` Type-setting mutation - never arbitrary GraphQL - and one
-# exact-match raw fetch of the org ISSUE_TEMPLATE files, until inference-gateway/cli#1527 lands).
+# allows ONLY the `updateIssueIssueType` Type-setting mutation - never arbitrary GraphQL).
 # Every appended entry is matched WHOLE-command by the CLI
 # (\A(?:entry)\z), so it must allow its own arguments: write `^task( .*)?$`, not `^task( |$)` (the
 # latter only matches the bare command, rejecting `task lint`).
@@ -362,8 +361,6 @@ jobs:
           patterns="$patterns,^gh issue create( .*)?$,^gh issue edit( .*)?$,^gh issue comment( .*)?$,^gh pr create( .*)?$,^gh project (item-add|item-edit)( .*)?$,^flox activate( -- true)?$"
           gql='^gh api graphql -f query='\''mutation\(\$id:ID!\x2c\$t:ID!\)\{updateIssueIssueType\(input:\{issueId:\$id\x2cissueTypeId:\$t\}\)\{issue\{number issueType\{name\}\}\}\}'\'' -f id="[^"]+" -f t="IT_[A-Za-z0-9_-]+"$'
           patterns="$patterns,$gql"
-          tmpl='^gh api repos/inference-gateway/\.github/contents/\.github/ISSUE_TEMPLATE/[a-z_]+\.md -H [\x22\x27]?Accept: application/vnd\.github\.raw[\x22\x27]?$'
-          patterns="$patterns,$tmpl"
           if [ -n "$EXTRA" ]; then
             IFS=',' read -ra extra_cmds <<< "$EXTRA"
             for cmd in "${extra_cmds[@]}"; do
@@ -445,31 +442,6 @@ jobs:
           fi
           printf 'text<<__CI_EOF__\n%s\n__CI_EOF__\n' "$text" >> "$GITHUB_OUTPUT"
 
-      - name: Resolve subscription mode
-        id: subscription
-        env:
-          USER_PROMPT: ${{ inputs.prompt }}
-          ISSUE_TITLE: ${{ github.event.issue.title }}
-          ISSUE_BODY: ${{ github.event.issue.body }}
-          COMMENT_BODY: ${{ github.event.comment.body }}
-          REVIEW_BODY: ${{ github.event.review.body }}
-        run: |
-          set -euo pipefail
-          enabled=false
-          model=""
-
-          match="$(printf '%s\n%s\n%s\n%s\n%s\n' \
-                    "$USER_PROMPT" "$ISSUE_TITLE" "$ISSUE_BODY" "$COMMENT_BODY" "$REVIEW_BODY" \
-                  | grep -oiE '/subscription[[:space:]]+anthropic/[^[:space:]]+' || true)"
-          if [ -n "$match" ]; then
-            enabled=true
-            model="$(printf '%s' "$match" | sed -E 's|^.*anthropic/||I')"
-          fi
-          echo "Subscription mode enabled: $enabled"
-          [ "$enabled" = "true" ] && echo "Resolved model: $model"
-          echo "enabled=$enabled" >> "$GITHUB_OUTPUT"
-          echo "model=$model" >> "$GITHUB_OUTPUT"
-
       - name: Resolve demo recording
         id: demo
         env:
@@ -498,7 +470,7 @@ jobs:
           github-app-slug: ${{ steps.app-token.outputs.app-slug }}
           github-app-user-id: ${{ steps.get-user-id.outputs.user-id }}
           trigger-phrase: ${{ inputs.trigger-phrase }}
-          model: ${{ steps.subscription.outputs.enabled == 'true' && steps.subscription.outputs.model || inputs.model }}
+          model: ${{ inputs.model }}
           vision-model: anthropic/claude-haiku-4-5-20251001
           image-model: openai/gpt-image-2
           direct-prompt: ${{ inputs.prompt }}

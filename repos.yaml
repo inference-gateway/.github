@@ -81,7 +81,7 @@
 #                              never by overwriting a committed file. setup-orchestrators.yml skips
 #                              kind: agent even if a block is added by mistake.
 #
-# Adding/removing a repo = one PR editing this file. Validate the shape afterwards: see CLAUDE.md
+# Adding/removing a repo = one PR editing this file. Validate the shape afterwards: see AGENTS.md
 # "Validate repos.yaml".
 
 targets:
