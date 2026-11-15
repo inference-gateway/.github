@@ -2,7 +2,10 @@
 name: Bump bot actions
 
 # Bumps the versions the reusable bot workflows pin to their latest releases:
-# anthropics/claude-code-action in claude.yml, inference-gateway/infer-action and
+# anthropics/claude-code-action in every workflow that uses it (claude.yml and the sync
+# orchestrators - kept on ONE version, because Dependabot rewrites every usage to its own
+# cooldown-delayed target as soon as one of them lags, downgrading the rest),
+# inference-gateway/infer-action and
 # the infer CLI cli-version default in infer.yml. Every repo's thin caller tracks
 # these reusable workflows at @main, so one PR here rolls the bump out org-wide.
 
@@ -16,7 +19,6 @@ jobs:
   bump:
     runs-on: ubuntu-24.04
     env:
-      CLAUDE: .github/workflows/claude.yml
       INFER: .github/workflows/infer.yml
     steps:
       - name: Mint GitHub App token
@@ -51,11 +53,11 @@ jobs:
             exit 1
           fi
 
-          CA_OLD=$(grep -oE 'anthropics/claude-code-action@v[0-9.]+' "$CLAUDE" | head -1 | cut -d@ -f2)
+          CA_OLD=$(grep -ohE 'anthropics/claude-code-action@v[0-9.]+' .github/workflows/*.yml | cut -d@ -f2 | sort -V | head -1)
           IA_OLD=$(grep -oE 'inference-gateway/infer-action@v[0-9.]+' "$INFER" | head -1 | cut -d@ -f2)
           CLI_OLD=$(sed -nE '/^      cli-version:/,/default:/ s/^ *default: (v[0-9.]+).*/\1/p' "$INFER")
 
-          sed -i "s|anthropics/claude-code-action@${CA_OLD}|anthropics/claude-code-action@${CA_NEW}|g" "$CLAUDE"
+          sed -i -E "s|(anthropics/claude-code-action@)v[0-9.]+|\\1${CA_NEW}|g" .github/workflows/*.yml
           sed -i "s|inference-gateway/infer-action@${IA_OLD}|inference-gateway/infer-action@${IA_NEW}|g" "$INFER"
           sed -i -E "/^      cli-version:/,/default:/ s/(default: )${CLI_OLD}/\1${CLI_NEW}/" "$INFER"
 
