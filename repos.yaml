@@ -15,7 +15,7 @@
 #                                adk   -> sync-adks.yml
 #                                agent -> bump-adl.yml, refresh-agent-manifest.yml, trigger-cd.yml
 #                                none  -> infra/tooling repos with no sync/agent family;
-#                                         migrate-claude / migrate-infer only
+#                                         lifecycle sweeps + bump-flox.yml only
 #                              stale.yml and cleanup-runs.yml both sweep `select(true)` -> ALL
 #                              registered targets, every kind incl. none (stale.yml marks and
 #                              closes inactive issues AND PRs). Private repos are never
@@ -23,15 +23,15 @@
 #                              add a private repo to this list or they would sweep it.
 #   language       (required)  LOWERCASE TOOLCHAIN: go | rust | typescript | python | node | bun. Single
 #                              source for both the sync-* audit-prompt display token and the bot
-#                              toolchain: the migrate workflows inject it as the `language` input of
-#                              each reusable bot workflow, and refresh-agent-manifest.yml maps it to
+#                              toolchain: each thin caller passes it as the `language` input of its
+#                              reusable bot workflow, and refresh-agent-manifest.yml maps it to
 #                              the adl --language flag (case go|rust|typescript). For kind: none repos
 #                              it only feeds the bots.
 #   orchestrators  (optional)  Per-repo inputs for the org's reusable AI-bot workflows. Presence of a
 #                              sub-block => this repo has a CENTRALIZED .github/workflows/<bot>.yml that
 #                              is a thin caller of the matching org reusable workflow. Two sub-blocks:
-#                                claude -> migrate-claude.yml operates on every `orchestrators.claude != null`
-#                                          entry; sub-keys map 1:1 to claude.yml inputs.
+#                                claude -> sub-keys map 1:1 to the reusable claude.yml inputs the repo's
+#                                          claude.yml caller passes.
 #                                          `plugins` (string) Newline-separated GitHub plugin marketplaces
 #                                          (owner/repo) registered + enabled for @claude, mirroring infer:
 #                                          each maps to claude-code-action's native `plugin_marketplaces` +
@@ -51,8 +51,8 @@
 #                                          repos whose pages need a full browser should stay on chromium.
 #                                          Per run, a `[browser:<engine>]` marker in an issue/comment/
 #                                          review body overrides both.
-#                                infer  -> migrate-infer.yml operates on every `orchestrators.infer != null`
-#                                          entry; sub-keys map 1:1 to infer.yml inputs.
+#                                infer  -> sub-keys map 1:1 to the reusable infer.yml inputs the repo's
+#                                          infer.yml caller passes.
 #                                          `browser` (bool) runs the browser-agent A2A container;
 #                                          `browser_engine` (chromium | firefox | webkit | lightpanda,
 #                                          default chromium) picks its image tag. Same per-run
@@ -65,19 +65,18 @@
 #                                          `apt`     (string) Space-separated apt packages for infer-action. Default ''.
 #                                          `computer-use` (bool) CLI Computer tool on the demo display, for
 #                                          GUI apps; write-access users only, like demo recording.
-#                              The migrate workflows prepend the top-level `language` to each bot's
-#                              `with:` block, so the sub-blocks carry ONLY non-language inputs
+#                              Each caller passes the top-level `language` in its `with:` block,
+#                              so the sub-blocks carry ONLY non-language inputs
 #                              (node, precommit, browser, allowed-tools, extra-tools, debug, ...;
 #                              `markdownlint` is ON by default in both bots - only `markdownlint: false`
 #                              belongs here, to opt a repo out). `debug: true` is supported by both bots
 #                              and surfaces verbose agent logs in the Actions run log - keep it to
 #                              PRIVATE repos, since debug/transcript output can include sensitive values.
 #                              A repo that needs no extra inputs uses an explicit empty map
-#                              (`claude: {}` / `infer: {}`) so the `!= null` selection still
-#                              matches it; a bare `claude:` would be YAML null and silently drop the repo.
+#                              (`claude: {}` / `infer: {}`); a bare `claude:` would be YAML null.
 #                              Omitted sub-keys take the reusable workflow defaults.
 #                              ABSENT for the 6 kind=agent repos: their claude.yml is generated by adl-cli
-#                              (ai-claude-code.yaml.tmpl) and migrates via the generator + bump-adl.yml,
+#                              (ai-claude-code.yaml.tmpl) and moves via the generator + bump-adl.yml,
 #                              never by overwriting a committed file.
 #
 # Adding/removing a repo = one PR editing this file. Validate the shape afterwards: see CLAUDE.md
