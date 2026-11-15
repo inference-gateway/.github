@@ -1,25 +1,74 @@
 ---
-name: Bump bot actions
+name: Bump actions
 
-# Bumps the versions the reusable bot workflows pin to their latest releases:
-# anthropics/claude-code-action in claude.yml, inference-gateway/infer-action and
-# the infer CLI cli-version default in infer.yml. Every repo's thin caller tracks
-# these reusable workflows at @main, so one PR here rolls the bump out org-wide.
+# Fan-out over every non-agent repos.yaml target plus this repo, so one new action
+# release lands everywhere at once instead of per-repo dependabot schedules. Per repo
+# it bumps every versioned `uses: <owner>/<repo>[/<path>]@<ref>` in .github/workflows,
+# .github/actions and a root action.yml to the latest tag of the same precision (v4
+# stays a major tag, v4.7.0 stays exact), never downgrading, then opens or updates ONE
+# PR. SHA pins, local actions and branch refs such as @main are left alone. In this
+# repo it also bumps the infer CLI cli-version default of the reusable infer.yml.
+# kind: agent repos get their pins from the adl-cli templates (bump-adl.yml).
 
 on:
+  schedule:
+    - cron: '0 5 * * 1'
   workflow_dispatch:
+    inputs:
+      repository:
+        description: 'Single non-agent repos.yaml target or .github to bump (omit = all). Use to test on one repo.'
+        required: false
+        type: string
+        default: ''
+      dry_run:
+        description: 'Print the bumps but skip PR creation (manual runs preview by default; cron bumps for real)'
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
 
 jobs:
-  bump:
+  matrix:
     runs-on: ubuntu-24.04
-    env:
-      CLAUDE: .github/workflows/claude.yml
-      INFER: .github/workflows/infer.yml
+    outputs:
+      targets: ${{ steps.all.outputs.targets }}
     steps:
-      - name: Mint GitHub App token
+      - uses: actions/checkout@v7.0.1
+      - id: read
+        if: inputs.repository != '.github'
+        uses: ./.github/actions/resolve-targets
+        with:
+          select: '.kind != "agent"'
+          repository: ${{ inputs.repository }}
+      - id: all
+        env:
+          TARGETS: ${{ steps.read.outputs.targets }}
+          ONLY: ${{ inputs.repository }}
+        run: |
+          set -euo pipefail
+          targets=${TARGETS:-[]}
+          if [ -z "$ONLY" ] || [ "$ONLY" = ".github" ]; then
+            targets=$(jq -c '. + [{"name": ".github"}]' <<<"$targets")
+          fi
+          echo "targets=$targets" >> "$GITHUB_OUTPUT"
+
+  bump:
+    needs: matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.matrix.outputs.targets) }}
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: bump-actions-${{ matrix.target.name }}
+      cancel-in-progress: false
+    env:
+      TARGET: ${{ matrix.target.name }}
+      DRY_RUN: ${{ inputs.dry_run == true }}
+    steps:
+      - name: Mint GitHub App token (scoped to ${{ matrix.target.name }})
         id: token
         uses: actions/create-github-app-token@v3.3.0
         with:
@@ -27,74 +76,93 @@ jobs:
           private-key: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY }}
           owner: inference-gateway
           repositories: |
-            ${{ github.event.repository.name }}
+            ${{ matrix.target.name }}
 
-      - uses: actions/checkout@v7.0.1
+      - name: Checkout target
+        uses: actions/checkout@v7.0.1
         with:
+          repository: inference-gateway/${{ matrix.target.name }}
+          path: target
           token: ${{ steps.token.outputs.token }}
 
-      - name: Bump pins to the latest releases
+      - name: Bump action pins to the latest tags
         id: bump
-        env:
-          GH_TOKEN: ${{ github.token }}
+        working-directory: target
         run: |
           set -euo pipefail
-          latest() {
-            gh api "repos/$1/releases?per_page=30" \
-              --jq '[.[] | select(.prerelease | not) | .tag_name | select(test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))][0] // empty'
+          shopt -s nullglob globstar
+          latest_like() {
+            local prefix=${2%%[0-9]*} parts
+            parts=$(awk -F. '{print NF}' <<<"$2")
+            git ls-remote --tags --refs "https://github.com/$1.git" 2>/dev/null \
+              | sed -nE 's|.*refs/tags/(v?[0-9]+(\.[0-9]+)*)$|\1|p' \
+              | grep -E "^${prefix}[0-9]+(\.[0-9]+){$((parts - 1))}$" | sort -V | tail -1 || true
           }
-          CA_NEW=$(latest anthropics/claude-code-action)
-          IA_NEW=$(latest inference-gateway/infer-action)
-          CLI_NEW=$(latest inference-gateway/cli)
-          if [ -z "$CA_NEW" ] || [ -z "$IA_NEW" ] || [ -z "$CLI_NEW" ]; then
-            echo "::error::Could not resolve a latest release (claude-code-action='${CA_NEW}' infer-action='${IA_NEW}' cli='${CLI_NEW}')"
-            exit 1
+          newer() { [ "$1" != "$2" ] && [ "$(printf '%s\n' "$1" "$2" | sort -V | tail -1)" = "$2" ]; }
+
+          rows=""
+          files=(.github/workflows/*.y*ml .github/actions/**/action.y*ml action.y*ml)
+          if [ "${#files[@]}" -gt 0 ]; then
+            while read -r action old; do
+              latest=$(latest_like "$(cut -d/ -f1-2 <<<"$action")" "$old")
+              if [ -z "$latest" ]; then
+                echo "::warning::${TARGET}: no tag like ${old} found for ${action}; left as is"
+                continue
+              fi
+              newer "$old" "$latest" || continue
+              sed -i -E "s#(uses: *[\"']?${action//./\\.})@${old//./\\.}([\"'[:space:]]|\$)#\1@${latest}\2#" "${files[@]}"
+              rows+="| \`${action}\` | \`${old}\` | \`${latest}\` |"$'\n'
+            done < <(grep -hoE "uses: *[\"']?[A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+@v?[0-9]+(\.[0-9]+)*([\"'[:space:]]|\$)" "${files[@]}" \
+              | sed -E "s/^uses: *[\"']?//; s/[\"'[:space:]]+\$//; s/@/ /" | sort -u)
           fi
 
-          CA_OLD=$(grep -oE 'anthropics/claude-code-action@v[0-9.]+' "$CLAUDE" | head -1 | cut -d@ -f2)
-          IA_OLD=$(grep -oE 'inference-gateway/infer-action@v[0-9.]+' "$INFER" | head -1 | cut -d@ -f2)
-          CLI_OLD=$(sed -nE '/^      cli-version:/,/default:/ s/^ *default: (v[0-9.]+).*/\1/p' "$INFER")
-
-          sed -i "s|anthropics/claude-code-action@${CA_OLD}|anthropics/claude-code-action@${CA_NEW}|g" "$CLAUDE"
-          sed -i "s|inference-gateway/infer-action@${IA_OLD}|inference-gateway/infer-action@${IA_NEW}|g" "$INFER"
-          sed -i -E "/^      cli-version:/,/default:/ s/(default: )${CLI_OLD}/\1${CLI_NEW}/" "$INFER"
-
-          moves=()
-          [ "$CA_OLD" = "$CA_NEW" ] || moves+=("claude-code-action ${CA_OLD} -> ${CA_NEW}")
-          [ "$IA_OLD" = "$IA_NEW" ] || moves+=("infer-action ${IA_OLD} -> ${IA_NEW}")
-          [ "$CLI_OLD" = "$CLI_NEW" ] || moves+=("infer CLI ${CLI_OLD} -> ${CLI_NEW}")
-          if [ "${#moves[@]}" -eq 0 ]; then
-            echo "::notice::claude-code-action ${CA_NEW}, infer-action ${IA_NEW} and infer CLI ${CLI_NEW} are already pinned"
-            exit 0
+          infer=.github/workflows/infer.yml
+          if [ "$TARGET" = ".github" ] && [ -f "$infer" ]; then
+            old=$(sed -nE '/^      cli-version:/,/default:/ s/^ *default: (v[0-9.]+).*/\1/p' "$infer")
+            latest=$(latest_like inference-gateway/cli "$old")
+            if [ -n "$latest" ] && newer "$old" "$latest"; then
+              sed -i -E "/^      cli-version:/,/default:/ s/(default: )${old//./\\.}/\1${latest}/" "$infer"
+              rows+="| infer CLI (\`cli-version\`) | \`${old}\` | \`${latest}\` |"$'\n'
+            fi
           fi
-          printf -v joined '%s, ' "${moves[@]}"
-          echo "title=chore(deps): bump ${joined%, }" >> "$GITHUB_OUTPUT"
+
+          printf '%s' "$rows"
           {
-            echo 'moves<<MOVES_EOF'
-            printf -- '- %s\n' "${moves[@]}"
-            echo 'MOVES_EOF'
+            echo 'rows<<ROWS_EOF'
+            printf '%s' "$rows"
+            echo 'ROWS_EOF'
           } >> "$GITHUB_OUTPUT"
-          git diff
+
+      - name: Show diff
+        working-directory: target
+        run: |
+          git -c color.ui=always diff
+          if git diff --quiet; then
+            echo "::notice::${TARGET}: every action pin is already on its latest tag"
+          fi
 
       - name: Create or update pull request
-        if: steps.bump.outputs.title != ''
+        if: steps.bump.outputs.rows != '' && env.DRY_RUN == 'false'
         id: pr
         uses: peter-evans/create-pull-request@v8.1.2
         with:
           token: ${{ steps.token.outputs.token }}
+          path: target
           branch: bot/bump-actions
           base: main
           sign-commits: true
           delete-branch: true
-          commit-message: ${{ steps.bump.outputs.title }}
-          title: ${{ steps.bump.outputs.title }}
+          commit-message: 'chore(deps): bump GitHub Actions to latest'
+          title: 'chore(deps): bump GitHub Actions to latest'
           body: |
             ## Summary
-            Bumps the versions the reusable bot workflows pin to their latest releases:
+            Bumps every versioned action pin in this repo's workflows to the latest tag of the same precision:
 
-            ${{ steps.bump.outputs.moves }}
+            | Action | Old | New |
+            |---|---|---|
+            ${{ steps.bump.outputs.rows }}
 
-            Every repo's `claude.yml` / `infer.yml` thin caller tracks the reusable workflows at `@main`, so merging this rolls the bump out org-wide.
+            The same bump runs across every non-agent repo at once, so a new action release lands org-wide in one go instead of on per-repo dependabot schedules. SHA pins, local actions and branch refs (`@main`) are left alone.
 
             Filed by [bump-actions.yml](https://github.com/inference-gateway/.github/blob/main/.github/workflows/bump-actions.yml).
           labels: |
@@ -104,6 +172,20 @@ jobs:
         if: steps.pr.outputs.pull-request-number != ''
         run: |
           {
+            echo "### ${TARGET}"
             echo "- Operation: \`${{ steps.pr.outputs.pull-request-operation }}\`"
             echo "- PR: ${{ steps.pr.outputs.pull-request-url }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dry-run summary
+        if: steps.bump.outputs.rows != '' && env.DRY_RUN == 'true'
+        env:
+          ROWS: ${{ steps.bump.outputs.rows }}
+        run: |
+          {
+            echo "## Dry-run: ${TARGET}"
+            echo
+            echo '| Action | Old | New |'
+            echo '|---|---|---|'
+            printf '%s\n' "$ROWS"
           } >> "$GITHUB_STEP_SUMMARY"
