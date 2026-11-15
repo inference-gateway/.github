@@ -6,8 +6,9 @@ name: Bump Flox dependencies
 # For each repo, raises every flox catalog package pin in .flox/env/manifest.toml
 # to the latest version `flox show` reports (keeping a `^` range a range and an
 # exact pin exact) and every github:<owner>/<repo>/<tag> flake pin to that repo's
-# latest release, refreshes the lock, then opens or updates one PR on
-# bot/bump-flox-deps.
+# latest release, and schema-version to the one a fresh `flox init` of the
+# installed (latest) flox writes. It refreshes the lock, then opens or updates
+# one PR on bot/bump-flox-deps.
 
 on:
   workflow_dispatch:
@@ -96,6 +97,16 @@ jobs:
         run: |
           set -euo pipefail
           rows=""
+          schema=$(cd "$(mktemp -d)" && flox init >/dev/null 2>&1 && sed -nE 's/^schema-version = "([^"]+)".*/\1/p' .flox/env/manifest.toml)
+          current=$(sed -nE 's/^schema-version = "([^"]+)".*/\1/p' "$MANIFEST")
+          if [ -n "$schema" ] && [ "$current" != "$schema" ] && [ "$(printf '%s\n' "$current" "$schema" | sort -V | tail -1)" = "$schema" ]; then
+            if [ -n "$current" ]; then
+              sed -i "s|^schema-version = \"${current}\"|schema-version = \"${schema}\"|" "$MANIFEST"
+            else
+              sed -i "1i schema-version = \"${schema}\"" "$MANIFEST"
+            fi
+            rows+="| \`schema-version\` | \`${current:-none}\` | \`${schema}\` |"$'\n'
+          fi
           while IFS='|' read -r id op old; do
             pkg=$(sed -nE "s/^${id}\.pkg-path *= *\"([^\"]+)\".*/\1/p" "$MANIFEST")
             [ -n "$pkg" ] || continue
@@ -159,13 +170,14 @@ jobs:
           title: 'chore(deps): bump flox dependencies to latest'
           body: |
             ## Summary
-            Raises every flox catalog package pin in `.flox/env/manifest.toml` to the latest version in the flox catalog, every release-tag flake pin to its repo's latest release, and refreshes `.flox/env/manifest.lock`.
+            Raises every flox catalog package pin in `.flox/env/manifest.toml` to the latest version in the flox catalog, every release-tag flake pin to its repo's latest release, `schema-version` to the latest flox manifest schema, and refreshes `.flox/env/manifest.lock`.
 
             | Package | Old | New |
             |---|---|---|
             ${{ steps.bump.outputs.rows }}
 
             Ran in CI:
+            - `schema-version` raised to the one a fresh `flox init` writes (flox never migrates it on `upgrade` / `activate`)
             - `flox show <pkg-path>` per pinned package, then a sed of its `version` (a `^` range stays a range, an exact pin stays exact)
             - `gh api repos/<owner>/<repo>/releases/latest` per `github:<owner>/<repo>/<tag>` flake pin, then a sed of its tag
             - `flox upgrade` - re-locked every package, including unpinned ones
