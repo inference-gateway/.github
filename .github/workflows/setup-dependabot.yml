@@ -6,8 +6,10 @@ name: Setup dependabot
 # time instead of on per-repo schedules: every entry runs on the same weekly day, time and
 # timezone, a grouped github-actions entry exists (one PR for all actions), and
 # /.github/actions/* is scanned where composite actions live. Everything else in the file
-# (ecosystems, ignores, other groups, commit-message) is left alone. Opens or updates ONE
-# PR per repo whose config drifted. kind: agent repos get their config from adl-cli.
+# (ecosystems, ignores, other groups, commit-message) is left alone, and repos that use
+# Prettier get the file formatted with their own config and pinned version so their lint
+# accepts it. Opens or updates ONE PR per repo whose config drifted. kind: agent repos get
+# their config from adl-cli.
 
 on:
   workflow_dispatch:
@@ -109,6 +111,10 @@ jobs:
             (.updates[].schedule.timezone) = strenv(TIMEZONE)
           ' "$cfg"
           sed -i -E 's/^[[:space:]]*#blank-line#$//' "$cfg"
+          if compgen -G '.prettierrc*' >/dev/null || compgen -G 'prettier.config.*' >/dev/null || jq -e '.prettier or .devDependencies.prettier or .dependencies.prettier' package.json >/dev/null 2>&1; then
+            prettier=$(jq -r '.devDependencies.prettier // .dependencies.prettier // "3"' package.json 2>/dev/null || echo 3)
+            npx --yes "prettier@${prettier}" --write "$cfg"
+          fi
 
       - name: Skip check
         id: skip
