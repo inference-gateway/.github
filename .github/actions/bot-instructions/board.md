@@ -14,5 +14,6 @@ the id it prints, and paste that literal id into the next command - never write 
     `gh project item-add 8 --owner inference-gateway --url <issue-url> --format json -q .id`
   - Set Status to In progress (paste the item id):
     `gh project item-edit --id <item-id> --project-id PVT_kwDOC6ve6c4BljlM --field-id PVTSSF_lADOC6ve6c4BljlMzhkP_8Y --single-select-option-id 47fc9ee4`
-- RIGHT AFTER you open the pull request: set Status to "QA" with the same item-edit command and
-  option id `0a18abd7`. Do NOT set Done - that happens when the PR merges, outside this run.
+- RIGHT AFTER you open the pull request: set Status to "QA" (same item id). Do NOT set Done - that
+  happens when the PR merges, outside this run.
+    `gh project item-edit --id <item-id> --project-id PVT_kwDOC6ve6c4BljlM --field-id PVTSSF_lADOC6ve6c4BljlMzhkP_8Y --single-select-option-id 0a18abd7`
