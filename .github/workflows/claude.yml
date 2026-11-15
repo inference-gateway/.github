@@ -706,6 +706,21 @@ jobs:
           echo "gomod=$HOME/go/pkg/mod" >> "$GITHUB_OUTPUT"
           echo "cargo=$HOME/.cargo/registry/src" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve PR trust
+        id: trust
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR: ${{ github.event.pull_request.number || (github.event.issue.pull_request && github.event.issue.number) || '' }}
+          BOT: app/${{ steps.app-token.outputs.app-slug }}
+        run: |
+          restrict=true
+          if [ -n "$PR" ]; then
+            pr="$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json author,isCrossRepository -q '"\(.author.login) \(.isCrossRepository)"' || true)"
+            if [ "$pr" = "$BOT false" ]; then restrict=false; fi
+          fi
+          echo "PR #${PR:-none} (${pr:-n/a}): restrict_untrusted_prs=$restrict"
+          echo "restrict=$restrict" >> "$GITHUB_OUTPUT"
+
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1.0.274
@@ -714,6 +729,7 @@ jobs:
         with:
           github_token: ${{ steps.app-token.outputs.token }}
           allowed_bots: ${{ steps.app-token.outputs.app-slug }}
+          restrict_untrusted_prs: ${{ steps.trust.outputs.restrict }}
           settings: ${{ steps.settings.outputs.settings }}
           plugins: ${{ steps.settings.outputs.plugins }}
           plugin_marketplaces: ${{ steps.settings.outputs.marketplaces }}
