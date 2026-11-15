@@ -7,7 +7,7 @@ This is the org-level `.github` repository for `inference-gateway`. It contains 
 - `README.md` documents workflow behavior and should stay authoritative.
 - `profile/README.md` renders on the GitHub organization profile.
 - `.github/ISSUE_TEMPLATE/` holds default issue templates inherited by repos without local templates.
-- `.github/workflows/` contains cross-repo orchestrators such as `sync-docs.yml`, `sync-adks.yml`, `bump-adl.yml`, `refresh-agent-manifest.yml`, `trigger-cd.yml`, `migrate-claude.yml`, `migrate-infer.yml`, `stale.yml`, `cleanup-runs.yml`, `sync-labels.yml`, and `bump-flox.yml`, plus the reusable (`workflow_call`) workflows: the `claude.yml` / `infer.yml` bot workflows and `schemas-sync.yml`, the deterministic OpenAPI type sync each schemas consumer repo calls from its own thin caller.
+- `.github/workflows/` contains cross-repo orchestrators such as `sync-docs.yml`, `sync-adks.yml`, `bump-adl.yml`, `refresh-agent-manifest.yml`, `trigger-cd.yml`, `bump-actions.yml`, `stale.yml`, `cleanup-runs.yml`, `sync-labels.yml`, and `bump-flox.yml`, plus the reusable (`workflow_call`) workflows: the `claude.yml` / `infer.yml` bot workflows and `schemas-sync.yml`, the deterministic OpenAPI type sync each schemas consumer repo calls from its own thin caller.
 - `.github/actions/resolve-targets/` is the shared composite action that turns `repos.yaml` + a `select` expression into a fan-out matrix.
 - `labels.yaml` is the org label set that `sync-labels.yml` applies to every target.
 - `repos.yaml` is the single downstream registry used by every workflow matrix (one `targets` list; each entry may carry a nested `orchestrators:` block with `claude` and/or `infer` sub-blocks).
@@ -33,7 +33,7 @@ Use two-space indentation for YAML. Keep code comments short (one line where pos
 
 ## Testing Guidelines
 
-For workflow edits, prefer manual dispatch with a narrow dry run: every fan-out workflow defaults `dry_run=true` and takes `-f repository=<name>`, so preview on one target before fanning out. For `repos.yaml`, verify every target has `name`, `kind`, and `language`; entries with an `orchestrators.claude` / `orchestrators.infer` block must set `.language` on each; and the `kind` routes to the intended workflow family (`docs` → sync-docs, `adk` → sync-adks, `agent` → bump-adl/refresh/trigger-cd, `sdk`/`none` → lifecycle + migrations only — the deterministic type sync for the OpenAPI consumers runs via each repo's own `schemas-sync.yml` thin caller of the org reusable workflow, not a `repos.yaml` fan-out).
+For workflow edits, prefer manual dispatch with a narrow dry run: every fan-out workflow defaults `dry_run=true` and takes `-f repository=<name>`, so preview on one target before fanning out. For `repos.yaml`, verify every target has `name`, `kind`, and `language`; entries with an `orchestrators.claude` / `orchestrators.infer` block must set `.language` on each; and the `kind` routes to the intended workflow family (`docs` → sync-docs, `adk` → sync-adks, `agent` → bump-adl/refresh/trigger-cd, `sdk`/`none` → lifecycle + bump-flox only — the deterministic type sync for the OpenAPI consumers runs via each repo's own `schemas-sync.yml` thin caller of the org reusable workflow, not a `repos.yaml` fan-out).
 
 ## Commit & Pull Request Guidelines
 

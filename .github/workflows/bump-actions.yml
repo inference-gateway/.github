@@ -1,0 +1,109 @@
+---
+name: Bump bot actions
+
+# Bumps the versions the reusable bot workflows pin to their latest releases:
+# anthropics/claude-code-action in claude.yml, inference-gateway/infer-action and
+# the infer CLI cli-version default in infer.yml. Every repo's thin caller tracks
+# these reusable workflows at @main, so one PR here rolls the bump out org-wide.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bump:
+    runs-on: ubuntu-24.04
+    env:
+      CLAUDE: .github/workflows/claude.yml
+      INFER: .github/workflows/infer.yml
+    steps:
+      - name: Mint GitHub App token
+        id: token
+        uses: actions/create-github-app-token@v3.3.0
+        with:
+          client-id: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_CLIENT_ID }}
+          private-key: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY }}
+          owner: inference-gateway
+          repositories: |
+            ${{ github.event.repository.name }}
+
+      - uses: actions/checkout@v7.0.1
+        with:
+          token: ${{ steps.token.outputs.token }}
+
+      - name: Bump pins to the latest releases
+        id: bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          latest() {
+            gh api "repos/$1/releases?per_page=30" \
+              --jq '[.[] | select(.prerelease | not) | .tag_name | select(test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))][0] // empty'
+          }
+          CA_NEW=$(latest anthropics/claude-code-action)
+          IA_NEW=$(latest inference-gateway/infer-action)
+          CLI_NEW=$(latest inference-gateway/cli)
+          if [ -z "$CA_NEW" ] || [ -z "$IA_NEW" ] || [ -z "$CLI_NEW" ]; then
+            echo "::error::Could not resolve a latest release (claude-code-action='${CA_NEW}' infer-action='${IA_NEW}' cli='${CLI_NEW}')"
+            exit 1
+          fi
+
+          CA_OLD=$(grep -oE 'anthropics/claude-code-action@v[0-9.]+' "$CLAUDE" | head -1 | cut -d@ -f2)
+          IA_OLD=$(grep -oE 'inference-gateway/infer-action@v[0-9.]+' "$INFER" | head -1 | cut -d@ -f2)
+          CLI_OLD=$(sed -nE '/^      cli-version:/,/default:/ s/^ *default: (v[0-9.]+).*/\1/p' "$INFER")
+
+          sed -i "s|anthropics/claude-code-action@${CA_OLD}|anthropics/claude-code-action@${CA_NEW}|g" "$CLAUDE"
+          sed -i "s|inference-gateway/infer-action@${IA_OLD}|inference-gateway/infer-action@${IA_NEW}|g" "$INFER"
+          sed -i -E "/^      cli-version:/,/default:/ s/(default: )${CLI_OLD}/\1${CLI_NEW}/" "$INFER"
+
+          moves=()
+          [ "$CA_OLD" = "$CA_NEW" ] || moves+=("claude-code-action ${CA_OLD} -> ${CA_NEW}")
+          [ "$IA_OLD" = "$IA_NEW" ] || moves+=("infer-action ${IA_OLD} -> ${IA_NEW}")
+          [ "$CLI_OLD" = "$CLI_NEW" ] || moves+=("infer CLI ${CLI_OLD} -> ${CLI_NEW}")
+          if [ "${#moves[@]}" -eq 0 ]; then
+            echo "::notice::claude-code-action ${CA_NEW}, infer-action ${IA_NEW} and infer CLI ${CLI_NEW} are already pinned"
+            exit 0
+          fi
+          printf -v joined '%s, ' "${moves[@]}"
+          echo "title=chore(deps): bump ${joined%, }" >> "$GITHUB_OUTPUT"
+          {
+            echo 'moves<<MOVES_EOF'
+            printf -- '- %s\n' "${moves[@]}"
+            echo 'MOVES_EOF'
+          } >> "$GITHUB_OUTPUT"
+          git diff
+
+      - name: Create or update pull request
+        if: steps.bump.outputs.title != ''
+        id: pr
+        uses: peter-evans/create-pull-request@v8.1.2
+        with:
+          token: ${{ steps.token.outputs.token }}
+          branch: bot/bump-actions
+          base: main
+          sign-commits: true
+          delete-branch: true
+          commit-message: ${{ steps.bump.outputs.title }}
+          title: ${{ steps.bump.outputs.title }}
+          body: |
+            ## Summary
+            Bumps the versions the reusable bot workflows pin to their latest releases:
+
+            ${{ steps.bump.outputs.moves }}
+
+            Every repo's `claude.yml` / `infer.yml` thin caller tracks the reusable workflows at `@main`, so merging this rolls the bump out org-wide.
+
+            Filed by [bump-actions.yml](https://github.com/inference-gateway/.github/blob/main/.github/workflows/bump-actions.yml).
+          labels: |
+            dependencies
+
+      - name: Report PR outcome
+        if: steps.pr.outputs.pull-request-number != ''
+        run: |
+          {
+            echo "- Operation: \`${{ steps.pr.outputs.pull-request-operation }}\`"
+            echo "- PR: ${{ steps.pr.outputs.pull-request-url }}"
+          } >> "$GITHUB_STEP_SUMMARY"
