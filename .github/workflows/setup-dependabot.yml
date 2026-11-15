@@ -94,7 +94,6 @@ jobs:
             mkdir -p .github
             printf 'version: 2\nupdates: []\n' > "$cfg"
           fi
-          # yq drops blank lines, so keep them as marker comments while editing
           sed -i 's/^$/#blank-line#/' "$cfg"
           if ! yq -e '.updates[] | select(.["package-ecosystem"] == "github-actions")' "$cfg" >/dev/null 2>&1; then
             yq -i '.updates += [{"package-ecosystem": "github-actions", "directory": "/", "schedule": {"interval": "weekly"}}]' "$cfg"
