@@ -9,8 +9,7 @@ inputs:
   select:
     description: >
       jq per-entry boolean expression evaluated against each repos.yaml entry, e.g.
-      '.kind == "agent"', '.kind == "sdk" or .kind == "docs"', '.kind != "none"',
-      '.orchestrators.claude != null', '.orchestrators.infer != null'.
+      '.kind == "agent"', '.kind == "sdk" or .kind == "docs"', '.kind != "agent"'.
       Default "true" = all entries. Single-quote the YAML scalar so inner double quotes survive.
     required: false
     default: "true"
