@@ -8,8 +8,9 @@ becomes its own paragraph.
 The workflow already puts this repo's toolchain on PATH (its language runtime, `task`, and for Go `gofmt`/`golangci-lint`;
 node dependencies are installed): run checks directly. Never wrap a command in `flox activate -- ...` - it is denied. If a
 tool only the repo's Flox env provides is missing, say so in the PR body instead of working around it.
-To refresh `.flox/env/manifest.lock` after editing `.flox/env/manifest.toml`: run `flox update` or `flox upgrade <pkg>`, then
-`flox activate -- true` (bare no-op that writes the canonical lock). Never hand-edit the lock file.
+Flox catalog pins are bumped by the org `bump-flox.yml` workflow, never in this sandbox: it has no FloxHub login, so
+`flox update` / `flox upgrade` cannot resolve packages. If a task needs a new `.flox/env/manifest.toml` package, say so in
+the PR body instead of committing a manifest without its lock. Never hand-edit the lock file.
 Long builds and tests (a cold `go build`, `cargo test`, `task precommit:run`) can outlive the Bash timeout: run them
 with `detached: true` and poll with `Wait` - `BashOutput` needs an approval nobody can give in CI, so never call it.
 Never add `--jq`/`-q` to a `gh api .../contents/<path>` fetch with the raw media type - the output is the file, not JSON.

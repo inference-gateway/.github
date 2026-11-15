@@ -509,7 +509,7 @@ jobs:
             tools='Bash(task:*),Bash(gh:*),Bash(git:*)'
             tools="$tools,Bash(grep:*),Bash(rg:*),Bash(cat:*),Bash(ls:*),Bash(find:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(sort:*),Bash(uniq:*),Bash(cut:*),Bash(diff:*),Bash(tree:*),Bash(jq:*)"
             tools="$tools,Bash(echo:*),Bash(pwd:*),Bash(which:*),Bash(file:*),Bash(stat:*),Bash(basename:*),Bash(dirname:*),Bash(mkdir:*)"
-            tools="$tools,Bash(sed:*),Bash(awk:*),Bash(xargs:*),Bash(flox update:*),Bash(flox upgrade:*),Bash(flox activate),Bash(flox activate -- true)"
+            tools="$tools,Bash(sed:*),Bash(awk:*),Bash(xargs:*),Bash(flox activate),Bash(flox activate -- true)"
             case "$LANGUAGE" in
               go)      tools="$tools,Bash(go:*),Bash(gofmt:*),Bash(golangci-lint:*)" ;;
               rust)             tools="$tools,Bash(cargo:*),Bash(rustup:*),Bash(rustc:*)" ;;
@@ -581,7 +581,7 @@ jobs:
           - Every piece of a compound Bash command (`&&`, `;`, `|`) must be allow-listed on its own; prefer one simple command per Bash call with literal paths - shell variables and `$(...)` are rejected.
           - Create files under /tmp only with the Write tool, never shell redirection (`>` needs approval). Multi-line issue/PR bodies: Write them to /tmp/body.md and pass `--body-file /tmp/body.md`.
           - Read a failed CI job log with the Read tool on `${{ runner.temp }}/github-ci-logs/<job>.log` - no `cd`, `tail` or `cat`.
-          - The workflow already puts this repo's toolchain on PATH (its language runtime, `task`, and for Go `gofmt`/`golangci-lint`; node dependencies are installed): run checks directly (e.g. `task lint`, `golangci-lint run`). Never wrap a command in `flox activate -- ...` - it is denied. If a tool only the repo's Flox env provides is missing, say so in the PR body instead of working around it.
+          - The workflow already puts this repo's toolchain on PATH (its language runtime, `task`, and for Go `gofmt`/`golangci-lint`; node dependencies are installed): run checks directly (e.g. `task lint`, `golangci-lint run`). Never wrap a command in `flox activate -- ...` - it is denied. If a tool only the repo's Flox env provides is missing, say so in the PR body instead of working around it. Flox catalog pins are bumped by the org `bump-flox.yml` workflow, never here: this sandbox has no FloxHub login, so if a task needs a new `.flox/env/manifest.toml` package, say so in the PR body instead of committing a manifest without its lock.
           - Dependency source is readable under ~/go/pkg/mod and ~/.cargo/registry/src (read them, never edit them).
           - Fetch a file from another repo raw: `gh api repos/<owner>/<repo>/contents/<path> -H "Accept: application/vnd.github.raw"` (no `-q .content | base64 -d` - `base64` is not allow-listed). Never add `--jq`/`-q` to a raw fetch - the output is the file itself, not JSON, so any jq filter fails.
 
