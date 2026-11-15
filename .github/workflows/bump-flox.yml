@@ -1,0 +1,192 @@
+---
+name: Bump Flox dependencies
+
+# Manual fan-out across EVERY target in repos.yaml (select(true), all kinds).
+# For each repo, raises every flox catalog package pin in .flox/env/manifest.toml
+# to the latest version `flox show` reports (keeping a `^` range a range and an
+# exact pin exact), refreshes the lock, then opens or updates one PR on
+# bot/bump-flox-deps. Flake pins are left to their owners: infer to
+# migrate-infer.yml, adl to bump-adl.yml (which also regenerates the project).
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: 'Single repos.yaml target to bump (omit = all targets). Use to test on one repo.'
+        required: false
+        type: string
+        default: ''
+      dry_run:
+        description: 'Print diff but skip PR creation (manual runs preview by default)'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  matrix:
+    runs-on: ubuntu-24.04
+    outputs:
+      targets: ${{ steps.read.outputs.targets }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - id: read
+        uses: ./.github/actions/resolve-targets
+        with:
+          select: 'true'
+          repository: ${{ inputs.repository }}
+
+  bump:
+    needs: matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.matrix.outputs.targets) }}
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: bump-flox-${{ matrix.target.name }}
+      cancel-in-progress: false
+    env:
+      TARGET: ${{ matrix.target.name }}
+      MANIFEST: .flox/env/manifest.toml
+    steps:
+      - name: Mint GitHub App token (scoped to ${{ matrix.target.name }})
+        id: token
+        uses: actions/create-github-app-token@v3.3.0
+        with:
+          client-id: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_CLIENT_ID }}
+          private-key: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY }}
+          owner: inference-gateway
+          repositories: |
+            ${{ matrix.target.name }}
+
+      - name: Checkout target
+        uses: actions/checkout@v7.0.1
+        with:
+          repository: inference-gateway/${{ matrix.target.name }}
+          path: target
+          token: ${{ steps.token.outputs.token }}
+
+      - name: Detect Flox environment
+        id: detect
+        working-directory: target
+        run: |
+          if [ -f "$MANIFEST" ]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::${TARGET} has no ${MANIFEST}; skipping"
+          fi
+
+      - name: Install Flox
+        if: steps.detect.outputs.skip != 'true'
+        uses: flox/install-flox-action@v2.7.0
+        with:
+          floxhub-token: ${{ secrets.FLOXHUB_TOKEN }}
+
+      - name: Raise catalog pins to the latest flox catalog versions
+        if: steps.detect.outputs.skip != 'true'
+        id: bump
+        working-directory: target
+        run: |
+          set -euo pipefail
+          rows=""
+          while IFS='|' read -r id op old; do
+            pkg=$(sed -nE "s/^${id}\.pkg-path *= *\"([^\"]+)\".*/\1/p" "$MANIFEST")
+            [ -n "$pkg" ] || continue
+            latest=$(flox show "$pkg" 2>/dev/null | sed -nE 's/^Latest: +[^@]+@//p' || true)
+            if [ -z "$latest" ]; then
+              echo "::warning::${TARGET}: flox show found no version for ${pkg}; leaving ${id} at ${op}${old}"
+              continue
+            fi
+            [ "$old" != "$latest" ] || continue
+            sed -i -E "s/^(${id}\.version *= *\")[^\"]*\"/\1${op}${latest}\"/" "$MANIFEST"
+            rows+="| \`${id}\` | \`${op}${old}\` | \`${op}${latest}\` |"$'\n'
+          done < <(sed -nE 's/^([A-Za-z0-9_-]+)\.version *= *"(\^?)([^"]+)".*/\1|\2|\3/p' "$MANIFEST")
+          printf '%s' "$rows"
+          {
+            echo 'rows<<ROWS_EOF'
+            printf '%s' "$rows"
+            echo 'ROWS_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Refresh Flox lock
+        if: steps.detect.outputs.skip != 'true'
+        working-directory: target
+        env:
+          NIX_CONFIG: "access-tokens = github.com=${{ steps.token.outputs.token }}"
+        run: |
+          flox upgrade
+          flox activate -- true
+
+      - name: Show diff for logs
+        if: steps.detect.outputs.skip != 'true'
+        working-directory: target
+        run: |
+          git -c color.ui=always diff --stat
+          if git diff --quiet; then
+            echo "::notice::${TARGET} is already on the latest flox catalog versions"
+          fi
+
+      - name: Create or update pull request
+        if: steps.detect.outputs.skip != 'true' && !inputs.dry_run
+        id: pr
+        uses: peter-evans/create-pull-request@v8.1.1
+        with:
+          token: ${{ steps.token.outputs.token }}
+          path: target
+          branch: bot/bump-flox-deps
+          base: main
+          sign-commits: true
+          delete-branch: true
+          commit-message: 'chore(deps): bump flox dependencies to latest'
+          title: 'chore(deps): bump flox dependencies to latest'
+          body: |
+            ## Summary
+            Raises every flox catalog package pin in `.flox/env/manifest.toml` to the latest version in the flox catalog and refreshes `.flox/env/manifest.lock`.
+
+            | Package | Old | New |
+            |---|---|---|
+            ${{ steps.bump.outputs.rows }}
+
+            Ran in CI:
+            - `flox show <pkg-path>` per pinned package, then a sed of its `version` (a `^` range stays a range, an exact pin stays exact)
+            - `flox upgrade` - re-locked every package, including unpinned ones
+            - `flox activate -- true` - wrote `.flox/env/manifest.lock` in its canonical form
+
+            Flake pins are untouched: `infer` is bumped by `migrate-infer.yml` and `adl` by `bump-adl.yml`.
+
+            ## Test plan
+            - [ ] CI green (major or minor toolchain moves such as `go` may need follow-up commits on this branch)
+
+            Filed by [bump-flox.yml](https://github.com/inference-gateway/.github/blob/main/.github/workflows/bump-flox.yml).
+          labels: |
+            dependencies
+
+      - name: Report PR outcome
+        if: steps.detect.outputs.skip != 'true' && !inputs.dry_run && steps.pr.outputs.pull-request-number != ''
+        run: |
+          {
+            echo "### ${TARGET}"
+            echo "- Operation: \`${{ steps.pr.outputs.pull-request-operation }}\`"
+            echo "- PR: ${{ steps.pr.outputs.pull-request-url }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dry run summary
+        if: steps.detect.outputs.skip != 'true' && inputs.dry_run
+        working-directory: target
+        env:
+          ROWS: ${{ steps.bump.outputs.rows }}
+        run: |
+          {
+            echo "## Dry-run: ${TARGET}"
+            echo
+            echo '| Package | Old | New |'
+            echo '|---|---|---|'
+            printf '%s\n' "$ROWS"
+            echo '```'
+            git diff --stat
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
