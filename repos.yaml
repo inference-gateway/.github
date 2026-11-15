@@ -322,6 +322,16 @@ targets:
       infer:
         plugins: |
           DietrichGebert/ponytail
+  - name: tokenless
+    kind: none
+    language: go
+    orchestrators:
+      claude:
+        plugins: |
+          DietrichGebert/ponytail
+      infer:
+        plugins: |
+          DietrichGebert/ponytail
   - name: registry
     kind: none
     language: typescript
