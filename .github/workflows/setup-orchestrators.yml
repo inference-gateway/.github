@@ -82,7 +82,7 @@ jobs:
           static_browser=$(echo "$CLAUDE_JSON" | jq -r 'if .browser == true then "true" else "false" end')
           static_browser_engine=$(echo "$CLAUDE_JSON" | jq -r '.browser_engine // "chromium"')
           static_effort=$(echo "$CLAUDE_JSON" | jq -r '.effort // "medium"')
-          static_model=$(echo "$CLAUDE_JSON" | jq -r '.model // "claude-opus-5"')
+          static_model=$(echo "$CLAUDE_JSON" | jq -r '.model // "claude-opus-5-5"')
 
           with_block=$(echo "$CLAUDE_JSON" | jq -r --arg lang "$LANG" '
             {language: $lang} + . | del(.browser, .browser_engine, .effort, .model)
