@@ -19,7 +19,7 @@
 
 ## 🌐 What is Inference Gateway?
 
-**Inference Gateway** is a proxy server that provides a **unified API** to interact with multiple large language model (LLM) providers - from local solutions like [Ollama](https://ollama.com) to major cloud providers like OpenAI, Anthropic, Groq, Cohere, Cloudflare, and DeepSeek.
+**Inference Gateway** is a proxy server that provides a **unified API** to interact with multiple large language model (LLM) providers - from local solutions like [Ollama](https://ollama.com) and llama.cpp to major cloud providers like OpenAI, Anthropic, Google, Groq, Mistral, DeepSeek, Cohere, Cloudflare, Moonshot, MiniMax, Nvidia, Z.ai, Ollama Cloud, ElevenLabs, Mirelo and WebWright.
 
 Stop managing multiple SDKs and API keys. Route all your LLM traffic through a single, production-ready gateway.
 
@@ -40,7 +40,7 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 
 | Feature | Description |
 |---|---|
-| 🔀 **Unified API** | One OpenAI-compatible endpoint for 16 LLM providers, plus Anthropic Messages and OpenAI Responses compatibility |
+| 🔀 **Unified API** | One OpenAI-compatible endpoint for 18 LLM providers, plus Anthropic Messages and OpenAI Responses compatibility |
 | 🔧 **Tool-use** | Function calling across supported providers with a unified API |
 | 🔌 **MCP** | Native [Model Context Protocol](https://docs.inference-gateway.com/mcp) support for automatic tool discovery, and the gateway itself as an MCP server on `POST /mcp` |
 | 🚦 **Guardrails** | OPA/Rego policies, secret and PII detection, and an optional external guardrail service - applied to requests, responses and MCP tool calls |
@@ -60,7 +60,7 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/inference-gateway/inference-gateway/main/assets/architecture.svg" width="950" alt="Requests flow from clients through OIDC auth, guardrails, MCP middleware and the provider router to 16 LLM providers, with tokens streaming back. MCP tool calls and the POST /mcp server endpoint reach MCP servers through guardrails, A2A calls on POST /a2a are relayed through auth and guardrails to multiple registered A2A servers, while OpenTelemetry collects metrics, traces and OTLP pushes from clients" />
+<img src="https://raw.githubusercontent.com/inference-gateway/inference-gateway/main/assets/architecture.svg" width="950" alt="Requests flow from clients through OIDC auth, guardrails, MCP middleware and the provider router to 18 LLM providers, with tokens streaming back. MCP tool calls and the POST /mcp server endpoint reach MCP servers through guardrails, A2A calls on POST /a2a are relayed through auth and guardrails to multiple registered A2A servers, while OpenTelemetry collects metrics, traces and OTLP pushes from clients" />
 
 </div>
 
