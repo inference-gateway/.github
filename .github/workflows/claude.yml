@@ -84,6 +84,10 @@ on:
         description: 'Install k3d + ctlptl so the run can create a local k3d cluster (the runner already ships docker, kubectl and helm). Allow the binaries via extra-tools, e.g. "Bash(kubectl:*),Bash(k3d:*),Bash(ctlptl:*),Bash(docker:*)".'
         type: boolean
         default: false
+      buf:
+        description: 'Install the buf CLI (protobuf codegen and linting, e.g. the schemas repo `task a2a-schema-download`)'
+        type: boolean
+        default: false
       extra-mcp-servers:
         description: 'JSON object of additional mcpServers merged into --mcp-config'
         type: string
@@ -212,6 +216,17 @@ jobs:
             | sudo tar -xz -C /usr/local/bin ctlptl
           k3d version
           ctlptl version
+
+      # ponytail: pinned linux-amd64 release binary; bump by hand alongside the repos' Flox pins.
+      - name: Install buf
+        if: inputs.buf
+        env:
+          BUF_VERSION: v1.75.0
+        run: |
+          set -euo pipefail
+          sudo curl -fsSL -o /usr/local/bin/buf "https://github.com/bufbuild/buf/releases/download/${BUF_VERSION}/buf-Linux-x86_64"
+          sudo chmod +x /usr/local/bin/buf
+          buf --version
 
       - name: Set up Go
         if: inputs.language == 'go'
@@ -485,6 +500,7 @@ jobs:
           NODE: ${{ inputs.node }}
           PRETTIER: ${{ inputs.prettier }}
           ESLINT: ${{ inputs.eslint }}
+          BUF: ${{ inputs.buf }}
           EVENT: ${{ github.event_name }}
         run: |
           set -euo pipefail
@@ -522,6 +538,7 @@ jobs:
             [ "$BROWSER" = "true" ] && tools="$tools,mcp__playwright"
             [ "$PRETTIER" = "true" ] && tools="$tools,Bash(prettier:*)"
             [ "$ESLINT" = "true" ] && tools="$tools,Bash(eslint:*)"
+            [ "$BUF" = "true" ] && tools="$tools,Bash(buf:*)"
             [ -n "$EXTRA_TOOLS" ]      && tools="$tools,$EXTRA_TOOLS"
           fi
 

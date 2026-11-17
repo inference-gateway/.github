@@ -169,6 +169,7 @@ targets:
     language: bun
     orchestrators:
       claude:
+        buf: true
         plugins: |
           DietrichGebert/ponytail
       infer:
