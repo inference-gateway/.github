@@ -45,9 +45,8 @@ name: Cleanup workflow runs
 # one repo at a time and stay within the shared budget.
 
 on:
-  # Enable after validating on one repo (see README rollout procedure).
-  # schedule:
-  #   - cron: '0 6 * * *'
+  schedule:
+    - cron: '0 1 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
