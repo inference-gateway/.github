@@ -217,7 +217,6 @@ jobs:
           k3d version
           ctlptl version
 
-      # ponytail: pinned linux-amd64 release binary; bump by hand alongside the repos' Flox pins.
       - name: Install buf
         if: inputs.buf
         env:
