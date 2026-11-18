@@ -363,3 +363,6 @@ targets:
       infer:
         plugins: |
           DietrichGebert/ponytail
+  - name: awesome-a2a
+    kind: none
+    language: node

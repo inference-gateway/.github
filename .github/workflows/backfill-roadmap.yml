@@ -1,8 +1,9 @@
 ---
 name: Backfill Roadmap 2026
 
-# Daily sweep across EVERY repos.yaml target (select(true), all kinds incl.
-# kind: none and kind: agent). For each repo, finds OPEN issues AND OPEN PRs on
+# Daily sweep across EVERY repos.yaml target (all kinds incl. kind: none and
+# kind: agent) except awesome-a2a, whose open PRs are community submissions to
+# the list, not roadmap work. For each repo, finds OPEN issues AND OPEN PRs on
 # NO GitHub Project board and adds them to the org Roadmap 2026 board (project
 # #8), then sets their Status to Todo. Backfills work filed/edited outside the
 # normal @claude/@infer flow (or before board tracking existed) so planned work
@@ -83,7 +84,7 @@ jobs:
       - id: read
         uses: ./.github/actions/resolve-targets
         with:
-          select: 'true'
+          select: '.name != "awesome-a2a"'
           repository: ${{ inputs.repository }}
 
   sweep:
