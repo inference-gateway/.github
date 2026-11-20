@@ -36,3 +36,6 @@ labels:
   - name: rc
     color: ededed
     description: Shipped in a release candidate
+  - name: in-review
+    color: c5def5
+    description: Picked up for maintainer review

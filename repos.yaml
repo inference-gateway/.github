@@ -366,3 +366,7 @@ targets:
   - name: awesome-a2a
     kind: none
     language: node
+    orchestrators:
+      claude:
+        plugins: |
+          DietrichGebert/ponytail
