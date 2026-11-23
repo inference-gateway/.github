@@ -163,7 +163,7 @@ jobs:
     steps:
       - name: Generate GitHub App token
         id: app-token
-        uses: actions/create-github-app-token@v3.3.0
+        uses: actions/create-github-app-token@v3.4.0
         with:
           client-id: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_CLIENT_ID }}
           private-key: ${{ secrets.INFERENCE_GATEWAY_MAINTAINER_APP_PRIVATE_KEY }}
@@ -257,7 +257,7 @@ jobs:
 
       - name: Set up Go
         if: inputs.language == 'go'
-        uses: actions/setup-go@v7.0.0
+        uses: actions/setup-go@v7.1.0
         with:
           go-version-file: ${{ hashFiles('go.mod') != '' && 'go.mod' || '' }}
           go-version: ${{ hashFiles('go.mod') == '' && 'stable' || '' }}
